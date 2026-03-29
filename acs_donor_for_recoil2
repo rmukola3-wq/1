@@ -1,0 +1,418 @@
+-- Saved by UniversalSynSaveInstance (Join to Copy Games) https://discord.gg/wx4ThpAsmw
+
+-- Decompiled with Konstant V2.1, a fast Luau decompiler made in Luau by plusgiant5 (https://discord.gg/brNTY8nX8t)
+-- Decompiled on 2026-02-15 12:34:41
+-- Luau version 6, Types version 3
+-- Time taken: 0.041591 seconds
+
+local Players_upvr = game:GetService("Players")
+local RunService_upvr = game:GetService("RunService")
+local any_ReferenceBridge_result1_upvr = require(game:GetService("ReplicatedStorage"):WaitForChild("Framework").Modules.BridgeNet2).ReferenceBridge("HeadMovement")
+local module = {}
+local tbl_4_upvr = {
+	SEND_RATE = 0.08333333333333333;
+	SEND_THRESHOLD_ANGLE = 0.02;
+	NECK_LERP_SPEED = 12;
+	WAIST_LERP_SPEED = 9;
+	REMOTE_LERP_SPEED = 0.15;
+	REMOTE_UPDATE_RATE = 0.05;
+	DISTANCE_CLOSE = 50;
+	DISTANCE_MEDIUM = 100;
+	DISTANCE_FAR = 150;
+	DISTANCE_CULL = 200;
+	CLAMP_PITCH_MIN = -0.7853981633974483;
+	CLAMP_PITCH_MAX = 0.7853981633974483;
+	CLAMP_YAW_MIN = -1.0471975511965976;
+	CLAMP_YAW_MAX = 1.0471975511965976;
+}
+local LocalPlayer_upvr = Players_upvr.LocalPlayer
+local tbl_3_upvr = {
+	Head = nil;
+	humanoid = nil;
+	Torso = nil;
+	Neck = nil;
+	Waist = nil;
+	Camera = nil;
+	BaseC0 = nil;
+	BaseWC0 = nil;
+}
+local var8_upvw
+local var9_upvw
+local var10_upvw
+local tbl_5_upvr = {
+	fromUserId = 0;
+	neck = nil;
+	waist = nil;
+	NeckOrigin = nil;
+	WaistOrigin = nil;
+}
+local tbl_6_upvr = {}
+local clamp_upvr = math.clamp
+local abs_upvr = math.abs
+local function _(arg1, arg2, arg3) -- Line 64, Named "ClampAngle"
+	--[[ Upvalues[1]:
+		[1]: clamp_upvr (readonly)
+	]]
+	return clamp_upvr(arg1, arg2, arg3)
+end
+local function _(arg1, arg2, arg3) -- Line 68, Named "CFrameChanged"
+	--[[ Upvalues[1]:
+		[1]: abs_upvr (readonly)
+	]]
+	if not arg1 or not arg2 then
+		return true
+	end
+	local var23 = arg3 or 0.01
+	local any_ToEulerAnglesYXZ_result1_10, any_ToEulerAnglesYXZ_result2_2, any_ToEulerAnglesYXZ_result3_4 = arg1:ToEulerAnglesYXZ()
+	local any_ToEulerAnglesYXZ_result1_11, any_ToEulerAnglesYXZ_result2_6, any_ToEulerAnglesYXZ_result3_3 = arg2:ToEulerAnglesYXZ()
+	local var30 = true
+	if var23 >= abs_upvr(any_ToEulerAnglesYXZ_result1_10 - any_ToEulerAnglesYXZ_result1_11) then
+		var30 = true
+		if var23 >= abs_upvr(any_ToEulerAnglesYXZ_result2_2 - any_ToEulerAnglesYXZ_result2_6) then
+			if var23 >= abs_upvr(any_ToEulerAnglesYXZ_result3_4 - any_ToEulerAnglesYXZ_result3_3) then
+				var30 = false
+			else
+				var30 = true
+			end
+		end
+	end
+	return var30
+end
+local function GetRemotePlayerParts_upvr(arg1) -- Line 80, Named "GetRemotePlayerParts"
+	--[[ Upvalues[1]:
+		[1]: tbl_6_upvr (readonly)
+	]]
+	local var40 = tbl_6_upvr[arg1]
+	local var41
+	if var40 then
+		if os.clock() - var40.time < 2 and var40.neck and var40.neck.Parent then
+			return var40
+		end
+	end
+	local Character_3 = arg1.Character
+	if not Character_3 then
+		tbl_6_upvr[arg1] = nil
+		return nil
+	end
+	local Head_3 = Character_3:FindFirstChild("Head")
+	if not Head_3 then
+		tbl_6_upvr[arg1] = nil
+		return nil
+	end
+	var41 = "Neck"
+	local SOME_2 = Head_3:FindFirstChild(var41)
+	if not SOME_2 then
+		var41 = nil
+		tbl_6_upvr[arg1] = var41
+		return nil
+	end
+	local UpperTorso_3 = Character_3:FindFirstChild("UpperTorso")
+	var41 = UpperTorso_3
+	if var41 then
+		var41 = UpperTorso_3:FindFirstChild("Waist")
+	end
+	local tbl = {}
+	-- KONSTANTERROR: Expression was reused, decompilation is incorrect
+	tbl.time = os.clock()
+	tbl.head = Head_3
+	tbl.neck = SOME_2
+	tbl.torso = UpperTorso_3
+	tbl.waist = var41
+	tbl.hrp = Character_3:FindFirstChild("HumanoidRootPart")
+	tbl.lastNeckC0 = SOME_2.C0
+	local var47 = var41
+	if var47 then
+		var47 = var41.C0
+	end
+	tbl.lastWaistC0 = var47
+	local var48 = tbl
+	tbl_6_upvr[arg1] = var48
+	return var48
+end
+Players_upvr.PlayerRemoving:Connect(function(arg1) -- Line 129
+	--[[ Upvalues[1]:
+		[1]: tbl_6_upvr (readonly)
+	]]
+	tbl_6_upvr[arg1] = nil
+end)
+local function SetupCharacter_upvr(arg1) -- Line 133, Named "SetupCharacter"
+	--[[ Upvalues[4]:
+		[1]: tbl_3_upvr (readonly)
+		[2]: tbl_5_upvr (readonly)
+		[3]: var9_upvw (read and write)
+		[4]: var10_upvw (read and write)
+	]]
+	-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+	local Character_2 = arg1.Character
+	if not Character_2 then
+		Character_2 = arg1.CharacterAdded:Wait()
+	end
+	local Humanoid = Character_2:WaitForChild("Humanoid", 5)
+	if not Humanoid or Humanoid.RigType ~= Enum.HumanoidRigType.R15 then
+		return false
+	end
+	local Head_2 = Character_2:WaitForChild("Head", 5)
+	local UpperTorso = Character_2:WaitForChild("UpperTorso", 5)
+	if not Head_2 or not UpperTorso then
+		return false
+	end
+	local Neck = Head_2:WaitForChild("Neck", 5)
+	local Waist = UpperTorso:FindFirstChild("Waist")
+	local var56
+	if not Neck then
+		return false
+	end
+	tbl_3_upvr.Head = Head_2
+	tbl_3_upvr.humanoid = Humanoid
+	tbl_3_upvr.Torso = UpperTorso
+	tbl_3_upvr.Neck = Neck
+	tbl_3_upvr.Waist = Waist
+	tbl_3_upvr.Camera = workspace.CurrentCamera
+	local BaseC0_2 = Neck:GetAttribute("BaseC0")
+	if not BaseC0_2 or not CFrame.new(BaseC0_2:components()) then
+	end
+	tbl_3_upvr.BaseC0 = Neck.C0
+	if Waist then
+		local BaseC0 = Waist:GetAttribute("BaseC0")
+		if not BaseC0 or not CFrame.new(BaseC0:components()) then
+		end
+		tbl_3_upvr.BaseWC0 = Waist.C0
+	end
+	tbl_5_upvr.fromUserId = arg1.UserId
+	tbl_5_upvr.NeckOrigin = tbl_3_upvr.BaseC0
+	tbl_5_upvr.WaistOrigin = tbl_3_upvr.BaseWC0
+	var9_upvw = nil
+	var10_upvw = nil
+	return true
+end
+local tbl_upvr = {}
+local function QueueRemoteUpdate_upvr(arg1) -- Line 180, Named "QueueRemoteUpdate"
+	--[[ Upvalues[2]:
+		[1]: LocalPlayer_upvr (readonly)
+		[2]: tbl_upvr (readonly)
+	]]
+	if typeof(arg1) ~= "table" then
+	else
+		if arg1.fromUserId == LocalPlayer_upvr.UserId then return end
+		tbl_upvr[arg1.fromUserId] = arg1
+	end
+end
+local function ProcessRemoteUpdates_upvr() -- Line 187, Named "ProcessRemoteUpdates"
+	--[[ Upvalues[5]:
+		[1]: tbl_3_upvr (readonly)
+		[2]: tbl_upvr (readonly)
+		[3]: Players_upvr (readonly)
+		[4]: GetRemotePlayerParts_upvr (readonly)
+		[5]: tbl_4_upvr (readonly)
+	]]
+	-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+	if not tbl_3_upvr.Head then
+	else
+		for i, v in pairs(tbl_upvr) do
+			local any_GetPlayerByUserId_result1 = Players_upvr:GetPlayerByUserId(i)
+			if not any_GetPlayerByUserId_result1 then
+				tbl_upvr[i] = nil
+			else
+				local var91
+				local GetRemotePlayerParts_result1_2 = GetRemotePlayerParts_upvr(any_GetPlayerByUserId_result1)
+				if not GetRemotePlayerParts_result1_2 then
+					tbl_upvr[i] = nil
+				else
+					local var93
+					if not GetRemotePlayerParts_result1_2.hrp or not (GetRemotePlayerParts_result1_2.hrp.Position - tbl_3_upvr.Head.Position).Magnitude then
+						local const_number = 999
+					end
+					if tbl_4_upvr.DISTANCE_CULL < const_number then
+						tbl_upvr[i] = nil
+					else
+						if tbl_4_upvr.DISTANCE_FAR < const_number then
+						elseif tbl_4_upvr.DISTANCE_MEDIUM < const_number then
+						end
+						if tbl_4_upvr.DISTANCE_FAR >= const_number then
+							local _ = false
+							-- KONSTANTWARNING: Skipped task `defvar` above
+						else
+						end
+						if not true or not v.NeckOrigin then
+							local neck_2 = v.neck
+						end
+						if neck_2 then
+							if GetRemotePlayerParts_result1_2.neck then
+								GetRemotePlayerParts_result1_2.neck.C0 = GetRemotePlayerParts_result1_2.neck.C0:Lerp(neck_2, 0.12)
+							end
+						end
+						-- KONSTANTERROR: Expression was reused, decompilation is incorrect
+						if not true or not v.WaistOrigin then
+							local waist = v.waist
+						end
+						if waist and GetRemotePlayerParts_result1_2.waist then
+							-- KONSTANTERROR: Expression was reused, decompilation is incorrect
+							GetRemotePlayerParts_result1_2.waist.C0 = GetRemotePlayerParts_result1_2.waist.C0:Lerp(waist, 0.12)
+						end
+						tbl_upvr[i] = nil
+					end
+				end
+			end
+		end
+	end
+end
+local var98_upvw = false
+local rad_upvr = math.rad
+local min_upvr = math.min
+local var101_upvw = 0
+local var102_upvw = 0
+local function OnRenderStep_upvr(arg1) -- Line 234, Named "OnRenderStep"
+	--[[ Upvalues[15]:
+		[1]: tbl_3_upvr (readonly)
+		[2]: var98_upvw (read and write)
+		[3]: tbl_4_upvr (readonly)
+		[4]: clamp_upvr (readonly)
+		[5]: var8_upvw (read and write)
+		[6]: rad_upvr (readonly)
+		[7]: min_upvr (readonly)
+		[8]: var101_upvw (read and write)
+		[9]: var9_upvw (read and write)
+		[10]: abs_upvr (readonly)
+		[11]: var10_upvw (read and write)
+		[12]: tbl_5_upvr (readonly)
+		[13]: any_ReferenceBridge_result1_upvr (readonly)
+		[14]: var102_upvw (read and write)
+		[15]: ProcessRemoteUpdates_upvr (readonly)
+	]]
+	-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+	local var133
+	if not tbl_3_upvr.Neck or not tbl_3_upvr.Torso or not tbl_3_upvr.Head then
+	else
+		local Camera = tbl_3_upvr.Camera
+		if not Camera then
+			Camera = workspace.CurrentCamera
+		end
+		if not Camera then return end
+		tbl_3_upvr.Camera = Camera
+		local InMenu = workspace:GetAttribute("InMenu")
+		if InMenu ~= var98_upvw then
+			var98_upvw = InMenu
+		end
+		local _, _, _ = tbl_3_upvr.Torso.CFrame:ToObjectSpace(Camera.CFrame):ToEulerAnglesYXZ()
+		var133 = _
+		var133 = _
+		local function INLINED_3() -- Internal function, doesn't exist in bytecode
+			var133 = var8_upvw.Lean
+			return var133
+		end
+		if not var8_upvw or not INLINED_3() then
+			var133 = 0
+		end
+		local var99_result1 = rad_upvr(var133)
+		if var98_upvw then
+			local _ = tbl_3_upvr.BaseC0
+		else
+		end
+		tbl_3_upvr.Neck.C0 = tbl_3_upvr.Neck.C0:Lerp(tbl_3_upvr.BaseC0 * CFrame.Angles(clamp_upvr(var133, tbl_4_upvr.CLAMP_PITCH_MIN, tbl_4_upvr.CLAMP_PITCH_MAX), clamp_upvr(var133, tbl_4_upvr.CLAMP_YAW_MIN, tbl_4_upvr.CLAMP_YAW_MAX), var99_result1), min_upvr(arg1 * tbl_4_upvr.NECK_LERP_SPEED, 1))
+		if var133 ~= 0 then
+			Camera.CFrame *= CFrame.Angles(0, 0, var99_result1)
+		end
+		local var141
+		if tbl_3_upvr.Waist and tbl_3_upvr.BaseWC0 then
+			var141 = tbl_3_upvr.BaseWC0 * CFrame.Angles(0, 0, var99_result1)
+			tbl_3_upvr.Waist.C0 = tbl_3_upvr.Waist.C0:Lerp(var141, min_upvr(arg1 * tbl_4_upvr.WAIST_LERP_SPEED, 1))
+		end
+		local os_clock_result1 = os.clock()
+		local var143 = os_clock_result1 - var101_upvw
+		if tbl_4_upvr.SEND_RATE <= var143 then
+			local var144 = var9_upvw
+			local var145 = tbl_3_upvr.BaseC0 * CFrame.Angles(clamp_upvr(var133, tbl_4_upvr.CLAMP_PITCH_MIN, tbl_4_upvr.CLAMP_PITCH_MAX), clamp_upvr(var133, tbl_4_upvr.CLAMP_YAW_MIN, tbl_4_upvr.CLAMP_YAW_MAX), var99_result1)
+			if not var144 or not var145 then
+				var143 = true
+			else
+				local var146 = tbl_4_upvr.SEND_THRESHOLD_ANGLE or 0.01
+				local any_ToEulerAnglesYXZ_result1_5, any_ToEulerAnglesYXZ_result2_4, any_ToEulerAnglesYXZ_result3_5 = var144:ToEulerAnglesYXZ()
+				local any_ToEulerAnglesYXZ_result1_3, any_ToEulerAnglesYXZ_result2_7, any_ToEulerAnglesYXZ_result3_9 = var145:ToEulerAnglesYXZ()
+				var143 = true
+				if var146 >= abs_upvr(any_ToEulerAnglesYXZ_result1_5 - any_ToEulerAnglesYXZ_result1_3) then
+					var143 = true
+					if var146 >= abs_upvr(any_ToEulerAnglesYXZ_result2_4 - any_ToEulerAnglesYXZ_result2_7) then
+						if var146 >= abs_upvr(any_ToEulerAnglesYXZ_result3_5 - any_ToEulerAnglesYXZ_result3_9) then
+							var143 = false
+						else
+							var143 = true
+						end
+					end
+				end
+			end
+			var144 = var141
+			local var153 = var144
+			if var153 then
+				local var154 = var10_upvw
+				local var155 = var141
+				if not var154 or not var155 then
+				else
+					local var156 = tbl_4_upvr.SEND_THRESHOLD_ANGLE or 0.01
+					local any_ToEulerAnglesYXZ_result1_7, any_ToEulerAnglesYXZ_result2_5, any_ToEulerAnglesYXZ_result3_6 = var154:ToEulerAnglesYXZ()
+					local any_ToEulerAnglesYXZ_result1_12, any_ToEulerAnglesYXZ_result2, any_ToEulerAnglesYXZ_result3_7 = var155:ToEulerAnglesYXZ()
+					if var156 >= abs_upvr(any_ToEulerAnglesYXZ_result1_7 - any_ToEulerAnglesYXZ_result1_12) and var156 >= abs_upvr(any_ToEulerAnglesYXZ_result2_5 - any_ToEulerAnglesYXZ_result2) then
+						if var156 >= abs_upvr(any_ToEulerAnglesYXZ_result3_6 - any_ToEulerAnglesYXZ_result3_7) then
+						else
+						end
+					end
+				end
+			end
+			if var143 or true then
+				var101_upvw = os_clock_result1
+				-- KONSTANTERROR: Expression was reused, decompilation is incorrect
+				var9_upvw = tbl_3_upvr.BaseC0 * CFrame.Angles(clamp_upvr(var133, tbl_4_upvr.CLAMP_PITCH_MIN, tbl_4_upvr.CLAMP_PITCH_MAX), clamp_upvr(var133, tbl_4_upvr.CLAMP_YAW_MIN, tbl_4_upvr.CLAMP_YAW_MAX), var99_result1)
+				var10_upvw = var141
+				-- KONSTANTERROR: Expression was reused, decompilation is incorrect
+				tbl_5_upvr.neck = tbl_3_upvr.BaseC0 * CFrame.Angles(clamp_upvr(var133, tbl_4_upvr.CLAMP_PITCH_MIN, tbl_4_upvr.CLAMP_PITCH_MAX), clamp_upvr(var133, tbl_4_upvr.CLAMP_YAW_MIN, tbl_4_upvr.CLAMP_YAW_MAX), var99_result1)
+				tbl_5_upvr.waist = var141
+				any_ReferenceBridge_result1_upvr:Fire(tbl_5_upvr)
+			end
+		end
+		var102_upvw += arg1
+		if tbl_4_upvr.REMOTE_UPDATE_RATE <= var102_upvw then
+			var102_upvw = 0
+			ProcessRemoteUpdates_upvr()
+		end
+	end
+end
+function module.Init(arg1) -- Line 301
+	--[[ Upvalues[7]:
+		[1]: var8_upvw (read and write)
+		[2]: SetupCharacter_upvr (readonly)
+		[3]: LocalPlayer_upvr (readonly)
+		[4]: RunService_upvr (readonly)
+		[5]: OnRenderStep_upvr (readonly)
+		[6]: any_ReferenceBridge_result1_upvr (readonly)
+		[7]: QueueRemoteUpdate_upvr (readonly)
+	]]
+	var8_upvw = arg1
+	if not SetupCharacter_upvr(LocalPlayer_upvr) then
+		warn("[HeadMovement] Failed to setup character")
+	end
+	LocalPlayer_upvr.CharacterAdded:Connect(function() -- Line 307
+		--[[ Upvalues[2]:
+			[1]: SetupCharacter_upvr (copied, readonly)
+			[2]: LocalPlayer_upvr (copied, readonly)
+		]]
+		task.wait(0.1)
+		SetupCharacter_upvr(LocalPlayer_upvr)
+	end)
+	RunService_upvr:BindToRenderStep("HeadMovement", Enum.RenderPriority.Character.Value + 1, OnRenderStep_upvr)
+	any_ReferenceBridge_result1_upvr:Connect(QueueRemoteUpdate_upvr)
+end
+function module.Cleanup() -- Line 315
+	--[[ Upvalues[3]:
+		[1]: RunService_upvr (readonly)
+		[2]: tbl_6_upvr (readonly)
+		[3]: tbl_upvr (readonly)
+	]]
+	pcall(function() -- Line 316
+		--[[ Upvalues[1]:
+			[1]: RunService_upvr (copied, readonly)
+		]]
+		RunService_upvr:UnbindFromRenderStep("HeadMovement")
+	end)
+	table.clear(tbl_6_upvr)
+	table.clear(tbl_upvr)
+end
+return module
