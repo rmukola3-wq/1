@@ -1,0 +1,304 @@
+-- Saved by UniversalSynSaveInstance (Join to Copy Games) https://discord.gg/wx4ThpAsmw
+
+-- Decompiled with Konstant V2.1, a fast Luau decompiler made in Luau by plusgiant5 (https://discord.gg/brNTY8nX8t)
+-- Decompiled on 2026-02-15 12:31:31
+-- Luau version 6, Types version 3
+-- Time taken: 0.018385 seconds
+
+local SoundService_upvw = game:GetService("SoundService")
+local ContentProvider_upvr = game:GetService("ContentProvider")
+local var3_upvw = 1
+local clamp_upvr = math.clamp
+local tbl_4_upvr = {
+	Crouch = "rbxassetid://9113824230";
+	Prone = "rbxassetid://9113822517";
+	Vault = "rbxassetid://9113815121";
+	VaultGrunt = "rbxassetid://143384769";
+	StaminaBreathLoop = "rbxassetid://";
+	LaserToggle = "rbxassetid://9125463391";
+	FlashlightToggle = "rbxassetid://9070807695";
+	SuppressorOn = "rbxassetid://9117214938";
+	SuppressorOff = "rbxassetid://9117214938";
+	FiremodeChange = "rbxassetid://8553570529";
+	ADSEnter = "rbxassetid://9114702121";
+	ADSExit = "rbxassetid://8169248194";
+	HeatWarmup = "rbxassetid://9119471065";
+	HeatCrit = "rbxassetid://9119471065";
+	OverheatLock = "rbxassetid://126402413922503";
+	CoolDown = "rbxassetid://9113585730";
+	Jammed = "rbxassetid://93840917543863";
+	EmptyMag = "rbxassetid://93840917543863";
+	Unchambered = "rbxassetid://93840917543863";
+}
+local module = {}
+local tbl_5_upvr = {}
+local SystemSFX_upvr = game:GetService("ReplicatedStorage"):WaitForChild("Framework"):WaitForChild("AudioLibrary"):FindFirstChild("SystemSFX")
+local Basic_upvr = SoundService_upvw:FindFirstChild("Basic")
+local function createBase_upvr(arg1) -- Line 46, Named "createBase"
+	--[[ Upvalues[4]:
+		[1]: SystemSFX_upvr (readonly)
+		[2]: tbl_4_upvr (readonly)
+		[3]: Basic_upvr (readonly)
+		[4]: SoundService_upvw (readonly)
+	]]
+	local var12
+	if SystemSFX_upvr then
+		local SOME_2 = SystemSFX_upvr:FindFirstChild(arg1)
+		if SOME_2 and SOME_2:IsA("Sound") then
+			var12 = SOME_2:Clone()
+			if var12.Volume <= 0 then
+				var12.Volume = 0.5
+			end
+		end
+	end
+	if not var12 then
+		local Sound = Instance.new("Sound")
+		Sound.SoundId = tbl_4_upvr[arg1] or ""
+		Sound.Volume = 0.5
+	end
+	Sound.SoundGroup = Basic_upvr
+	Sound.Parent = SoundService_upvw
+	return Sound
+end
+local tbl_3_upvr = {}
+local function getBank_upvr(arg1) -- Line 76, Named "getBank"
+	--[[ Upvalues[3]:
+		[1]: tbl_3_upvr (readonly)
+		[2]: createBase_upvr (readonly)
+		[3]: ContentProvider_upvr (readonly)
+	]]
+	-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+	local var20 = tbl_3_upvr[arg1]
+	if var20 then
+		return var20
+	end
+	local table_create_result1_upvr = table.create(10)
+	for i = 1, 10 do
+		local createBase_result1_2 = createBase_upvr(arg1)
+		table.create(10)[i] = createBase_result1_2
+		table_create_result1_upvr[i] = createBase_result1_2
+		local var24
+	end
+	task.spawn(function() -- Line 89
+		--[[ Upvalues[2]:
+			[1]: ContentProvider_upvr (copied, readonly)
+			[2]: table_create_result1_upvr (readonly)
+		]]
+		pcall(ContentProvider_upvr.PreloadAsync, ContentProvider_upvr, table_create_result1_upvr)
+	end)
+	local tbl_2 = {
+		pool = var24;
+		idx = 1;
+	}
+	tbl_2.name = arg1
+	local var27 = tbl_2
+	tbl_3_upvr[arg1] = var27
+	return var27
+end
+local function _(arg1) -- Line 98, Named "nextChannel"
+	--[[ Upvalues[1]:
+		[1]: createBase_upvr (readonly)
+	]]
+	-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+	local pool_2 = arg1.pool
+	local idx = arg1.idx
+	local var30 = pool_2[idx]
+	if not var30 or not var30.Parent then
+		pool_2[idx] = createBase_upvr(arg1.name)
+	end
+	idx += 1
+	local var31 = idx
+	if 10 < var31 then
+		var31 = 1
+	end
+	arg1.idx = var31
+	-- KONSTANTERROR: Expression was reused, decompilation is incorrect
+	return createBase_upvr(arg1.name)
+end
+local clock_upvr = os.clock
+local function ensureLoaded_upvr(arg1, arg2) -- Line 116, Named "ensureLoaded"
+	--[[ Upvalues[2]:
+		[1]: ContentProvider_upvr (readonly)
+		[2]: clock_upvr (readonly)
+	]]
+	if arg1.IsLoaded then
+		return true
+	end
+	local tbl = {}
+	tbl[1] = arg1
+	pcall(ContentProvider_upvr.PreloadAsync, ContentProvider_upvr, tbl)
+	if arg1.IsLoaded then
+		return true
+	end
+	while not arg1.IsLoaded and clock_upvr() - clock_upvr() < (arg2 or 1) do
+		task.wait()
+	end
+	return arg1.IsLoaded
+end
+local function playOneShot_upvr(arg1, arg2) -- Line 133, Named "playOneShot"
+	--[[ Upvalues[6]:
+		[1]: getBank_upvr (readonly)
+		[2]: createBase_upvr (readonly)
+		[3]: SoundService_upvw (readonly)
+		[4]: var3_upvw (read and write)
+		[5]: clamp_upvr (readonly)
+		[6]: ensureLoaded_upvr (readonly)
+	]]
+	-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+	local getBank_upvr_result1 = getBank_upvr(arg1)
+	local pool = getBank_upvr_result1.pool
+	local idx_2 = getBank_upvr_result1.idx
+	local var37 = pool[idx_2]
+	if not var37 or not var37.Parent then
+		pool[idx_2] = createBase_upvr(getBank_upvr_result1.name)
+	end
+	idx_2 += 1
+	local var38 = idx_2
+	if 10 < var38 then
+		var38 = 1
+	end
+	getBank_upvr_result1.idx = var38
+	local createBase_upvr_result1_upvr = createBase_upvr(getBank_upvr_result1.name)
+	if not arg2 or not arg2:IsDescendantOf(game) then
+	end
+	local function var40() -- Line 141
+		--[[ Upvalues[2]:
+			[1]: createBase_upvr_result1_upvr (readonly)
+			[2]: SoundService_upvw (read and write)
+		]]
+		createBase_upvr_result1_upvr.Parent = SoundService_upvw
+	end
+	if not pcall(var40) then
+	else
+		var40 = createBase_upvr_result1_upvr.Volume
+		local var41 = var40
+		if var41 <= 0 then
+			var41 = 0.5
+		end
+		createBase_upvr_result1_upvr.Volume = clamp_upvr(var41 * var3_upvw, 0, 10)
+		createBase_upvr_result1_upvr.Looped = false
+		createBase_upvr_result1_upvr.TimePosition = 0
+		if not createBase_upvr_result1_upvr.IsLoaded then
+			ensureLoaded_upvr(createBase_upvr_result1_upvr, 1)
+		end
+		createBase_upvr_result1_upvr:Play()
+		if not createBase_upvr_result1_upvr.IsPlaying then
+			task.defer(createBase_upvr_result1_upvr.Play, createBase_upvr_result1_upvr)
+		end
+	end
+end
+function module.Play(arg1, arg2) -- Line 166
+	--[[ Upvalues[1]:
+		[1]: playOneShot_upvr (readonly)
+	]]
+	task.spawn(playOneShot_upvr, arg1, arg2)
+end
+function module.StartLoop(arg1, arg2, arg3) -- Line 170
+	--[[ Upvalues[6]:
+		[1]: tbl_5_upvr (readonly)
+		[2]: var3_upvw (read and write)
+		[3]: clamp_upvr (readonly)
+		[4]: createBase_upvr (readonly)
+		[5]: SoundService_upvw (readonly)
+		[6]: ensureLoaded_upvr (readonly)
+	]]
+	local var42 = tbl_5_upvr[arg1]
+	local var43
+	if var42 then
+		if var42.Parent then
+			if arg2 then
+				var42.Parent = arg2
+			end
+			if arg3 then
+				if arg3.Volume then
+					var43 = arg3.Volume * var3_upvw
+					var42.Volume = clamp_upvr(var43, 0, 10)
+				end
+				if arg3.Pitch then
+					var42.PlaybackSpeed = arg3.Pitch
+				end
+			end
+			if not var42.IsPlaying then
+				var42.Looped = true
+				var42:Play()
+			end
+			return
+		end
+	end
+	var43 = arg1
+	local createBase_result1 = createBase_upvr(var43)
+	var43 = arg2
+	if not var43 then
+		var43 = SoundService_upvw
+	end
+	createBase_result1.Parent = var43
+	var43 = 0.5
+	if arg3 and arg3.Volume then
+		var43 = arg3.Volume
+	elseif 0 < createBase_result1.Volume then
+		var43 = createBase_result1.Volume
+	end
+	createBase_result1.Volume = clamp_upvr(var43 * var3_upvw, 0, 10)
+	if arg3 and arg3.Pitch then
+		createBase_result1.PlaybackSpeed = arg3.Pitch
+	end
+	createBase_result1.Looped = true
+	ensureLoaded_upvr(createBase_result1, 1)
+	createBase_result1:Play()
+	if not createBase_result1.IsPlaying then
+		task.defer(createBase_result1.Play, createBase_result1)
+	end
+	tbl_5_upvr[arg1] = createBase_result1
+end
+local TweenService_upvr = game:GetService("TweenService")
+function module.StopLoop(arg1, arg2) -- Line 218
+	--[[ Upvalues[2]:
+		[1]: tbl_5_upvr (readonly)
+		[2]: TweenService_upvr (readonly)
+	]]
+	local var46_upvr = tbl_5_upvr[arg1]
+	if not var46_upvr then
+	else
+		tbl_5_upvr[arg1] = nil
+		if not var46_upvr.Parent then
+			var46_upvr:Destroy()
+			return
+		end
+		if arg2 and 0 < arg2 then
+			local any_Create_result1 = TweenService_upvr:Create(var46_upvr, TweenInfo.new(arg2, Enum.EasingStyle.Linear), {
+				Volume = 0;
+			})
+			any_Create_result1:Play()
+			any_Create_result1.Completed:Once(function() -- Line 232
+				--[[ Upvalues[1]:
+					[1]: var46_upvr (readonly)
+				]]
+				if var46_upvr.Parent then
+					var46_upvr:Stop()
+				end
+				var46_upvr:Destroy()
+			end)
+			return
+		end
+		var46_upvr:Stop()
+		var46_upvr:Destroy()
+	end
+end
+function module.SetMasterGain(arg1) -- Line 244
+	--[[ Upvalues[3]:
+		[1]: var3_upvw (read and write)
+		[2]: tbl_5_upvr (readonly)
+		[3]: clamp_upvr (readonly)
+	]]
+	var3_upvw = tonumber(arg1) or 1
+	for _, v in tbl_5_upvr do
+		if v and v.Parent then
+			local Volume = v.Volume
+			if Volume <= 0 then
+				Volume = 0.5
+			end
+			v.Volume = clamp_upvr(Volume * var3_upvw, 0, 10)
+		end
+	end
+end
+return module
