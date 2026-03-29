@@ -1,0 +1,75 @@
+-- Saved by UniversalSynSaveInstance (Join to Copy Games) https://discord.gg/wx4ThpAsmw
+
+-- Decompiled with Konstant V2.1, a fast Luau decompiler made in Luau by plusgiant5 (https://discord.gg/brNTY8nX8t)
+-- Decompiled on 2026-02-15 12:32:31
+-- Luau version 6, Types version 3
+-- Time taken: 0.002496 seconds
+
+return {
+	kickStrength = 0.038;
+	kickRandomness = 0.11;
+	horizontalStrength = 0.028;
+	horizontalRandomness = 0.1;
+	rollStrength = 0.014;
+	returnSpeed = 0.17;
+	returnSmoothness = 0.8;
+	firstShotMultiplier = 1.08;
+	sprayIncrease = 0.052;
+	sprayDecayTime = 0.4;
+	cameraShake = 0.028;
+	gunKickback = -0.038;
+	gunRise = 0.02;
+	usePattern = true;
+	patternScale = 0.03;
+	patternSpeed = 20;
+	patternRandomness = 0.08;
+	pattern = {{
+		x = 0;
+		y = 0.82;
+	}, {
+		x = -0.08;
+		y = 0.86;
+	}, {
+		x = -0.15;
+		y = 0.78;
+	}, {
+		x = -0.1;
+		y = 0.82;
+	}, {
+		x = 0.04;
+		y = 0.76;
+	}, {
+		x = 0.15;
+		y = 0.72;
+	}, {
+		x = 0.2;
+		y = 0.7;
+	}, {
+		x = 0.14;
+		y = 0.72;
+	}, {
+		x = 0.04;
+		y = 0.7;
+	}, {
+		x = -0.06;
+		y = 0.68;
+	}, {
+		x = -0.12;
+		y = 0.7;
+	}, {
+		x = -0.08;
+		y = 0.68;
+	}, {
+		x = 0.02;
+		y = 0.7;
+	}, {
+		x = 0.08;
+		y = 0.68;
+	}, {
+		x = 0.1;
+		y = 0.7;
+	}};
+	aimMultiplier = 0.32;
+	crouchMultiplier = 0.62;
+	moveMultiplier = 1.22;
+}
