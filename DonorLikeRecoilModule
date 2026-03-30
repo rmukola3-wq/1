@@ -1,0 +1,240 @@
+local DonorLikeRecoilModule = {}
+DonorLikeRecoilModule.__index = DonorLikeRecoilModule
+
+-- Donor-like recoil module matching ACS profile structure
+-- Uses: kickStrength, kickRandomness, horizontalStrength, horizontalRandomness,
+-- rollStrength, firstShotMultiplier, sprayIncrease, sprayDecayTime,
+-- cameraShake, gunKickback, gunRise, usePattern, patternScale, patternSpeed,
+-- patternRandomness, pattern, aimMultiplier, crouchMultiplier, moveMultiplier,
+-- returnSpeed, returnSmoothness
+
+local random = math.random
+local abs = math.abs
+local min = math.min
+local max = math.max
+local clamp = math.clamp
+local clock = os.clock
+
+local function createSpring(stiffness, damping)
+	return {
+		position = 0,
+		velocity = 0,
+		stiffness = stiffness or 75,
+		damping = damping or 18
+	}
+end
+
+local function updateSpring(spring, dt)
+	local accel = -spring.stiffness * spring.position - spring.damping * spring.velocity
+	spring.velocity = spring.velocity + accel * dt
+	spring.position = spring.position + spring.velocity * dt
+	
+	if abs(spring.position) < 0.0001 and abs(spring.velocity) < 0.001 then
+		spring.position = 0
+		spring.velocity = 0
+	end
+	
+	return spring.position
+end
+
+function DonorLikeRecoilModule.new()
+	local self = setmetatable({}, DonorLikeRecoilModule)
+	
+	-- Rotational springs (pitch, yaw, roll)
+	self.pitchSpring = createSpring(78, 16)
+	self.yawSpring = createSpring(65, 14)
+	self.rollSpring = createSpring(55, 12)
+	
+	-- Positional springs (gun kickback/rise)
+	self.posYSpring = createSpring(85, 15)  -- Vertical
+	self.posZSpring = createSpring(95, 18)  -- Forward/back
+	self.posXSpring = createSpring(70, 13)  -- Horizontal
+	
+	-- State tracking
+	self.currentProfile = nil
+	self.shotsFired = 0
+	self.sprayAmount = 0
+	self.lastShotTime = 0
+	self.patternIndex = 0
+	
+	-- Camera recoil output
+	self.cameraRecoilX = 0
+	self.cameraRecoilY = 0
+	
+	return self
+end
+
+function DonorLikeRecoilModule:SetProfile(profile)
+	self.currentProfile = profile
+end
+
+function DonorLikeRecoilModule:Kick(profile, gunModel, multiplier)
+	if not profile then
+		profile = self.currentProfile
+	end
+	if not profile then return end
+	
+	multiplier = multiplier or 1
+	
+	local currentTime = clock()
+	local timeSinceLastShot = currentTime - self.lastShotTime
+	
+	-- Spray decay logic (donor: sprayDecayTime)
+	local sprayDecayTime = profile.sprayDecayTime or 0.4
+	if timeSinceLastShot > sprayDecayTime then
+		-- Decay spray when not shooting
+		self.sprayAmount = max(0, self.sprayAmount - timeSinceLastShot * 6.0)
+		if self.sprayAmount < 0.05 then
+			self.sprayAmount = 0
+			self.shotsFired = 0
+			self.patternIndex = 0
+		end
+	end
+	
+	self.lastShotTime = currentTime
+	
+	-- First shot multiplier (donor: firstShotMultiplier)
+	local firstShotMult = 1
+	if self.shotsFired == 0 and profile.firstShotMultiplier then
+		firstShotMult = profile.firstShotMultiplier
+	end
+	
+	self.shotsFired = self.shotsFired + 1
+	
+	-- Spray increase (donor: sprayIncrease)
+	local sprayIncrease = profile.sprayIncrease or 0.052
+	self.sprayAmount = self.sprayAmount + sprayIncrease / (1 + self.shotsFired * 0.03)
+	
+	-- Calculate kick values
+	local kickStrength = profile.kickStrength or 0.038
+	local kickRandomness = profile.kickRandomness or 0.11
+	local verticalKick = kickStrength * (1 + (random() - 0.5) * kickRandomness) * firstShotMult * (1 + self.sprayAmount * 0.8)
+	
+	local horizontalStrength = profile.horizontalStrength or 0.028
+	local horizontalRandomness = profile.horizontalRandomness or 0.1
+	local horizontalKick = horizontalStrength * (random() * 2 - 1) * (1 + (random() - 0.5) * horizontalRandomness)
+	
+	-- Pattern-based recoil (donor: usePattern, pattern, patternScale, patternRandomness)
+	if profile.usePattern and profile.pattern and #profile.pattern > 0 then
+		self.patternIndex = min(self.patternIndex + 1, #profile.pattern)
+		local patternPoint = profile.pattern[self.patternIndex]
+		local patternScale = profile.patternScale or 0.03
+		local patternRandomness = profile.patternRandomness or 0.08
+		local patternNoise = 1 + (random() - 0.5) * patternRandomness * 0.8
+		
+		verticalKick = patternPoint.y * patternScale * patternNoise
+		horizontalKick = patternPoint.x * patternScale * patternNoise
+	end
+	
+	-- Pattern speed affects kick intensity (donor: patternSpeed)
+	local patternSpeed = profile.patternSpeed or 20
+	local speedModifier = patternSpeed * (min(timeSinceLastShot, 0.1) * 2 + 0.8)
+	
+	verticalKick = verticalKick * multiplier * speedModifier
+	horizontalKick = horizontalKick * multiplier * speedModifier
+	
+	-- Apply to springs
+	self.pitchSpring.velocity = self.pitchSpring.velocity + verticalKick
+	self.yawSpring.velocity = self.yawSpring.velocity + horizontalKick
+	
+	-- Roll (donor: rollStrength)
+	local rollStrength = profile.rollStrength or 0.014
+	local rollKick = rollStrength * (random() * 2 - 1) * multiplier * speedModifier * 0.7 - horizontalKick * 0.25
+	self.rollSpring.velocity = self.rollSpring.velocity + rollKick
+	
+	-- Gun kickback/rise (donor: gunKickback, gunRise)
+	local gunKickback = abs(profile.gunKickback or 0.038)
+	local gunRise = profile.gunRise or 0.02
+	
+	self.posZSpring.velocity = self.posZSpring.velocity - gunKickback * speedModifier * multiplier * 1.1
+	self.posYSpring.velocity = self.posYSpring.velocity + gunRise * speedModifier * multiplier * 0.75
+	self.posXSpring.velocity = self.posXSpring.velocity + horizontalKick * 0.25 * multiplier
+	
+	-- Camera recoil for external use
+	self.cameraRecoilX = verticalKick * 0.9
+	self.cameraRecoilY = horizontalKick * 0.85
+end
+
+function DonorLikeRecoilModule:Update(dt)
+	dt = min(dt, 0.033)
+	
+	local profile = self.currentProfile or {}
+	
+	-- Apply return speed/smoothness if profile has them (donor: returnSpeed, returnSmoothness)
+	local returnSpeed = profile.returnSpeed or 0.17
+	local returnSmoothness = profile.returnSmoothness or 0.8
+	
+	-- Update springs with profile-based stiffness
+	local springStiffness = profile.springStiffness or 75
+	local springDamping = profile.springDamping or 16
+	
+	self.pitchSpring.stiffness = springStiffness
+	self.pitchSpring.damping = springDamping
+	self.yawSpring.stiffness = springStiffness * 0.85
+	self.yawSpring.damping = springDamping * 0.9
+	self.rollSpring.stiffness = springStiffness * 0.7
+	self.rollSpring.damping = springDamping * 0.8
+	
+	local pitch = updateSpring(self.pitchSpring, dt)
+	local yaw = updateSpring(self.yawSpring, dt)
+	local roll = updateSpring(self.rollSpring, dt)
+	
+	-- Clamp pitch to prevent excessive upward climb
+	local minPitch = profile.minPitch or -0.25
+	local maxPitch = profile.maxPitch or 0.65
+	local maxYaw = profile.maxYaw or 0.45
+	local maxRoll = profile.maxRoll or 0.3
+	
+	pitch = clamp(pitch, minPitch, maxPitch)
+	yaw = clamp(yaw, -maxYaw, maxYaw)
+	roll = clamp(roll, -maxRoll, maxRoll)
+	
+	-- Positional springs
+	local posX = updateSpring(self.posXSpring, dt)
+	local posY = updateSpring(self.posYSpring, dt)
+	local posZ = updateSpring(self.posZSpring, dt)
+	
+	-- Decay spray over time
+	self.sprayAmount = max(0, self.sprayAmount - dt * 4.5)
+	
+	-- Camera shake (donor: cameraShake)
+	local cameraShake = profile.cameraShake or 0.028
+	local shakeIntensity = (abs(self.pitchSpring.velocity) + abs(self.yawSpring.velocity)) * cameraShake * 0.015
+	local time = clock()
+	
+	-- Build final CFrame
+	local posCF = CFrame.new(
+		posX * 0.25 + sin(time * 47) * shakeIntensity,
+		posY * 0.35 + cos(time * 38) * shakeIntensity,
+		posZ * 0.4
+	)
+	local rotCF = CFrame.Angles(pitch, yaw, roll)
+	
+	return posCF * rotCF
+end
+
+function DonorLikeRecoilModule:GetCameraRecoil()
+	return self.cameraRecoilX, self.cameraRecoilY
+end
+
+function DonorLikeRecoilModule:Reset()
+	self.pitchSpring.position = 0
+	self.pitchSpring.velocity = 0
+	self.yawSpring.position = 0
+	self.yawSpring.velocity = 0
+	self.rollSpring.position = 0
+	self.rollSpring.velocity = 0
+	self.posXSpring.position = 0
+	self.posXSpring.velocity = 0
+	self.posYSpring.position = 0
+	self.posYSpring.velocity = 0
+	self.posZSpring.position = 0
+	self.posZSpring.velocity = 0
+	self.shotsFired = 0
+	self.sprayAmount = 0
+	self.patternIndex = 0
+	self.cameraRecoilX = 0
+	self.cameraRecoilY = 0
+end
+
+return DonorLikeRecoilModule
