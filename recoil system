@@ -1,0 +1,249 @@
+--!strict
+
+local RecoilSystem = {}
+RecoilSystem.__index = RecoilSystem
+
+local min = math.min
+local max = math.max
+local abs = math.abs
+local clamp = math.clamp
+local sin = math.sin
+local cos = math.cos
+local random = math.random
+local clock = os.clock
+
+local function zeroIfSmall(position, velocity, posEps, velEps)
+	if abs(position) < posEps and abs(velocity) < velEps then
+		return 0, 0
+	end
+	return position, velocity
+end
+
+function RecoilSystem.new()
+	local self = setmetatable({}, RecoilSystem)
+
+	self.pitch = 0
+	self.yaw = 0
+	self.roll = 0
+
+	self.pitchVel = 0
+	self.yawVel = 0
+	self.rollVel = 0
+
+	self.posX = 0
+	self.posY = 0
+	self.posZ = 0
+
+	self.velX = 0
+	self.velY = 0
+	self.velZ = 0
+
+	self.shotsFired = 0
+	self.sprayAmount = 0
+	self.lastShotTime = 0
+	self.patternIndex = 0
+	self.bounceDirection = 1
+
+	self.currentProfile = nil
+
+	return self
+end
+
+function RecoilSystem:SetProfile(profile)
+	self.currentProfile = profile
+end
+
+function RecoilSystem:Kick(profile, multiplier)
+	multiplier = multiplier or 1
+	profile = profile or self.currentProfile or {}
+
+	local currentTime = clock()
+	local timeSinceLastShot = currentTime - self.lastShotTime
+
+	local sprayDecayTime = profile.sprayDecayTime or 0.4
+	if timeSinceLastShot > sprayDecayTime then
+		self.sprayAmount = max(0, self.sprayAmount - timeSinceLastShot * 7.0)
+		if self.sprayAmount < 0.05 then
+			self.sprayAmount = 0
+			self.shotsFired = 0
+			self.patternIndex = 0
+		end
+	end
+
+	self.lastShotTime = currentTime
+
+	local firstShotMult = 1
+	if self.shotsFired == 0 and profile.firstShotMultiplier then
+		firstShotMult = profile.firstShotMultiplier
+	end
+
+	self.shotsFired += 1
+
+	local sprayIncrease = profile.sprayIncrease or 0.052
+	self.sprayAmount += sprayIncrease / (1 + self.shotsFired * 0.035)
+
+	local kickStrength = profile.kickStrength or 0.08
+	local kickRandomness = profile.kickRandomness or 0.3
+	local verticalKick = kickStrength
+		* (1 + (random() - 0.5) * kickRandomness)
+		* firstShotMult
+		* (1 + self.sprayAmount)
+
+	local horizontalStrength = profile.horizontalStrength or 0.04
+	local horizontalRandomness = profile.horizontalRandomness or 0.5
+	local horizontalKick = horizontalStrength
+		* (random() * 2 - 1)
+		* (1 + (random() - 0.5) * horizontalRandomness)
+
+	if profile.usePattern and profile.pattern and #profile.pattern > 0 then
+		self.patternIndex = min(self.patternIndex + 1, #profile.pattern)
+		local patternPoint = profile.pattern[self.patternIndex]
+		local patternScale = profile.patternScale or 1
+		local patternRandomness = profile.patternRandomness or 0.1
+		local patternNoise = 1 + (random() - 0.5) * patternRandomness * 0.8
+
+		verticalKick = patternPoint.y * patternScale * patternNoise
+		horizontalKick = patternPoint.x * patternScale * patternNoise
+	end
+
+	if profile.horizontalBounce then
+		local bounceAmount = profile.bounceAmount or 0.7
+		horizontalKick *= self.bounceDirection * bounceAmount
+		self.bounceDirection = -self.bounceDirection
+	end
+
+	local patternSpeed = profile.patternSpeed or 20
+	local speedModifier = patternSpeed * (min(timeSinceLastShot, 0.1) * 2 + 0.8)
+
+	verticalKick *= multiplier * speedModifier
+	horizontalKick *= multiplier * speedModifier
+
+	local instant = profile.instantKickRatio or 0
+	self.pitch += verticalKick * instant
+	self.yaw += horizontalKick * instant
+
+	verticalKick *= (1 - instant)
+	horizontalKick *= (1 - instant)
+
+	local verticalMult = profile.verticalMult or 1
+	local horizontalMult = profile.horizontalMult or 1
+	local leftBias = profile.leftBias or 0
+
+	verticalKick *= verticalMult
+	horizontalKick = horizontalKick * horizontalMult + (leftBias * speedModifier * multiplier)
+
+	self.pitchVel += verticalKick
+	self.yawVel += horizontalKick
+
+	local rollStrength = profile.rollStrength or 0.02
+	self.rollVel += (rollStrength * (random() * 2 - 1)) * (multiplier * speedModifier) * 0.7 - horizontalKick * 0.25
+
+	local gunKickback = abs(profile.gunKickback or 0.06)
+	local gunRise = profile.gunRise or 0.04
+	local posMult = profile.posMult or 1
+	local posInstant = profile.posInstantKickRatio or instant
+
+	self.posZ -= gunKickback * speedModifier * 0.40 * multiplier * posMult * posInstant
+	self.posY += gunRise * speedModifier * 0.30 * multiplier * posMult * posInstant
+
+	self.velZ -= gunKickback * speedModifier * 0.95 * multiplier * posMult
+	self.velY += gunRise * speedModifier * 0.62 * multiplier * posMult
+	self.velX += horizontalKick * 0.18 * posMult
+end
+
+function RecoilSystem:Update(dt)
+	dt = min(dt, 0.033)
+
+	local profile = self.currentProfile or {}
+
+	local returnSpeed = profile.returnSpeed or 0.17
+	local returnSmoothness = profile.returnSmoothness or 0.8
+
+	local springStiffness = profile.springStiffness or 75.0
+	local springDamping = profile.springDamping or 18.0
+
+	springStiffness = springStiffness * (0.92 + returnSpeed * 0.55)
+	springDamping = springDamping * (0.92 + returnSmoothness * 0.22)
+
+	local function updateSpring(position, velocity, posEps, velEps)
+		local acceleration = (-springStiffness * position - springDamping * velocity) * dt
+		local newVelocity = velocity + acceleration
+		local newPosition = position + newVelocity * dt
+		return zeroIfSmall(newPosition, newVelocity, posEps, velEps)
+	end
+
+	self.pitch, self.pitchVel = updateSpring(self.pitch, self.pitchVel, 0.00055, 0.0055)
+	self.yaw, self.yawVel = updateSpring(self.yaw, self.yawVel, 0.00055, 0.0055)
+	self.roll, self.rollVel = updateSpring(self.roll, self.rollVel, 0.00055, 0.0055)
+
+	if self.pitch < 0 and self.pitchVel < 0 then
+		self.pitchVel *= 0.28
+	end
+
+	self.posX, self.velX = updateSpring(self.posX, self.velX, 0.00045, 0.0045)
+	self.posY, self.velY = updateSpring(self.posY, self.velY, 0.00045, 0.0045)
+	self.posZ, self.velZ = updateSpring(self.posZ, self.velZ, 0.00045, 0.0045)
+
+	self.sprayAmount = max(0, self.sprayAmount - dt * 4.8)
+
+	local minPitch = profile.minPitch or -0.12
+	local maxPitch = profile.maxPitch or 0.85
+	local maxYaw = profile.maxYaw or 0.35
+	local maxRoll = profile.maxRoll or 0.25
+
+	self.pitch = clamp(self.pitch, minPitch, maxPitch)
+	self.yaw = clamp(self.yaw, -maxYaw, maxYaw)
+	self.roll = clamp(self.roll, -maxRoll, maxRoll)
+
+	local camShake = profile.cameraShake or 0.04
+	local currentTime = clock()
+	local shakeIntensity = (abs(self.pitchVel) + abs(self.yawVel)) * camShake * 0.006
+
+	local positionalCF = CFrame.new(
+		self.posX * 0.22 + sin(currentTime * 36.0) * shakeIntensity,
+		self.posY * 0.30 + cos(currentTime * 29.0) * shakeIntensity,
+		self.posZ * 0.36
+	)
+
+	local rotationalCF = CFrame.Angles(self.pitch, self.yaw, self.roll)
+
+	return positionalCF * rotationalCF
+end
+
+function RecoilSystem:GetCameraRecoil()
+	return Vector2.new(self.yaw * 45, -self.pitch * 45)
+end
+
+function RecoilSystem:Reset()
+	self.pitch = 0
+	self.yaw = 0
+	self.roll = 0
+
+	self.pitchVel = 0
+	self.yawVel = 0
+	self.rollVel = 0
+
+	self.posX = 0
+	self.posY = 0
+	self.posZ = 0
+
+	self.velX = 0
+	self.velY = 0
+	self.velZ = 0
+
+	self.shotsFired = 0
+	self.sprayAmount = 0
+	self.patternIndex = 0
+	self.lastShotTime = 0
+	self.bounceDirection = 1
+end
+
+function RecoilSystem:GetSprayAmount()
+	return self.sprayAmount
+end
+
+function RecoilSystem:GetShotsFired()
+	return self.shotsFired
+end
+
+return RecoilSystem
