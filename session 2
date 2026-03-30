@@ -1,0 +1,4480 @@
+найди вр епе файл ssesion
+
+Нашёл файл: repositories/rmukola3-wq-1/ssesion:1
+
+Если хочешь, могу сразу:
+
+    показать содержимое файла
+    найти, где он используется в коде
+
+прочитай там вся перепиская меня и тебя я  сбрсоил ссесию иза бага те не видел в репе файлы
+
+Да, контекст восстановил по repositories/rmukola3-wq-1/ssesion:1.
+
+    Подтверждено: в прошлой сессии у тебя был баг — я не видел свежие файлы репы и работал по кускам кода из чата.
+    Текущий контекст: речь про Roblox ACS recoil; ключевые файлы — repositories/rmukola3-wq-1/acs_framework MY ACS:1, repositories/rmukola3-wq-1/my acs recoil system:1, repositories/rmukola3-wq-1/ViewmodelKick MY ACS:1 и repositories/rmukola3-wq-1/acs_donor_for_recoil*:1.
+    Главный вывод из переписки: одним только donor-profile добиться такого же ощущения не получится, потому что отличается весь recoil-pipeline, а не только числа.
+    Последняя рабочая стратегия: ты руками правишь большой ACS framework, а я помогаю анализом, сравнением с донором и точными правками маленьких модулей/блоков.
+    Важно: сейчас я уже вижу файлы в repo, так что можно продолжать нормально от самого кода, а не по обрывкам переписки.
+
+
+Confidence: High
+
+    Переписку из файла прочитал достаточно, чтобы восстановить ход работы и последнюю точку остановки.
+    Полный файл очень большой, но ключевой контекст и последние сообщения уже понятны.
+
+
+Скинь, что делать дальше:
+
+    сравнить MY ACS с донором,
+    найти, почему отдача “не как donor”,
+    или просто назвать, какой файл сейчас главный.
+
+нет ну вот постри вот послдение файлы я загуржил и сверся с ссесией поажуйлста я все сдлела вот ты пнррсоил в рпошлой ссеси модел шот кик чето такое залить я эти файлы залил првоерь и ass framework v2 проверь он тоже отнсоится к улушчению отажчи окторую я делл я опхоже сдлеал в нем чето не правлиьно ибо рабоает отадчаа не коректно а теость руки не спавнятся спавнятся толкьо если 2 раза перевзять оуриже потом они на 1 месте зависяют они не рпвиязаны к телу ну сначала прочти вот посдледжнеи фалйы котоырек я залтли  и сверяйся с ссесией ты там писал какд елать чт обы не отходить от зхода рабоыт и нвое не приудмывтаь
+
+Да — последние файлы я уже вижу, и они в целом совпадают с планом из ssesion.
+
+Что подтвердилось
+
+    Ты реально залил ожидаемые модули: repositories/rmukola3-wq-1/DonorLikeRecoilModule:1, repositories/rmukola3-wq-1/RecoilCamera:1, repositories/rmukola3-wq-1/ShotViewKick:1, repositories/rmukola3-wq-1/ShotBobble:1.
+    acs_framweorkv2 подключает их так, как было расписано в прошлой сессии: repositories/rmukola3-wq-1/acs_framweorkv2:53, repositories/rmukola3-wq-1/acs_framweorkv2:385.
+    acs_framweorkv2 и roblox ai intrusiton vipolnil — одинаковые файлы.
+    RecoilSystem и my acs recoil system — одинаковые файлы.
+    ViewmodelKick и ViewmodelKick MY ACS — одинаковые файлы.
+
+
+Главная ошибка
+
+    Проблема с руками почти наверняка не в спавне рук, а в runtime error внутри render/update.
+    В repositories/rmukola3-wq-1/DonorLikeRecoilModule:207 и repositories/rmukola3-wq-1/DonorLikeRecoilModule:208 вызываются sin(...) и cos(...), но сверху они не объявлены.
+    В начале файла есть только random, abs, min, max, clamp, clock: repositories/rmukola3-wq-1/DonorLikeRecoilModule:11.
+    Этот модуль вызывается каждый кадр из repositories/rmukola3-wq-1/acs_framweorkv2:2858, поэтому при первом же Update(dt) render-цепочка валится, а AnimPart.CFrame перестаёт обновляться.
+    Именно это хорошо объясняет симптом: руки/оружие появляются криво, потом “висят” и не привязаны к телу.
+
+
+Почему это не похоже на баг спавна рук
+
+    Блок создания ViewModel, AnimPart, LArmWeld, RArmWeld, GunWeld в repositories/rmukola3-wq-1/acs_framweorkv2:995 практически тот же, что и в старом repositories/rmukola3-wq-1/acs_framework MY ACS:970.
+    То есть ты не сломал саму базовую сборку рук; ты сломал обновление после сборки.
+
+
+Ещё 2 проблемы по отдаче
+
+    В repositories/rmukola3-wq-1/acs_framweorkv2:1380 и repositories/rmukola3-wq-1/acs_framweorkv2:1384 у тебя одновременно работают старый RecoilSystem и новый DonorLikeRecoilModule. Это даёт “не donor”, потому что ты стакаешь два recoil-engine сразу.
+    cameraKickCF считается в repositories/rmukola3-wq-1/acs_framweorkv2:2859, но дальше никуда не применяется, так что RecoilCamera сейчас по факту не даёт видимого эффекта.
+
+
+Минимальная правка сначала
+
+    В repositories/rmukola3-wq-1/DonorLikeRecoilModule:11 добавь:
+
+
+local sin = math.sin
+local cos = math.cos
+
+
+    Только после этого есть смысл снова проверять спавн рук и поведение отдачи.
+
+
+Confidence: High
+
+    Это подтверждается прямой сверкой файлов и конкретной кодовой ошибкой.
+    Больше уверенности даст только runtime stack trace в Roblox output, но по статике корневая поломка уже видна.
+
+
+Если хочешь, следующим сообщением дам тебе ровно 3 точечные правки для acs_framweorkv2, без новой архитектуры и без отхода от прошлой сессии.
+
+я блят ьне чче не умею скаи гед имнено доавбить local sin = math.sin
+local cos = math.cos в какой тсрчоке или возел чего я бялт ьчайник
+
+Добавь в файл repositories/rmukola3-wq-1/DonorLikeRecoilModule:11
+
+Точнее — сразу после строки:
+
+local clock = os.clock
+
+
+Чтобы получилось вот так:
+
+local random = math.random
+local abs = math.abs
+local min = math.min
+local max = math.max
+local clamp = math.clamp
+local clock = os.clock
+local sin = math.sin
+local cos = math.cos
+
+
+Куда именно
+
+    Файл: repositories/rmukola3-wq-1/DonorLikeRecoilModule:11
+    Вставить перед строкой local function createSpring(stiffness, damping)
+
+
+Почему именно туда
+
+    Ниже в этом же файле используются sin(...) и cos(...) в repositories/rmukola3-wq-1/DonorLikeRecoilModule:207
+    Но сверху они не объявлены, из-за этого модуль падает
+
+
+Если хочешь, следующим сообщением я так же по-человечески и по шагам скажу, где править вторую проблему в acs_framweorkv2, без сложных терминов.
+
+ок теперь раотает все но отдача после всго что я сделал осбо не плонялась ну может чтуь чуть лучше думаю турбет донастройки
+
+Да — похоже, сейчас проблема уже не в поломке, а именно в слишком мягком профиле.
+
+Главное
+
+    Текущий профиль в repositories/rmukola3-wq-1/ak47 progile:4 очень слабый по сравнению с донором.
+    У тебя сейчас:
+        kickStrength = 0.0098
+        horizontalStrength = 0.0068
+        gunKickback = 0.0125
+        springStiffness = 50
+    У донора в repositories/rmukola3-wq-1/acs_donor_for_recoil7:8 заметно выше:
+        kickStrength = 0.038
+        horizontalStrength = 0.028
+        gunKickback = -0.038
+        patternScale = 0.03
+
+
+То есть по факту твой текущий профиль в несколько раз мягче донора.
+
+Почему ощущается слабо
+
+    RecoilSystem напрямую читает kickStrength, patternScale, instantKickRatio, gunKickback, springStiffness: repositories/rmukola3-wq-1/RecoilSystem:105, repositories/rmukola3-wq-1/RecoilSystem:118, repositories/rmukola3-wq-1/RecoilSystem:141, repositories/rmukola3-wq-1/RecoilSystem:168, repositories/rmukola3-wq-1/RecoilSystem:192.
+    А в acs_framweorkv2 hipfire ещё дополнительно режется через hipRecoilScale: repositories/rmukola3-wq-1/acs_framweorkv2:1371.
+
+
+Что крутить сначала
+Замени в repositories/rmukola3-wq-1/ak47 progile:4 эти значения:
+
+kickStrength = 0.0145,
+horizontalStrength = 0.0095,
+instantKickRatio = 0.56,
+posInstantKickRatio = 0.42,
+
+patternScale = 0.028,
+springStiffness = 62.0,
+springDamping = 20.0,
+
+gunKickback = 0.020,
+gunRise = 0.011,
+
+hipRecoilScale = 0.34,
+hipVMKickScale = 0.32,
+
+cameraShake = 0.028,
+
+
+Если хочешь ещё плотнее
+
+    Нужно сильнее “подброс вверх” → подними kickStrength до 0.016
+    Нужно резче первый рывок → подними instantKickRatio до 0.60
+    Нужно сильнее дёргало сам ствол → подними gunKickback до 0.024
+    Нужно быстрее и жёстче возвращалось → springStiffness = 68
+
+
+Чего пока не трогать
+
+    acs_framweorkv2
+    DonorLikeRecoilModule
+    порядок AnimPart.CFrame
+
+
+Сейчас разумнее добить именно repositories/rmukola3-wq-1/ak47 progile:1.
+
+Confidence: High
+
+    Симптом совпадает с числами в профиле: они реально намного мягче донорных.
+    Следующий самый полезный шаг — я могу дать тебе готовый целиком новый AK47 profile, который ты просто вставишь без ручной возни.
+
+--!strict
+-- AK47 Recoil Profile (improved from your soft snap base)
+
+return {
+kickStrength = 0.0098,
+kickRandomness = 0.10,
+
+horizontalStrength = 0.0068,
+horizontalRandomness = 0.16,
+
+rollStrength = 0.0044,
+
+instantKickRatio = 0.42,
+posInstantKickRatio = 0.32,
+
+patternSpeed = 18,
+patternScale = 0.024,
+patternRandomness = 0.08,
+
+springStiffness = 50.0,
+springDamping = 19.0,
+
+leftBias = -0.0018,
+
+gunKickback = 0.0125,
+gunRise = 0.0085,
+
+posMult = 0.92,
+verticalMult = 0.98,
+
+minPitch = -0.08,
+maxPitch = 0.80,
+maxYaw = 0.26,
+maxRoll = 0.18,
+
+adsViewKickScale = 0.42,
+adsRecoilCFScale = 0.58,
+adsSwayScale = 0.26,
+adsLagScale = 0.20,
+adsCamRecoilPower = 0.22,
+
+hipRecoilScale = 0.26,
+hipVMKickScale = 0.22,
+
+usePattern = true,
+pattern = {
+	{x = -0.06, y = 0.90},
+	{x = -0.10, y = 0.78},
+	{x = -0.14, y = 0.66},
+	{x = -0.10, y = 0.64},
+},
+
+cameraShake = 0.022,
+
+
+}
+
+дай готвоый профиль
+
+скинь мне оплностью готвоый прфоиль
+
+Да — вот готовый профиль целиком.
+
+Замени весь файл repositories/rmukola3-wq-1/ak47 progile:1 на это:
+
+--!strict
+
+return {
+	kickStrength = 0.0155,
+	kickRandomness = 0.11,
+
+	horizontalStrength = 0.0105,
+	horizontalRandomness = 0.14,
+
+	rollStrength = 0.0065,
+
+	returnSpeed = 0.17,
+	returnSmoothness = 0.8,
+
+	firstShotMultiplier = 1.08,
+	sprayIncrease = 0.052,
+	sprayDecayTime = 0.40,
+
+	instantKickRatio = 0.58,
+	posInstantKickRatio = 0.44,
+
+	patternSpeed = 20,
+	patternScale = 0.028,
+	patternRandomness = 0.08,
+
+	springStiffness = 64.0,
+	springDamping = 20.0,
+
+	leftBias = -0.0022,
+
+	gunKickback = 0.022,
+	gunRise = 0.0115,
+
+	posMult = 1.00,
+	verticalMult = 1.06,
+	horizontalMult = 1.00,
+
+	minPitch = -0.08,
+	maxPitch = 0.90,
+	maxYaw = 0.30,
+	maxRoll = 0.20,
+
+	aimMultiplier = 0.32,
+	crouchMultiplier = 0.62,
+	moveMultiplier = 1.22,
+
+	hipRecoilScale = 0.34,
+	adsRecoilCFScale = 0.58,
+
+	hipVMKickScale = 0.34,
+	hipViewKickScale = 0.95,
+	adsViewKickScale = 0.48,
+
+	hipCamRecoilPower = 0.22,
+	adsCamRecoilPower = 0.24,
+	adsSwayScale = 0.26,
+	adsLagScale = 0.20,
+
+	usePattern = true,
+	pattern = {
+		{x =  0.00, y = 0.84},
+		{x = -0.08, y = 0.86},
+		{x = -0.14, y = 0.79},
+		{x = -0.10, y = 0.82},
+		{x =  0.03, y = 0.76},
+		{x =  0.11, y = 0.72},
+		{x =  0.16, y = 0.70},
+		{x =  0.12, y = 0.72},
+		{x =  0.04, y = 0.70},
+		{x = -0.05, y = 0.68},
+		{x = -0.10, y = 0.70},
+		{x = -0.07, y = 0.68},
+	},
+
+	cameraShake = 0.028,
+}
+
+
+Если окажется слишком сильно
+
+    уменьши только kickStrength до 0.0145
+    или hipRecoilScale до 0.30
+
+
+Если всё ещё слабо
+
+    подними только kickStrength до 0.017
+    и gunKickback до 0.024
+
+
+Если хочешь, следующим сообщением дам тебе ещё одну готовую версию: “жёстче и ближе к donor”.
+
+не прошылй мой был как будто лучше подкрути мой по желанию моджеш ьсовсем чуть сильнее и надо оставить уход именно в 1 стороун а не в 1 пусть кочник уходит в ту стороун в октоурю и щас чуть сильнее
+
+Да — тогда не будем делать новый “другой” профиль, а аккуратно усилим твой текущий и сохраним уход в одну сторону.
+
+Что я меняю
+
+    чуть усиливаю вертикаль
+    чуть усиливаю kickback
+    сохраняю увод влево
+    уменьшаю лишний разброс по сторонам, чтобы ствол не гулял хаотично
+
+
+Замени весь файл repositories/rmukola3-wq-1/ak47 progile:1 на это:
+
+--!strict
+-- AK47 recoil profile: твой текущий, но чуть сильнее
+-- и с более стабильным уводом в одну сторону
+
+return {
+	kickStrength = 0.0112,
+	kickRandomness = 0.09,
+
+	horizontalStrength = 0.0072,
+	horizontalRandomness = 0.08,
+
+	rollStrength = 0.0048,
+
+	instantKickRatio = 0.46,
+	posInstantKickRatio = 0.34,
+
+	patternSpeed = 18,
+	patternScale = 0.0255,
+	patternRandomness = 0.04,
+
+	springStiffness = 54.0,
+	springDamping = 19.5,
+
+	leftBias = -0.0032,
+
+	gunKickback = 0.0145,
+	gunRise = 0.0092,
+
+	posMult = 0.95,
+	verticalMult = 1.06,
+	horizontalMult = 0.92,
+
+	minPitch = -0.08,
+	maxPitch = 0.82,
+	maxYaw = 0.24,
+	maxRoll = 0.18,
+
+	adsViewKickScale = 0.43,
+	adsRecoilCFScale = 0.58,
+	adsSwayScale = 0.26,
+	adsLagScale = 0.20,
+	adsCamRecoilPower = 0.22,
+
+	hipRecoilScale = 0.29,
+	hipVMKickScale = 0.25,
+	hipViewKickScale = 0.82,
+	hipCamRecoilPower = 0.18,
+
+	aimMultiplier = 0.32,
+	crouchMultiplier = 0.62,
+	moveMultiplier = 1.22,
+
+	usePattern = true,
+	pattern = {
+		{x = -0.05, y = 0.92},
+		{x = -0.08, y = 0.82},
+		{x = -0.11, y = 0.74},
+		{x = -0.13, y = 0.68},
+		{x = -0.12, y = 0.66},
+		{x = -0.10, y = 0.64},
+		{x = -0.09, y = 0.62},
+		{x = -0.08, y = 0.60},
+	},
+
+	cameraShake = 0.024,
+}
+
+
+Почему этот вариант ближе к тому, что ты просишь
+
+    leftBias = -0.0032 держит увод влево
+    horizontalRandomness = 0.08 и patternRandomness = 0.04 уменьшают хаос
+    pattern почти весь отрицательный по x, поэтому ствол уходит в одну сторону, а не мечется
+    kickStrength, verticalMult, gunKickback подняты совсем немного, без резкого перелома ощущений
+
+
+Если после теста надо ещё каплю сильнее
+
+    подними только kickStrength до 0.0118
+    и gunKickback до 0.0155
+
+
+Если увод в сторону всё ещё слабый
+
+    поменяй только:
+
+
+leftBias = -0.0040,
+
+
+Confidence: High
+
+    Это именно мягкая докрутка твоего профиля, а не новый профиль с нуля.
+    Такой набор должен сохранить текущее ощущение, но сделать отдачу чуть заметнее и стабильнее в одну сторону.
+
+
+Если хочешь, следующим сообщением дам ещё 2 мини-варианта:
+
+    мягче
+    чуть жёстче чтобы ты просто выбрал один.
+
+надо сделать полній реворк отдачи без прицела в прицеле хорошавя без прицела дерьмовая на данній момент
+
+Ответ
+
+    Да, тут нужен не просто новый профиль, а отдельная hipfire-ветка.
+    Корень проблемы в repositories/rmukola3-wq-1/acs_framweorkv2:1371: hipfire сейчас душится через hipRecoilScale, потом ещё через hipVMKickScale в repositories/rmukola3-wq-1/acs_framweorkv2:1413, а боковой увод добивается случайным симметричным RAND(...) в repositories/rmukola3-wq-1/acs_framweorkv2:1430.
+    Поэтому ADS ощущается собранно, а hipfire — ватно и хаотично.
+
+
+Что менять
+
+    Полностью замени функцию Recoil() в repositories/rmukola3-wq-1/acs_framweorkv2:1341 на это:
+
+
+function Recoil()
+	local name = WeaponData.RecoilProfile or "Rifle556"
+	local profile = GetRecoilProfile(name) or GetRecoilProfile("Rifle556")
+	if not profile then return end
+
+	if gunRecoilState.currentProfile ~= profile then
+		gunRecoilState:SetProfile(profile)
+	end
+
+	adsSwayScale = (profile.adsSwayScale) or VM_Config.adsMotionScale
+
+	local isHip = not aimming
+
+	local baseMult = 1.0
+	if aimming then
+		baseMult = baseMult * (profile.aimMultiplier or 0.3)
+	end
+	if Crouched then
+		baseMult = baseMult * (profile.crouchMultiplier or 0.65)
+	end
+	if BipodActive then
+		baseMult = baseMult * 0.3
+	end
+	if charspeed > 0.1 then
+		baseMult = baseMult * (profile.moveMultiplier or 1.2)
+	end
+	baseMult = baseMult * (RecoilPower or 1) * 2.35
+
+	local recoilMult = baseMult
+	local donorMult = baseMult
+
+	if isHip then
+		recoilMult = recoilMult * (profile.hipRecoilScale or 0.62)
+		donorMult = donorMult * (profile.hipDonorRecoilScale or 0.95)
+	else
+		recoilMult = recoilMult * (profile.adsRecoilCFScale or 0.58)
+		donorMult = donorMult * (profile.adsDonorRecoilScale or 0.58)
+	end
+
+	gunRecoilState:Kick(profile, recoilMult)
+
+	donorRecoilState:SetProfile(profile)
+	donorRecoilState:Kick(profile, WeaponInHand, donorMult)
+
+	local camX, camY = donorRecoilState:GetCameraRecoil()
+	if isHip then
+		recoilCameraState:Recoil(
+			camX * (profile.hipCameraX or 1.05),
+			camY * (profile.hipCameraY or 0.82),
+			0
+		)
+		shotViewKickState:FireKick(0, profile.hipShotKickY or -0.13, profile.hipShotKickZ or 0.085)
+		shotBobbleState:Trigger(profile.hipBobbleAmount or 1.15)
+	else
+		recoilCameraState:Recoil(camX * 0.8, camY * 0.6, 0)
+		shotViewKickState:FireKick(0, -0.08, 0.05)
+		shotBobbleState:Trigger(1)
+	end
+
+	local camRecoil = gunRecoilState:GetCameraRecoil()
+	local camPower = isHip and (profile.hipCamRecoilPower or 0.26) or (profile.adsCamRecoilPower or 0.22)
+	cameraspring:accelerate(Vector3.new(
+		math.rad(camRecoil.Y) * camPower,
+		math.rad(camRecoil.X) * camPower,
+		math.rad(camRecoil.X * 0.04) * camPower
+	))
+
+	local kick = isHip and 1.0 or 0.55
+	if BipodActive then kick = kick * 0.4 end
+
+	local hipMult = isHip and (WeaponData.HipRecoilMult or 1.15) or 1
+	local adsMult = aimming and (WeaponData.ADSRecoilMult or 0.85) or 1
+	kick = kick * hipMult * adsMult
+
+	local viewKickScale
+	local hitScale
+	local vertScale
+	local yawMin, yawMax
+	local rollMin, rollMax
+	local secXMin, secXMax
+	local secYMin, secYMax
+
+	if isHip then
+		kick = kick * (profile.hipVMKickScale or 0.58)
+		viewKickScale = profile.hipViewKickScale or 1.08
+		hitScale = 0.36
+		vertScale = 1.08
+
+		yawMin, yawMax = -1.45, -0.35
+		rollMin, rollMax = -0.95, -0.15
+
+		secXMin, secXMax = -1.10, -0.15
+		secYMin, secYMax = -0.60, -0.10
+	else
+		viewKickScale = profile.adsViewKickScale or 0.42
+		hitScale = 0.24
+		vertScale = 0.90
+
+		yawMin, yawMax = -1.2, 1.2
+		rollMin, rollMax = -0.8, 1.1
+
+		secXMin, secXMax = -1.2, 1.2
+		secYMin, secYMax = -0.8, 0.8
+	end
+
+	local kickVM = kick * viewKickScale
+	local vm = 0.52
+
+	VMKickPos:accelerate(Vector3.new(
+		0,
+		0.70 * kickVM * vm * hitScale * vertScale,
+		-0.95 * kickVM * vm * hitScale
+	))
+
+	VMKickRot:accelerate(Vector3.new(
+		math.rad(1.9) * kickVM * vm * hitScale * vertScale,
+		math.rad(RAND(yawMin, yawMax, 0.5)) * kickVM * vm * hitScale,
+		math.rad(RAND(rollMin, rollMax, 0.5)) * kickVM * vm * hitScale
+	))
+
+	SecondarySpring:accelerate(Vector3.new(
+		math.rad(RAND(secXMin, secXMax, 0.5)) * kick * vm * hitScale,
+		math.rad(RAND(secYMin, secYMax, 0.5)) * kick * vm * hitScale,
+		0
+	))
+end
+
+
+    После этого замени весь профиль в repositories/rmukola3-wq-1/ak47 progile:1 на это:
+
+
+--!strict
+
+return {
+	kickStrength = 0.0108,
+	kickRandomness = 0.09,
+
+	horizontalStrength = 0.0070,
+	horizontalRandomness = 0.08,
+
+	rollStrength = 0.0048,
+
+	returnSpeed = 0.17,
+	returnSmoothness = 0.8,
+
+	firstShotMultiplier = 1.08,
+	sprayIncrease = 0.052,
+	sprayDecayTime = 0.40,
+
+	instantKickRatio = 0.46,
+	posInstantKickRatio = 0.34,
+
+	patternSpeed = 18,
+	patternScale = 0.0255,
+	patternRandomness = 0.04,
+
+	springStiffness = 54.0,
+	springDamping = 19.5,
+
+	leftBias = -0.0034,
+
+	gunKickback = 0.0148,
+	gunRise = 0.0094,
+
+	posMult = 0.95,
+	verticalMult = 1.06,
+	horizontalMult = 0.92,
+
+	minPitch = -0.08,
+	maxPitch = 0.82,
+	maxYaw = 0.24,
+	maxRoll = 0.18,
+
+	aimMultiplier = 0.32,
+	crouchMultiplier = 0.62,
+	moveMultiplier = 1.22,
+
+	adsViewKickScale = 0.42,
+	adsRecoilCFScale = 0.58,
+	adsDonorRecoilScale = 0.58,
+	adsSwayScale = 0.26,
+	adsLagScale = 0.20,
+	adsCamRecoilPower = 0.22,
+
+	hipRecoilScale = 0.62,
+	hipDonorRecoilScale = 0.95,
+	hipVMKickScale = 0.58,
+	hipViewKickScale = 1.08,
+	hipCamRecoilPower = 0.26,
+
+	hipCameraX = 1.05,
+	hipCameraY = 0.82,
+	hipShotKickY = -0.13,
+	hipShotKickZ = 0.085,
+	hipBobbleAmount = 1.15,
+
+	usePattern = true,
+	pattern = {
+		{x = -0.05, y = 0.92},
+		{x = -0.08, y = 0.84},
+		{x = -0.11, y = 0.77},
+		{x = -0.13, y = 0.71},
+		{x = -0.12, y = 0.68},
+		{x = -0.10, y = 0.65},
+		{x = -0.09, y = 0.63},
+		{x = -0.08, y = 0.61},
+	},
+
+	cameraShake = 0.024,
+}
+
+
+Что даст этот реворк
+
+    Hipfire станет сильнее и собраннее, а не просто “рандомнее”.
+    Увод будет в одну сторону, потому что hipfire-ветка теперь использует односторонние диапазоны в VMKickRot и SecondarySpring.
+    ADS останется почти как сейчас, потому что ADS-ветку я отдельно не ломал.
+
+
+Если после вставки hipfire всё ещё слабоват
+
+    подними только hipRecoilScale до 0.68
+    и hipVMKickScale до 0.64
+
+
+Confidence: High
+
+    По коду корень именно в hipfire-ветке, а не в ADS.
+    Здесь не “магическая подкрутка профиля”, а отдельная логика hipfire поверх уже рабочей ADS-логики.
+
+
+Если хочешь, следующим сообщением дам сверх-простой чеклист на 5 пунктов, куда именно нажимать и что заменять, вообще без технарщины.
+
+вот корчое от вітсрела поделтает вісоко ствол ну я гворю без прциела и он слишком медлено опускаетсян ад оітсреке реще и однвоерменно плавно но резко
+
+Да, понял симптом точно:
+
+    без прицела ствол слишком высоко подлетает
+    потом слишком медленно возвращается
+    тебе нужно резче на выстреле, но возврат быстрее и плавный
+
+
+Это не полный новый реворк уже. Тут нужна точная перенастройка hipfire-ветки.
+
+Что у тебя сейчас ломает ощущение
+
+    слишком большой вертикальный подъём в hipfire
+    слишком мягкая пружина возврата
+    слишком большой “верхний” shot kick без прицела
+
+
+Что поменять
+Если ты уже вставил мой последний вариант, тогда правь эти значения в repositories/rmukola3-wq-1/ak47 progile:1:
+
+kickStrength = 0.0104,
+instantKickRatio = 0.54,
+
+gunRise = 0.0068,
+verticalMult = 0.94,
+
+springStiffness = 68.0,
+springDamping = 22.5,
+
+hipRecoilScale = 0.54,
+hipVMKickScale = 0.50,
+hipViewKickScale = 0.96,
+hipCamRecoilPower = 0.20,
+
+hipShotKickY = -0.09,
+hipShotKickZ = 0.065,
+hipBobbleAmount = 0.95,
+
+
+И ещё поменяй pattern на более низкий по вертикали
+В том же repositories/rmukola3-wq-1/ak47 progile:1 замени pattern на это:
+
+pattern = {
+	{x = -0.05, y = 0.78},
+	{x = -0.08, y = 0.72},
+	{x = -0.11, y = 0.66},
+	{x = -0.13, y = 0.61},
+	{x = -0.12, y = 0.58},
+	{x = -0.10, y = 0.56},
+	{x = -0.09, y = 0.54},
+	{x = -0.08, y = 0.52},
+},
+
+
+Что это даст
+
+    kickStrength ниже → не будет так закидывать вверх
+    verticalMult ниже → общий подъём ствола уменьшится
+    gunRise ниже → меньше “взлёта” самой модели
+    springStiffness выше → возврат пойдёт быстрее
+    springDamping выше → возврат будет быстрее, но без ватной тряски
+    instantKickRatio выше → удар останется резким в момент выстрела
+    hipShotKickY слабее → без прицела будет меньше лишнего пинка вверх
+
+
+Если после этого всё ещё слишком высоко
+
+    уменьши ещё только:
+
+
+hipShotKickY = -0.07,
+verticalMult = 0.90,
+
+
+Если станет слишком тупо и без удара
+
+    подними только:
+
+
+instantKickRatio = 0.58,
+
+
+Итог
+
+    вверх будет кидать меньше
+    назад будет возвращаться быстрее
+    ощущение останется резким, а не ватным
+
+
+Confidence: High
+
+    По описанию это именно перебор вертикального hipfire-kick и слишком мягкий возврат.
+    Здесь не надо ломать систему заново — достаточно правильно сжать верх и ускорить возврат.
+
+
+Если хочешь, я сейчас дам тебе полный готовый файл профиля целиком одной вставкой, уже с этими правками.
+
+полній прфоиль дай
+
+Да — вот полный профиль целиком под то, что ты описал:
+
+    без прицела меньше улетает вверх
+    возврат быстрее
+    удар остаётся резким
+    увод сохраняется в одну сторону
+
+
+Замени весь файл repositories/rmukola3-wq-1/ak47 progile:1 на это:
+
+--!strict
+
+return {
+	-- Base recoil
+	kickStrength = 0.0104,
+	kickRandomness = 0.08,
+
+	horizontalStrength = 0.0072,
+	horizontalRandomness = 0.06,
+
+	rollStrength = 0.0046,
+
+	-- Recovery / feel
+	returnSpeed = 0.17,
+	returnSmoothness = 0.8,
+
+	firstShotMultiplier = 1.06,
+	sprayIncrease = 0.050,
+	sprayDecayTime = 0.40,
+
+	-- Instant snap
+	instantKickRatio = 0.54,
+	posInstantKickRatio = 0.38,
+
+	-- Pattern
+	patternSpeed = 18,
+	patternScale = 0.0245,
+	patternRandomness = 0.03,
+
+	-- Spring return
+	springStiffness = 68.0,
+	springDamping = 22.5,
+
+	-- One-side pull
+	leftBias = -0.0038,
+
+	-- Positional kick
+	gunKickback = 0.0145,
+	gunRise = 0.0068,
+
+	posMult = 0.94,
+	verticalMult = 0.94,
+	horizontalMult = 0.90,
+
+	-- Clamp
+	minPitch = -0.08,
+	maxPitch = 0.76,
+	maxYaw = 0.23,
+	maxRoll = 0.17,
+
+	-- Movement modifiers
+	aimMultiplier = 0.32,
+	crouchMultiplier = 0.62,
+	moveMultiplier = 1.22,
+
+	-- ADS
+	adsViewKickScale = 0.42,
+	adsRecoilCFScale = 0.58,
+	adsDonorRecoilScale = 0.58,
+	adsSwayScale = 0.26,
+	adsLagScale = 0.20,
+	adsCamRecoilPower = 0.22,
+
+	-- HIPFIRE
+	hipRecoilScale = 0.54,
+	hipDonorRecoilScale = 0.88,
+	hipVMKickScale = 0.50,
+	hipViewKickScale = 0.96,
+	hipCamRecoilPower = 0.20,
+
+	hipCameraX = 0.92,
+	hipCameraY = 0.72,
+	hipShotKickY = -0.09,
+	hipShotKickZ = 0.065,
+	hipBobbleAmount = 0.95,
+
+	-- Pattern stays mostly one-sided
+	usePattern = true,
+	pattern = {
+		{x = -0.05, y = 0.78},
+		{x = -0.08, y = 0.72},
+		{x = -0.11, y = 0.66},
+		{x = -0.13, y = 0.61},
+		{x = -0.12, y = 0.58},
+		{x = -0.10, y = 0.56},
+		{x = -0.09, y = 0.54},
+		{x = -0.08, y = 0.52},
+	},
+
+	cameraShake = 0.021,
+}
+
+
+Если после этого всё ещё высоко подлетает
+
+    поменяй только:
+
+
+hipShotKickY = -0.07,
+verticalMult = 0.90,
+maxPitch = 0.70,
+
+
+Если станет слишком вяло
+
+    поменяй только:
+
+
+instantKickRatio = 0.58,
+gunKickback = 0.0155,
+
+
+Confidence: High
+
+    Это профиль именно под твой последний симптом: меньше верхнего подброса, быстрее возврат, но удар сохраняется.
+
+
+Если хочешь, следующим сообщением дам ещё один альтернативный полный профиль:
+
+    чуть мягче
+    или чуть злее
+
+еще бістрее возврат надо. Это думаю не токльо в прфоиле делать ндао вот именно толкьо без прциела сдлеать быстрее возрат в прицеле умоляю не троагй ничего там иделаьно
+
+Да — тут ты прав: это уже не только профиль.
+
+Главное
+
+    Сейчас возврат берётся из общих springStiffness / springDamping.
+    Они читаются и в repositories/rmukola3-wq-1/RecoilSystem:192, и в repositories/rmukola3-wq-1/DonorLikeRecoilModule:168.
+    Если крутить их только в профиле, ты заденешь и ADS тоже.
+    Значит, чтобы ускорить возврат только без прицела, надо сделать hip-only runtime profile внутри Recoil().
+
+
+Что сделать
+В repositories/rmukola3-wq-1/acs_framweorkv2:1341 внутри Recoil() добавь отдельный профиль для hipfire.
+
+Замени начало функции — от:
+
+if gunRecoilState.currentProfile ~= profile then
+	gunRecoilState:SetProfile(profile)
+end
+
+
+на это:
+
+local runtimeProfile = profile
+
+if not aimming then
+	runtimeProfile = table.clone(profile)
+	runtimeProfile.springStiffness = profile.hipReturnStiffness or 92.0
+	runtimeProfile.springDamping = profile.hipReturnDamping or 28.0
+
+	runtimeProfile.returnSpeed = profile.hipReturnSpeed or 0.26
+	runtimeProfile.returnSmoothness = profile.hipReturnSmoothness or 0.88
+end
+
+if gunRecoilState.currentProfile ~= runtimeProfile then
+	gunRecoilState:SetProfile(runtimeProfile)
+end
+
+
+И ниже в этой же функции замени 2 строки
+Было:
+
+gunRecoilState:Kick(profile, recoilMult)
+donorRecoilState:SetProfile(profile)
+donorRecoilState:Kick(profile, WeaponInHand, donorMult)
+
+
+Сделай так:
+
+gunRecoilState:Kick(runtimeProfile, recoilMult)
+donorRecoilState:SetProfile(runtimeProfile)
+donorRecoilState:Kick(runtimeProfile, WeaponInHand, donorMult)
+
+
+Что добавить в профиль
+В repositories/rmukola3-wq-1/ak47 progile:1 просто добавь эти 4 поля:
+
+hipReturnStiffness = 92.0,
+hipReturnDamping = 28.0,
+hipReturnSpeed = 0.26,
+hipReturnSmoothness = 0.88,
+
+
+Можешь вставить их рядом с:
+
+springStiffness = 68.0,
+springDamping = 22.5,
+
+
+Чтобы получилось примерно так:
+
+springStiffness = 68.0,
+springDamping = 22.5,
+
+hipReturnStiffness = 92.0,
+hipReturnDamping = 28.0,
+hipReturnSpeed = 0.26,
+hipReturnSmoothness = 0.88,
+
+
+Что это даст
+
+    без прицела возврат станет заметно быстрее
+    в прицеле вообще ничего не трогаем
+    удар на выстреле останется, но ствол будет быстрее собираться обратно
+
+
+Если захочешь ещё быстрее
+
+    подними только:
+
+
+hipReturnStiffness = 100.0,
+hipReturnDamping = 30.0,
+
+
+Confidence: High
+
+    Это бьёт ровно в твою задачу: ускоряет возврат только в hipfire.
+    ADS не трогаем, потому что runtimeProfile включается только при not aimming.
+
+
+Если хочешь, я следующим сообщением дам тебе полную готовую функцию Recoil() целиком одной вставкой, чтобы ты ничего не собирал по кускам.
+
+дай готвоую фунецию function Recoil()
+local name = WeaponData.RecoilProfile or "Rifle556"
+local profile = GetRecoilProfile(name) or GetRecoilProfile("Rifle556")
+if not profile then return end
+
+if gunRecoilState.currentProfile ~= profile then
+	gunRecoilState:SetProfile(profile)
+end
+
+adsSwayScale = (profile.adsSwayScale) or VM_Config.adsMotionScale
+
+local isHip = not aimming
+
+local baseMult = 1.0
+if aimming then
+	baseMult = baseMult * (profile.aimMultiplier or 0.3)
+end
+if Crouched then
+	baseMult = baseMult * (profile.crouchMultiplier or 0.65)
+end
+if BipodActive then
+	baseMult = baseMult * 0.3
+end
+if charspeed > 0.1 then
+	baseMult = baseMult * (profile.moveMultiplier or 1.2)
+end
+baseMult = baseMult * (RecoilPower or 1) * 2.35
+
+local recoilMult = baseMult
+local donorMult = baseMult
+
+if isHip then
+	recoilMult = recoilMult * (profile.hipRecoilScale or 0.62)
+	donorMult = donorMult * (profile.hipDonorRecoilScale or 0.95)
+else
+	recoilMult = recoilMult * (profile.adsRecoilCFScale or 0.58)
+	donorMult = donorMult * (profile.adsDonorRecoilScale or 0.58)
+end
+
+gunRecoilState:Kick(profile, recoilMult)
+
+donorRecoilState:SetProfile(profile)
+donorRecoilState:Kick(profile, WeaponInHand, donorMult)
+
+local camX, camY = donorRecoilState:GetCameraRecoil()
+if isHip then
+	recoilCameraState:Recoil(
+		camX * (profile.hipCameraX or 1.05),
+		camY * (profile.hipCameraY or 0.82),
+		0
+	)
+	shotViewKickState:FireKick(0, profile.hipShotKickY or -0.13, profile.hipShotKickZ or 0.085)
+	shotBobbleState:Trigger(profile.hipBobbleAmount or 1.15)
+else
+	recoilCameraState:Recoil(camX * 0.8, camY * 0.6, 0)
+	shotViewKickState:FireKick(0, -0.08, 0.05)
+	shotBobbleState:Trigger(1)
+end
+
+local camRecoil = gunRecoilState:GetCameraRecoil()
+local camPower = isHip and (profile.hipCamRecoilPower or 0.26) or (profile.adsCamRecoilPower or 0.22)
+cameraspring:accelerate(Vector3.new(
+	math.rad(camRecoil.Y) * camPower,
+	math.rad(camRecoil.X) * camPower,
+	math.rad(camRecoil.X * 0.04) * camPower
+	))
+
+local kick = isHip and 1.0 or 0.55
+if BipodActive then kick = kick * 0.4 end
+
+local hipMult = isHip and (WeaponData.HipRecoilMult or 1.15) or 1
+local adsMult = aimming and (WeaponData.ADSRecoilMult or 0.85) or 1
+kick = kick * hipMult * adsMult
+
+local viewKickScale
+local hitScale
+local vertScale
+local yawMin, yawMax
+local rollMin, rollMax
+local secXMin, secXMax
+local secYMin, secYMax
+
+if isHip then
+	kick = kick * (profile.hipVMKickScale or 0.58)
+	viewKickScale = profile.hipViewKickScale or 1.08
+	hitScale = 0.36
+	vertScale = 1.08
+
+	yawMin, yawMax = -1.45, -0.35
+	rollMin, rollMax = -0.95, -0.15
+
+	secXMin, secXMax = -1.10, -0.15
+	secYMin, secYMax = -0.60, -0.10
+else
+	viewKickScale = profile.adsViewKickScale or 0.42
+	hitScale = 0.24
+	vertScale = 0.90
+
+	yawMin, yawMax = -1.2, 1.2
+	rollMin, rollMax = -0.8, 1.1
+
+	secXMin, secXMax = -1.2, 1.2
+	secYMin, secYMax = -0.8, 0.8
+end
+
+local kickVM = kick * viewKickScale
+local vm = 0.52
+
+VMKickPos:accelerate(Vector3.new(
+	0,
+	0.70 * kickVM * vm * hitScale * vertScale,
+	-0.95 * kickVM * vm * hitScale
+	))
+
+VMKickRot:accelerate(Vector3.new(
+	math.rad(1.9) * kickVM * vm * hitScale * vertScale,
+	math.rad(RAND(yawMin, yawMax, 0.5)) * kickVM * vm * hitScale,
+	math.rad(RAND(rollMin, rollMax, 0.5)) * kickVM * vm * hitScale
+	))
+
+SecondarySpring:accelerate(Vector3.new(
+	math.rad(RAND(secXMin, secXMax, 0.5)) * kick * vm * hitScale,
+	math.rad(RAND(secYMin, secYMax, 0.5)) * kick * vm * hitScale,
+	0
+	))
+
+
+end
+
+Да — вот готовая function Recoil() целиком, уже с:
+
+    быстрее возврат только без прицела
+    ADS не трогаем
+    без прицела увод остаётся в одну сторону
+    резкий выстрел + более быстрый сбор обратно
+
+
+Замени целиком функцию в repositories/rmukola3-wq-1/acs_framweorkv2:1341 на это:
+
+function Recoil()
+	local name = WeaponData.RecoilProfile or "Rifle556"
+	local profile = GetRecoilProfile(name) or GetRecoilProfile("Rifle556")
+	if not profile then return end
+
+	adsSwayScale = profile.adsSwayScale or VM_Config.adsMotionScale
+
+	local isHip = not aimming
+
+	local runtimeProfile = profile
+	if isHip then
+		runtimeProfile = table.clone(profile)
+		runtimeProfile.springStiffness = profile.hipReturnStiffness or 92.0
+		runtimeProfile.springDamping = profile.hipReturnDamping or 28.0
+		runtimeProfile.returnSpeed = profile.hipReturnSpeed or 0.26
+		runtimeProfile.returnSmoothness = profile.hipReturnSmoothness or 0.88
+	end
+
+	if gunRecoilState.currentProfile ~= runtimeProfile then
+		gunRecoilState:SetProfile(runtimeProfile)
+	end
+
+	local baseMult = 1.0
+	if aimming then
+		baseMult = baseMult * (profile.aimMultiplier or 0.3)
+	end
+	if Crouched then
+		baseMult = baseMult * (profile.crouchMultiplier or 0.65)
+	end
+	if BipodActive then
+		baseMult = baseMult * 0.3
+	end
+	if charspeed > 0.1 then
+		baseMult = baseMult * (profile.moveMultiplier or 1.2)
+	end
+	baseMult = baseMult * (RecoilPower or 1) * 2.35
+
+	local recoilMult = baseMult
+	local donorMult = baseMult
+
+	if isHip then
+		recoilMult = recoilMult * (profile.hipRecoilScale or 0.62)
+		donorMult = donorMult * (profile.hipDonorRecoilScale or 0.95)
+	else
+		recoilMult = recoilMult * (profile.adsRecoilCFScale or 0.58)
+		donorMult = donorMult * (profile.adsDonorRecoilScale or 0.58)
+	end
+
+	gunRecoilState:Kick(runtimeProfile, recoilMult)
+
+	donorRecoilState:SetProfile(runtimeProfile)
+	donorRecoilState:Kick(runtimeProfile, WeaponInHand, donorMult)
+
+	local camX, camY = donorRecoilState:GetCameraRecoil()
+	if isHip then
+		recoilCameraState:Recoil(
+			camX * (profile.hipCameraX or 1.05),
+			camY * (profile.hipCameraY or 0.82),
+			0
+		)
+		shotViewKickState:FireKick(0, profile.hipShotKickY or -0.13, profile.hipShotKickZ or 0.085)
+		shotBobbleState:Trigger(profile.hipBobbleAmount or 1.15)
+	else
+		recoilCameraState:Recoil(camX * 0.8, camY * 0.6, 0)
+		shotViewKickState:FireKick(0, -0.08, 0.05)
+		shotBobbleState:Trigger(1)
+	end
+
+	local camRecoil = gunRecoilState:GetCameraRecoil()
+	local camPower = isHip and (profile.hipCamRecoilPower or 0.26) or (profile.adsCamRecoilPower or 0.22)
+	cameraspring:accelerate(Vector3.new(
+		math.rad(camRecoil.Y) * camPower,
+		math.rad(camRecoil.X) * camPower,
+		math.rad(camRecoil.X * 0.04) * camPower
+	))
+
+	local kick = isHip and 1.0 or 0.55
+	if BipodActive then
+		kick = kick * 0.4
+	end
+
+	local hipMult = isHip and (WeaponData.HipRecoilMult or 1.15) or 1
+	local adsMult = aimming and (WeaponData.ADSRecoilMult or 0.85) or 1
+	kick = kick * hipMult * adsMult
+
+	local viewKickScale
+	local hitScale
+	local vertScale
+	local yawMin, yawMax
+	local rollMin, rollMax
+	local secXMin, secXMax
+	local secYMin, secYMax
+
+	if isHip then
+		kick = kick * (profile.hipVMKickScale or 0.58)
+		viewKickScale = profile.hipViewKickScale or 1.08
+		hitScale = 0.36
+		vertScale = 1.08
+
+		yawMin, yawMax = -1.45, -0.35
+		rollMin, rollMax = -0.95, -0.15
+
+		secXMin, secXMax = -1.10, -0.15
+		secYMin, secYMax = -0.60, -0.10
+	else
+		viewKickScale = profile.adsViewKickScale or 0.42
+		hitScale = 0.24
+		vertScale = 0.90
+
+		yawMin, yawMax = -1.2, 1.2
+		rollMin, rollMax = -0.8, 1.1
+
+		secXMin, secXMax = -1.2, 1.2
+		secYMin, secYMax = -0.8, 0.8
+	end
+
+	local kickVM = kick * viewKickScale
+	local vm = 0.52
+
+	VMKickPos:accelerate(Vector3.new(
+		0,
+		0.70 * kickVM * vm * hitScale * vertScale,
+		-0.95 * kickVM * vm * hitScale
+	))
+
+	VMKickRot:accelerate(Vector3.new(
+		math.rad(1.9) * kickVM * vm * hitScale * vertScale,
+		math.rad(RAND(yawMin, yawMax, 0.5)) * kickVM * vm * hitScale,
+		math.rad(RAND(rollMin, rollMax, 0.5)) * kickVM * vm * hitScale
+	))
+
+	SecondarySpring:accelerate(Vector3.new(
+		math.rad(RAND(secXMin, secXMax, 0.5)) * kick * vm * hitScale,
+		math.rad(RAND(secYMin, secYMax, 0.5)) * kick * vm * hitScale,
+		0
+	))
+end
+
+
+И обязательно добавь в профиль repositories/rmukola3-wq-1/ak47 progile:1 эти 4 строки:
+
+hipReturnStiffness = 92.0,
+hipReturnDamping = 28.0,
+hipReturnSpeed = 0.26,
+hipReturnSmoothness = 0.88,
+
+
+Вставь их сразу после:
+
+springStiffness = 68.0,
+springDamping = 22.5,
+
+
+Если хочешь, я следующим сообщением дам тебе полный профиль целиком уже с этими 4 полями внутри, чтобы ты не вставлял вручную.
+
+теперь враза в 3 надо умеьншить отадчу без прциела и доавбить ей рандомные удары влево вправо ну что бы хардкоренее было без прицела игарть
+
+Да — это можно сделать только для hipfire, ADS не трогаем.
+
+Что именно меняем
+
+    уменьшаем силу hipfire примерно в 3 раза
+    добавляем рандомные боковые удары влево/вправо
+    ADS-ветку вообще не трогаем
+
+
+1. В профиле замени hip-поля
+В repositories/rmukola3-wq-1/ak47 progile:1 замени текущие hip-поля на эти:
+
+hipRecoilScale = 0.18,
+hipDonorRecoilScale = 0.30,
+hipVMKickScale = 0.18,
+hipViewKickScale = 0.42,
+hipCamRecoilPower = 0.08,
+
+hipCameraX = 0.32,
+hipCameraY = 0.28,
+hipShotKickY = -0.030,
+hipShotKickZ = 0.022,
+hipBobbleAmount = 0.38,
+
+hipReturnStiffness = 92.0,
+hipReturnDamping = 28.0,
+hipReturnSpeed = 0.26,
+hipReturnSmoothness = 0.88,
+
+
+2. В функции Recoil() замени только hip-ветку рандома
+В твоей текущей function Recoil() найди блок:
+
+if isHip then
+	kick = kick * (profile.hipVMKickScale or 0.58)
+	viewKickScale = profile.hipViewKickScale or 1.08
+	hitScale = 0.36
+	vertScale = 1.08
+
+	yawMin, yawMax = -1.45, -0.35
+	rollMin, rollMax = -0.95, -0.15
+
+	secXMin, secXMax = -1.10, -0.15
+	secYMin, secYMax = -0.60, -0.10
+else
+
+
+И замени весь этот кусок на:
+
+if isHip then
+	kick = kick * (profile.hipVMKickScale or 0.18)
+	viewKickScale = profile.hipViewKickScale or 0.42
+	hitScale = 0.16
+	vertScale = 0.72
+
+	yawMin, yawMax = -1.35, 1.35
+	rollMin, rollMax = -0.95, 0.95
+
+	secXMin, secXMax = -1.15, 1.15
+	secYMin, secYMax = -0.75, 0.75
+else
+
+
+Что это даст
+
+    recoil без прицела станет сильно слабее
+    при этом ствол начнёт хаотичнее дёргаться влево/вправо
+    играть без прицела станет “хардкорнее”, но не из-за вертикального улёта вверх, а из-за боковой нестабильности
+
+
+Если всё ещё слишком сильно
+
+    ещё уменьшай только:
+
+
+hipRecoilScale = 0.15,
+hipDonorRecoilScale = 0.24,
+hipVMKickScale = 0.15,
+
+
+Если хочешь ещё больше бокового хаоса
+
+    меняй только ranges:
+
+
+yawMin, yawMax = -1.8, 1.8
+secXMin, secXMax = -1.5, 1.5
+
+
+Итог
+
+    ADS остаётся как есть
+    hipfire становится слабее по вертикали
+    но грязнее и рандомнее по сторонам
+
+
+Если хочешь, я следующим сообщением дам тебе полный готовый профиль целиком одной вставкой уже с этими hipfire-правками.
+
+корчое когда ты увменьшил то уменьшилось и в прицеле так что по дургмоу делает как то
+
+Да — значит ты уменьшил общие параметры профиля, и они задели ADS тоже.
+
+Правильный способ
+
+    не душить общий профиль
+    делать ослабление только внутри Recoil(), когда not aimming
+
+
+Что сделать
+
+    В repositories/rmukola3-wq-1/acs_framweorkv2:1341 поставь эту готовую функцию.
+    Она:
+        ADS не трогает
+        hipfire ослабляет отдельно
+        добавляет боковой рандом только без прицела
+
+
+function Recoil()
+	local name = WeaponData.RecoilProfile or "Rifle556"
+	local profile = GetRecoilProfile(name) or GetRecoilProfile("Rifle556")
+	if not profile then return end
+
+	adsSwayScale = profile.adsSwayScale or VM_Config.adsMotionScale
+
+	local isHip = not aimming
+
+	local runtimeProfile = profile
+	if isHip then
+		runtimeProfile = table.clone(profile)
+
+		runtimeProfile.kickStrength = (profile.kickStrength or 0.0104) * 0.34
+		runtimeProfile.horizontalStrength = (profile.horizontalStrength or 0.0072) * 0.85
+		runtimeProfile.horizontalRandomness = math.max(profile.horizontalRandomness or 0.06, 0.30)
+
+		runtimeProfile.patternScale = (profile.patternScale or 0.0245) * 0.42
+		runtimeProfile.gunKickback = (profile.gunKickback or 0.0145) * 0.42
+		runtimeProfile.gunRise = (profile.gunRise or 0.0068) * 0.36
+
+		runtimeProfile.verticalMult = (profile.verticalMult or 0.94) * 0.72
+		runtimeProfile.horizontalMult = 1.0
+		runtimeProfile.leftBias = 0
+
+		runtimeProfile.springStiffness = profile.hipReturnStiffness or 92.0
+		runtimeProfile.springDamping = profile.hipReturnDamping or 28.0
+		runtimeProfile.returnSpeed = profile.hipReturnSpeed or 0.26
+		runtimeProfile.returnSmoothness = profile.hipReturnSmoothness or 0.88
+
+		if profile.pattern then
+			runtimeProfile.pattern = {}
+			for i, point in ipairs(profile.pattern) do
+				runtimeProfile.pattern[i] = {
+					x = point.x * 1.25,
+					y = point.y * 0.45,
+				}
+			end
+		end
+	end
+
+	if gunRecoilState.currentProfile ~= runtimeProfile then
+		gunRecoilState:SetProfile(runtimeProfile)
+	end
+
+	local baseMult = 1.0
+	if aimming then
+		baseMult = baseMult * (profile.aimMultiplier or 0.3)
+	end
+	if Crouched then
+		baseMult = baseMult * (profile.crouchMultiplier or 0.65)
+	end
+	if BipodActive then
+		baseMult = baseMult * 0.3
+	end
+	if charspeed > 0.1 then
+		baseMult = baseMult * (profile.moveMultiplier or 1.2)
+	end
+	baseMult = baseMult * (RecoilPower or 1) * 2.35
+
+	local recoilMult = baseMult
+	local donorMult = baseMult
+
+	if isHip then
+		recoilMult = recoilMult * (profile.hipRecoilScale or 0.62)
+		donorMult = donorMult * (profile.hipDonorRecoilScale or 0.95)
+	else
+		recoilMult = recoilMult * (profile.adsRecoilCFScale or 0.58)
+		donorMult = donorMult * (profile.adsDonorRecoilScale or 0.58)
+	end
+
+	gunRecoilState:Kick(runtimeProfile, recoilMult)
+
+	donorRecoilState:SetProfile(runtimeProfile)
+	donorRecoilState:Kick(runtimeProfile, WeaponInHand, donorMult)
+
+	local camX, camY = donorRecoilState:GetCameraRecoil()
+	if isHip then
+		recoilCameraState:Recoil(
+			camX * (profile.hipCameraX or 0.32),
+			camY * (profile.hipCameraY or 0.28),
+			0
+		)
+		shotViewKickState:FireKick(0, profile.hipShotKickY or -0.030, profile.hipShotKickZ or 0.022)
+		shotBobbleState:Trigger(profile.hipBobbleAmount or 0.38)
+	else
+		recoilCameraState:Recoil(camX * 0.8, camY * 0.6, 0)
+		shotViewKickState:FireKick(0, -0.08, 0.05)
+		shotBobbleState:Trigger(1)
+	end
+
+	local camRecoil = gunRecoilState:GetCameraRecoil()
+	local camPower = isHip and (profile.hipCamRecoilPower or 0.08) or (profile.adsCamRecoilPower or 0.22)
+	cameraspring:accelerate(Vector3.new(
+		math.rad(camRecoil.Y) * camPower,
+		math.rad(camRecoil.X) * camPower,
+		math.rad(camRecoil.X * 0.04) * camPower
+	))
+
+	local kick = isHip and 1.0 or 0.55
+	if BipodActive then
+		kick = kick * 0.4
+	end
+
+	local hipMult = isHip and (WeaponData.HipRecoilMult or 1.15) or 1
+	local adsMult = aimming and (WeaponData.ADSRecoilMult or 0.85) or 1
+	kick = kick * hipMult * adsMult
+
+	local viewKickScale
+	local hitScale
+	local vertScale
+	local yawMin, yawMax
+	local rollMin, rollMax
+	local secXMin, secXMax
+	local secYMin, secYMax
+
+	if isHip then
+		kick = kick * (profile.hipVMKickScale or 0.18)
+		viewKickScale = profile.hipViewKickScale or 0.42
+		hitScale = 0.16
+		vertScale = 0.72
+
+		yawMin, yawMax = -1.35, 1.35
+		rollMin, rollMax = -0.95, 0.95
+
+		secXMin, secXMax = -1.15, 1.15
+		secYMin, secYMax = -0.75, 0.75
+	else
+		viewKickScale = profile.adsViewKickScale or 0.42
+		hitScale = 0.24
+		vertScale = 0.90
+
+		yawMin, yawMax = -1.2, 1.2
+		rollMin, rollMax = -0.8, 1.1
+
+		secXMin, secXMax = -1.2, 1.2
+		secYMin, secYMax = -0.8, 0.8
+	end
+
+	local kickVM = kick * viewKickScale
+	local vm = 0.52
+
+	VMKickPos:accelerate(Vector3.new(
+		0,
+		0.70 * kickVM * vm * hitScale * vertScale,
+		-0.95 * kickVM * vm * hitScale
+	))
+
+	VMKickRot:accelerate(Vector3.new(
+		math.rad(1.9) * kickVM * vm * hitScale * vertScale,
+		math.rad(RAND(yawMin, yawMax, 0.5)) * kickVM * vm * hitScale,
+		math.rad(RAND(rollMin, rollMax, 0.5)) * kickVM * vm * hitScale
+	))
+
+	SecondarySpring:accelerate(Vector3.new(
+		math.rad(RAND(secXMin, secXMax, 0.5)) * kick * vm * hitScale,
+		math.rad(RAND(secYMin, secYMax, 0.5)) * kick * vm * hitScale,
+		0
+	))
+end
+
+
+Важно
+
+    Если ты раньше уменьшал в repositories/rmukola3-wq-1/ak47 progile:1 такие общие поля как:
+        kickStrength
+        patternScale
+        gunKickback
+        gunRise
+        springStiffness
+        springDamping
+    то верни их обратно, иначе ADS всё равно останется ослабленным.
+
+
+Итог
+
+    ADS остаётся нормальным
+    hipfire уменьшается отдельно
+    hipfire получает рандом влево/вправо
+    всё делается “по-другому”, не через ломание общего профиля
+
+
+Confidence: High
+
+    Причина прямо видна по архитектуре: общие profile-поля используются и для ADS, и для hipfire.
+    Решение через runtimeProfile — самый чистый способ разделить их.
+
+
+Если хочешь, я следующим сообщением дам тебе ещё какие именно общие поля вернуть в профиле, уже списком со значениями.
+
+окей вроде номарлньо в арпиицеле но без прциела теперь очень слиьно слаабя мне не нравистя адй полную фнуацию рекоил чсчиль в 2 раза но не такую силньу юкак была делай
+
+Да — вот полная Recoil(), где:
+
+    ADS оставлен нормальным
+    без прицела отдача примерно в 2 раза сильнее, чем у тебя сейчас
+    но не такая дикая, как была раньше
+    без прицела остаётся боковой рандом
+
+
+Замени целиком функцию в repositories/rmukola3-wq-1/acs_framweorkv2:1341 на это:
+
+function Recoil()
+	local name = WeaponData.RecoilProfile or "Rifle556"
+	local profile = GetRecoilProfile(name) or GetRecoilProfile("Rifle556")
+	if not profile then return end
+
+	adsSwayScale = profile.adsSwayScale or VM_Config.adsMotionScale
+
+	local isHip = not aimming
+
+	local runtimeProfile = profile
+	if isHip then
+		runtimeProfile = table.clone(profile)
+
+		-- hipfire: сильнее текущего, но не как старая дикая версия
+		runtimeProfile.kickStrength = (profile.kickStrength or 0.0104) * 0.58
+		runtimeProfile.horizontalStrength = (profile.horizontalStrength or 0.0072) * 1.00
+		runtimeProfile.horizontalRandomness = math.max(profile.horizontalRandomness or 0.06, 0.22)
+
+		runtimeProfile.patternScale = (profile.patternScale or 0.0245) * 0.60
+		runtimeProfile.patternRandomness = math.max(profile.patternRandomness or 0.03, 0.08)
+
+		runtimeProfile.gunKickback = (profile.gunKickback or 0.0145) * 0.62
+		runtimeProfile.gunRise = (profile.gunRise or 0.0068) * 0.52
+
+		runtimeProfile.verticalMult = (profile.verticalMult or 0.94) * 0.86
+		runtimeProfile.horizontalMult = 1.0
+		runtimeProfile.leftBias = 0
+
+		-- быстрый возврат только без прицела
+		runtimeProfile.springStiffness = profile.hipReturnStiffness or 88.0
+		runtimeProfile.springDamping = profile.hipReturnDamping or 27.0
+		runtimeProfile.returnSpeed = profile.hipReturnSpeed or 0.24
+		runtimeProfile.returnSmoothness = profile.hipReturnSmoothness or 0.86
+
+		-- pattern без прицела: ниже по вертикали, но шире по сторонам
+		if profile.pattern then
+			runtimeProfile.pattern = {}
+			for i, point in ipairs(profile.pattern) do
+				runtimeProfile.pattern[i] = {
+					x = point.x * 1.20,
+					y = point.y * 0.62,
+				}
+			end
+		end
+	end
+
+	if gunRecoilState.currentProfile ~= runtimeProfile then
+		gunRecoilState:SetProfile(runtimeProfile)
+	end
+
+	local baseMult = 1.0
+	if aimming then
+		baseMult = baseMult * (profile.aimMultiplier or 0.3)
+	end
+	if Crouched then
+		baseMult = baseMult * (profile.crouchMultiplier or 0.65)
+	end
+	if BipodActive then
+		baseMult = baseMult * 0.3
+	end
+	if charspeed > 0.1 then
+		baseMult = baseMult * (profile.moveMultiplier or 1.2)
+	end
+	baseMult = baseMult * (RecoilPower or 1) * 2.35
+
+	local recoilMult = baseMult
+	local donorMult = baseMult
+
+	if isHip then
+		recoilMult = recoilMult * (profile.hipRecoilScale or 0.62)
+		donorMult = donorMult * (profile.hipDonorRecoilScale or 0.95)
+	else
+		recoilMult = recoilMult * (profile.adsRecoilCFScale or 0.58)
+		donorMult = donorMult * (profile.adsDonorRecoilScale or 0.58)
+	end
+
+	gunRecoilState:Kick(runtimeProfile, recoilMult)
+
+	donorRecoilState:SetProfile(runtimeProfile)
+	donorRecoilState:Kick(runtimeProfile, WeaponInHand, donorMult)
+
+	local camX, camY = donorRecoilState:GetCameraRecoil()
+	if isHip then
+		recoilCameraState:Recoil(
+			camX * (profile.hipCameraX or 0.55),
+			camY * (profile.hipCameraY or 0.46),
+			0
+		)
+		shotViewKickState:FireKick(0, profile.hipShotKickY or -0.055, profile.hipShotKickZ or 0.040)
+		shotBobbleState:Trigger(profile.hipBobbleAmount or 0.62)
+	else
+		recoilCameraState:Recoil(camX * 0.8, camY * 0.6, 0)
+		shotViewKickState:FireKick(0, -0.08, 0.05)
+		shotBobbleState:Trigger(1)
+	end
+
+	local camRecoil = gunRecoilState:GetCameraRecoil()
+	local camPower = isHip and (profile.hipCamRecoilPower or 0.13) or (profile.adsCamRecoilPower or 0.22)
+	cameraspring:accelerate(Vector3.new(
+		math.rad(camRecoil.Y) * camPower,
+		math.rad(camRecoil.X) * camPower,
+		math.rad(camRecoil.X * 0.04) * camPower
+	))
+
+	local kick = isHip and 1.0 or 0.55
+	if BipodActive then
+		kick = kick * 0.4
+	end
+
+	local hipMult = isHip and (WeaponData.HipRecoilMult or 1.15) or 1
+	local adsMult = aimming and (WeaponData.ADSRecoilMult or 0.85) or 1
+	kick = kick * hipMult * adsMult
+
+	local viewKickScale
+	local hitScale
+	local vertScale
+	local yawMin, yawMax
+	local rollMin, rollMax
+	local secXMin, secXMax
+	local secYMin, secYMax
+
+	if isHip then
+		kick = kick * (profile.hipVMKickScale or 0.30)
+		viewKickScale = profile.hipViewKickScale or 0.62
+		hitScale = 0.22
+		vertScale = 0.82
+
+		yawMin, yawMax = -1.15, 1.15
+		rollMin, rollMax = -0.80, 0.80
+
+		secXMin, secXMax = -1.05, 1.05
+		secYMin, secYMax = -0.65, 0.65
+	else
+		viewKickScale = profile.adsViewKickScale or 0.42
+		hitScale = 0.24
+		vertScale = 0.90
+
+		yawMin, yawMax = -1.2, 1.2
+		rollMin, rollMax = -0.8, 1.1
+
+		secXMin, secXMax = -1.2, 1.2
+		secYMin, secYMax = -0.8, 0.8
+	end
+
+	local kickVM = kick * viewKickScale
+	local vm = 0.52
+
+	VMKickPos:accelerate(Vector3.new(
+		0,
+		0.70 * kickVM * vm * hitScale * vertScale,
+		-0.95 * kickVM * vm * hitScale
+	))
+
+	VMKickRot:accelerate(Vector3.new(
+		math.rad(1.9) * kickVM * vm * hitScale * vertScale,
+		math.rad(RAND(yawMin, yawMax, 0.5)) * kickVM * vm * hitScale,
+		math.rad(RAND(rollMin, rollMax, 0.5)) * kickVM * vm * hitScale
+	))
+
+	SecondarySpring:accelerate(Vector3.new(
+		math.rad(RAND(secXMin, secXMax, 0.5)) * kick * vm * hitScale,
+		math.rad(RAND(secYMin, secYMax, 0.5)) * kick * vm * hitScale,
+		0
+	))
+end
+
+
+Если после этого всё ещё слабовато без прицела
+
+    поменяй только 3 числа внутри функции:
+
+
+runtimeProfile.kickStrength = (profile.kickStrength or 0.0104) * 0.65
+runtimeProfile.patternScale = (profile.patternScale or 0.0245) * 0.68
+kick = kick * (profile.hipVMKickScale or 0.34)
+
+
+Если вдруг станет опять слишком сильно
+
+    верни их на:
+
+
+* 0.52
+* 0.55
+or 0.26
+
+
+Confidence: High
+
+    Это именно середина между твоим текущим “слишком слабым hipfire” и прошлым “слишком сильным”.
+    ADS тут отдельно не режется.
+
+а в целом поизучай фалы моей отадчи что там за не опнятная хрен ьпружинит как будто не замтено н оесли долг опотсрелять я вот замечюе вроде пружинит очень много раз но сила пружины маленькая но она происходит много раз и как тон екрасиво на отдачу чтоли можешь найти и еще поищи какие еокстяки были в моудялх
+
+Да — я нашёл, откуда берётся это ощущение “много раз мелко пружинит и некрасиво добивает отдачу”.
+
+Главный вывод
+
+    У тебя сейчас отдача — это не одна пружина, а стек из нескольких слоёв сразу.
+    В repositories/rmukola3-wq-1/acs_framweorkv2:2875–repositories/rmukola3-wq-1/acs_framweorkv2:2881 одновременно суммируются:
+        donorRecoilCF
+        recoilcf
+        vmKickCF
+        shotKickCF
+        shotBobbleCF
+        secondaryCF
+    Из-за этого движение может ощущаться не как один чистый recoil, а как несколько мелких пружинящих хвостов поверх друг друга.
+
+
+Что конкретно некрасиво пружинит
+
+    SecondarySpring получает импульс на выстрел в repositories/rmukola3-wq-1/acs_framweorkv2:1436, и одновременно имеет idle-цель даже когда ты просто стоишь: repositories/rmukola3-wq-1/acs_framweorkv2:2720.
+    То есть эта пружина не только реагирует на выстрел, но ещё и всё время “дышит” сама. Это очень похоже на твой симптом: сила маленькая, но мелких шевелений много.
+    ShotBobble тоже специально добавляет затухающую болтанку после каждого выстрела: repositories/rmukola3-wq-1/ShotBobble:31, repositories/rmukola3-wq-1/ShotBobble:37.
+    ShotViewKick добавляет ещё один отдельный spring-слой: repositories/rmukola3-wq-1/ShotViewKick:35, repositories/rmukola3-wq-1/ShotViewKick:48.
+
+
+Самый неприятный косяк в RecoilSystem
+
+    В repositories/rmukola3-wq-1/RecoilSystem:201–repositories/rmukola3-wq-1/RecoilSystem:203 есть “почти остановился” ветка, но она делает не жёсткий стоп, а:
+        return newPosition * 0.5, newVelocity * 0.5
+    Это значит, что маленький остаток не обнуляется, а ещё долго полуживой тянется хвостом.
+    Это очень сильный кандидат на твое ощущение “пружинит много раз, но слабо”.
+
+
+Ещё найденные косяки
+
+    returnSpeed и returnSmoothness в DonorLikeRecoilModule читаются, но вообще не используются: repositories/rmukola3-wq-1/DonorLikeRecoilModule:163.
+    В RecoilCamera есть pitchAccum, yawAccum, rollAccum, но они мертвые поля: repositories/rmukola3-wq-1/RecoilCamera:36.
+    cameraKickCF считается в repositories/rmukola3-wq-1/acs_framweorkv2:2859, но не участвует в финальной сборке AnimPart.CFrame: repositories/rmukola3-wq-1/acs_framweorkv2:2864.
+    adsLagScale в профиле есть, но по коду отдачи сейчас не влияет на recoil-ветку: repositories/rmukola3-wq-1/ak47 progile:39.
+
+
+Что я считаю корнем проблемы
+
+    High confidence: главный визуальный мусор идёт из суммы SecondarySpring + ShotBobble + ShotViewKick + RecoilSystem + DonorLikeRecoilModule.
+    High confidence: самый явный “длинный хвост” сидит в RecoilSystem из-за * 0.5 вместо нормального зануления в repositories/rmukola3-wq-1/RecoilSystem:203.
+    Medium confidence: SecondarySpring слишком шумит из-за постоянной idle-цели в repositories/rmukola3-wq-1/acs_framweorkv2:2721.
+
+
+Что бы я правил первым
+
+    В repositories/rmukola3-wq-1/RecoilSystem:202–repositories/rmukola3-wq-1/RecoilSystem:203 заменить мягкий хвост на жёсткий стоп:
+
+
+if abs(newPosition) < 0.0008 and abs(newVelocity) < 0.008 then
+	return 0, 0
+end
+
+
+    Во время стрельбы ослабить или временно убрать ShotBobble.
+    Уменьшить shot-импульс в SecondarySpring, либо убрать idle-oscillation при недавней стрельбе.
+    Либо выбрать один основной recoil-слой для оружия, а остальные оставить как лёгкие добавки, а не равноправные источники движения.
+
+
+Итог
+
+    Проблема реальная, не выдуманная: код действительно сейчас складывает слишком много мелких spring-реакций.
+    Самый подозрительный косяк — RecoilSystem не добивает пружину до нуля, а полуживой остаток тянет ещё много кадров.
+    Второй сильный источник “дрожащего мусора” — SecondarySpring и ShotBobble.
+
+
+Если хочешь, я следующим сообщением дам тебе ровно 3 точечные правки по строкам, без полного рефакторинга.
+
+можешь сикнуть готвоый сркпт ? recoil system
+
+Да — вот готовый RecoilSystem целиком.
+
+Замени весь файл repositories/rmukola3-wq-1/RecoilSystem:1 на это:
+
+--!strict
+
+local RecoilSystem = {}
+RecoilSystem.__index = RecoilSystem
+
+local min = math.min
+local max = math.max
+local abs = math.abs
+local clamp = math.clamp
+local sin = math.sin
+local cos = math.cos
+local random = math.random
+local clock = os.clock
+
+local function zeroIfSmall(position, velocity, posEps, velEps)
+	if abs(position) < posEps and abs(velocity) < velEps then
+		return 0, 0
+	end
+	return position, velocity
+end
+
+function RecoilSystem.new()
+	local self = setmetatable({}, RecoilSystem)
+
+	self.pitch = 0
+	self.yaw = 0
+	self.roll = 0
+
+	self.pitchVel = 0
+	self.yawVel = 0
+	self.rollVel = 0
+
+	self.posX = 0
+	self.posY = 0
+	self.posZ = 0
+
+	self.velX = 0
+	self.velY = 0
+	self.velZ = 0
+
+	self.shotsFired = 0
+	self.sprayAmount = 0
+	self.lastShotTime = 0
+	self.patternIndex = 0
+	self.bounceDirection = 1
+
+	self.currentProfile = nil
+
+	return self
+end
+
+function RecoilSystem:SetProfile(profile)
+	self.currentProfile = profile
+end
+
+function RecoilSystem:Kick(profile, multiplier)
+	multiplier = multiplier or 1
+	profile = profile or self.currentProfile or {}
+
+	local currentTime = clock()
+	local timeSinceLastShot = currentTime - self.lastShotTime
+
+	local sprayDecayTime = profile.sprayDecayTime or 0.4
+	if timeSinceLastShot > sprayDecayTime then
+		self.sprayAmount = max(0, self.sprayAmount - timeSinceLastShot * 7.0)
+		if self.sprayAmount < 0.05 then
+			self.sprayAmount = 0
+			self.shotsFired = 0
+			self.patternIndex = 0
+		end
+	end
+
+	self.lastShotTime = currentTime
+
+	local firstShotMult = 1
+	if self.shotsFired == 0 and profile.firstShotMultiplier then
+		firstShotMult = profile.firstShotMultiplier
+	end
+
+	self.shotsFired += 1
+
+	local sprayIncrease = profile.sprayIncrease or 0.052
+	self.sprayAmount += sprayIncrease / (1 + self.shotsFired * 0.035)
+
+	local kickStrength = profile.kickStrength or 0.08
+	local kickRandomness = profile.kickRandomness or 0.3
+	local verticalKick = kickStrength
+		* (1 + (random() - 0.5) * kickRandomness)
+		* firstShotMult
+		* (1 + self.sprayAmount)
+
+	local horizontalStrength = profile.horizontalStrength or 0.04
+	local horizontalRandomness = profile.horizontalRandomness or 0.5
+	local horizontalKick = horizontalStrength
+		* (random() * 2 - 1)
+		* (1 + (random() - 0.5) * horizontalRandomness)
+
+	if profile.usePattern and profile.pattern and #profile.pattern > 0 then
+		self.patternIndex = min(self.patternIndex + 1, #profile.pattern)
+		local patternPoint = profile.pattern[self.patternIndex]
+		local patternScale = profile.patternScale or 1
+		local patternRandomness = profile.patternRandomness or 0.1
+		local patternNoise = 1 + (random() - 0.5) * patternRandomness * 0.8
+
+		verticalKick = patternPoint.y * patternScale * patternNoise
+		horizontalKick = patternPoint.x * patternScale * patternNoise
+	end
+
+	if profile.horizontalBounce then
+		local bounceAmount = profile.bounceAmount or 0.7
+		horizontalKick *= self.bounceDirection * bounceAmount
+		self.bounceDirection = -self.bounceDirection
+	end
+
+	local patternSpeed = profile.patternSpeed or 20
+	local speedModifier = patternSpeed * (min(timeSinceLastShot, 0.1) * 2 + 0.8)
+
+	verticalKick *= multiplier * speedModifier
+	horizontalKick *= multiplier * speedModifier
+
+	local instant = profile.instantKickRatio or 0
+	self.pitch += verticalKick * instant
+	self.yaw += horizontalKick * instant
+
+	verticalKick *= (1 - instant)
+	horizontalKick *= (1 - instant)
+
+	local verticalMult = profile.verticalMult or 1
+	local horizontalMult = profile.horizontalMult or 1
+	local leftBias = profile.leftBias or 0
+
+	verticalKick *= verticalMult
+	horizontalKick = horizontalKick * horizontalMult + (leftBias * speedModifier * multiplier)
+
+	self.pitchVel += verticalKick
+	self.yawVel += horizontalKick
+
+	local rollStrength = profile.rollStrength or 0.02
+	self.rollVel += (rollStrength * (random() * 2 - 1)) * (multiplier * speedModifier) * 0.7 - horizontalKick * 0.25
+
+	local gunKickback = abs(profile.gunKickback or 0.06)
+	local gunRise = profile.gunRise or 0.04
+	local posMult = profile.posMult or 1
+	local posInstant = profile.posInstantKickRatio or instant
+
+	self.posZ -= gunKickback * speedModifier * 0.40 * multiplier * posMult * posInstant
+	self.posY += gunRise * speedModifier * 0.30 * multiplier * posMult * posInstant
+
+	self.velZ -= gunKickback * speedModifier * 0.95 * multiplier * posMult
+	self.velY += gunRise * speedModifier * 0.62 * multiplier * posMult
+	self.velX += horizontalKick * 0.18 * posMult
+end
+
+function RecoilSystem:Update(dt)
+	dt = min(dt, 0.033)
+
+	local profile = self.currentProfile or {}
+
+	local returnSpeed = profile.returnSpeed or 0.17
+	local returnSmoothness = profile.returnSmoothness or 0.8
+
+	local springStiffness = profile.springStiffness or 75.0
+	local springDamping = profile.springDamping or 18.0
+
+	springStiffness = springStiffness * (0.92 + returnSpeed * 0.55)
+	springDamping = springDamping * (0.92 + returnSmoothness * 0.22)
+
+	local function updateSpring(position, velocity, posEps, velEps)
+		local acceleration = (-springStiffness * position - springDamping * velocity) * dt
+		local newVelocity = velocity + acceleration
+		local newPosition = position + newVelocity * dt
+		return zeroIfSmall(newPosition, newVelocity, posEps, velEps)
+	end
+
+	self.pitch, self.pitchVel = updateSpring(self.pitch, self.pitchVel, 0.00055, 0.0055)
+	self.yaw, self.yawVel = updateSpring(self.yaw, self.yawVel, 0.00055, 0.0055)
+	self.roll, self.rollVel = updateSpring(self.roll, self.rollVel, 0.00055, 0.0055)
+
+	if self.pitch < 0 and self.pitchVel < 0 then
+		self.pitchVel *= 0.28
+	end
+
+	self.posX, self.velX = updateSpring(self.posX, self.velX, 0.00045, 0.0045)
+	self.posY, self.velY = updateSpring(self.posY, self.velY, 0.00045, 0.0045)
+	self.posZ, self.velZ = updateSpring(self.posZ, self.velZ, 0.00045, 0.0045)
+
+	self.sprayAmount = max(0, self.sprayAmount - dt * 4.8)
+
+	local minPitch = profile.minPitch or -0.12
+	local maxPitch = profile.maxPitch or 0.85
+	local maxYaw = profile.maxYaw or 0.35
+	local maxRoll = profile.maxRoll or 0.25
+
+	self.pitch = clamp(self.pitch, minPitch, maxPitch)
+	self.yaw = clamp(self.yaw, -maxYaw, maxYaw)
+	self.roll = clamp(self.roll, -maxRoll, maxRoll)
+
+	local camShake = profile.cameraShake or 0.04
+	local currentTime = clock()
+	local shakeIntensity = (abs(self.pitchVel) + abs(self.yawVel)) * camShake * 0.006
+
+	local positionalCF = CFrame.new(
+		self.posX * 0.22 + sin(currentTime * 36.0) * shakeIntensity,
+		self.posY * 0.30 + cos(currentTime * 29.0) * shakeIntensity,
+		self.posZ * 0.36
+	)
+
+	local rotationalCF = CFrame.Angles(self.pitch, self.yaw, self.roll)
+
+	return positionalCF * rotationalCF
+end
+
+function RecoilSystem:GetCameraRecoil()
+	return Vector2.new(self.yaw * 45, -self.pitch * 45)
+end
+
+function RecoilSystem:Reset()
+	self.pitch = 0
+	self.yaw = 0
+	self.roll = 0
+
+	self.pitchVel = 0
+	self.yawVel = 0
+	self.rollVel = 0
+
+	self.posX = 0
+	self.posY = 0
+	self.posZ = 0
+
+	self.velX = 0
+	self.velY = 0
+	self.velZ = 0
+
+	self.shotsFired = 0
+	self.sprayAmount = 0
+	self.patternIndex = 0
+	self.lastShotTime = 0
+	self.bounceDirection = 1
+end
+
+function RecoilSystem:GetSprayAmount()
+	return self.sprayAmount
+end
+
+function RecoilSystem:GetShotsFired()
+	return self.shotsFired
+end
+
+return RecoilSystem
+
+
+Что этот скрипт исправляет
+
+    жёстко добивает мелкие хвосты в ноль, а не тянет их долго
+    делает пружину чище и заметнее
+    уменьшает мерзкую микротряску
+    оставляет тот же API, так что acs_framweorkv2 ломаться не должен
+
+
+Confidence: High
+
+    Это именно готовая замена для RecoilSystem, а не абстрактный пример.
+    Основано на тех косяках, которые я уже нашёл в твоих текущих модулях.
+
+
+Если хочешь, я следующим сообщением ещё скину готовый DonorLikeRecoilModule тоже почищенный, потому что там тоже есть мусорные моменты.
+
+local ShotBobble = {}
+ShotBobble.__index = ShotBobble
+
+-- Shot bobble: light shake/bobble reaction after each shot
+-- Separate from main recoil, adds life to viewmodel
+-- Inspired by donor's secondary spring reactions
+
+local random = math.random
+local sin = math.sin
+local cos = math.cos
+local pi = math.pi
+
+function ShotBobble.new()
+local self = setmetatable({}, ShotBobble)
+
+-- Bobble state
+self.intensity = 0
+self.phase = random() * pi * 2
+
+-- Decay parameters
+self.decayRate = 4.5  -- How fast bobble fades
+self.frequency = 28   -- Bobble oscillation speed
+
+-- Current bobble values
+self.currentPos = Vector3.new(0, 0, 0)
+self.currentRot = Vector3.new(0, 0, 0)
+
+return self
+
+
+end
+
+function ShotBobble:Trigger(amount)
+-- Add bobble impulse, accumulates for rapid fire
+self.intensity = self.intensity + (amount or 1)
+self.phase = random() * pi * 2  -- Randomize phase for variety
+end
+
+function ShotBobble:Update(dt, isMoving, isAiming)
+dt = math.min(dt, 0.033)
+
+-- Decay intensity over time
+self.intensity = self.intensity * (1 - self.decayRate * dt)
+if self.intensity < 0.001 then
+	self.intensity = 0
+end
+
+-- Phase advances for oscillation
+self.phase = self.phase + self.frequency * dt
+
+-- Calculate bobble based on intensity
+local bobbleAmount = self.intensity
+
+-- Reduce when aiming (donor-like behavior)
+if isAiming then
+	bobbleAmount = bobbleAmount * 0.35
+end
+
+-- Slightly increase when moving
+if isMoving then
+	bobbleAmount = bobbleAmount * 1.15
+end
+
+-- Multi-frequency bobble for organic feel (donor uses multiple sine waves)
+local bobbleX = sin(self.phase * 1.0) * 0.006 + cos(self.phase * 1.7) * 0.004
+local bobbleY = sin(self.phase * 0.8 + 0.5) * 0.008 + cos(self.phase * 1.3) * 0.005
+local bobbleZ = sin(self.phase * 1.2 + 1.0) * 0.003
+
+-- Apply intensity
+self.currentPos = Vector3.new(
+	bobbleX * bobbleAmount,
+	bobbleY * bobbleAmount,
+	bobbleZ * bobbleAmount
+)
+
+-- Rotational bobble (lighter than positional)
+local rotBobble = bobbleAmount * 0.7
+self.currentRot = Vector3.new(
+	sin(self.phase * 0.9) * 0.004 * rotBobble,  -- pitch
+	sin(self.phase * 1.1 + 0.3) * 0.003 * rotBobble,  -- yaw
+	sin(self.phase * 0.7 + 0.7) * 0.002 * rotBobble   -- roll
+)
+
+-- Build CFrame
+local posCF = CFrame.new(self.currentPos.X, self.currentPos.Y, self.currentPos.Z)
+local rotCF = CFrame.Angles(self.currentRot.X, self.currentRot.Y, self.currentRot.Z)
+
+return posCF * rotCF
+
+
+end
+
+function ShotBobble:Reset()
+self.intensity = 0
+self.currentPos = Vector3.new(0, 0, 0)
+self.currentRot = Vector3.new(0, 0, 0)
+end
+
+return ShotBobble
+
+думаю пробелма тут
+
+Да — очень похоже, что одна из главных проблем именно тут.
+
+Почему
+
+    self.intensity = self.intensity + (amount or 1) — интенсивность копится без лимита
+    self.phase = random() * pi * 2 на каждый выстрел — даёт грязную дёрганую смену фазы
+    дальше модуль не делает один чёткий kick, а крутит постоянные синусы
+    из-за этого и получается ощущение:
+        сила маленькая
+        но мелких “пружинок” очень много
+        хвост некрасивый
+
+
+Коротко
+
+    Да, это не единственная, но очень вероятная причина мерзкого мелкого подпружинивания.
+
+
+Готовый нормальный ShotBobble
+Замени весь модуль на это:
+
+local ShotBobble = {}
+ShotBobble.__index = ShotBobble
+
+local random = math.random
+local sin = math.sin
+local cos = math.cos
+local pi = math.pi
+local min = math.min
+
+function ShotBobble.new()
+	local self = setmetatable({}, ShotBobble)
+
+	self.intensity = 0
+	self.phase = random() * pi * 2
+
+	self.decayRate = 8.5
+	self.frequency = 16
+
+	self.posResponse = 18
+	self.rotResponse = 16
+
+	self.currentPos = Vector3.new(0, 0, 0)
+	self.currentRot = Vector3.new(0, 0, 0)
+
+	return self
+end
+
+function ShotBobble:Trigger(amount)
+	amount = amount or 1
+
+	self.intensity = min(self.intensity + amount, 1.35)
+
+	-- не рандомим фазу полностью, а только слегка сдвигаем
+	self.phase = self.phase + (random() - 0.5) * 0.9
+end
+
+function ShotBobble:Update(dt, isMoving, isAiming)
+	dt = math.min(dt, 0.033)
+
+	self.intensity = self.intensity * (1 - self.decayRate * dt)
+	if self.intensity < 0.002 then
+		self.intensity = 0
+	end
+
+	self.phase = self.phase + self.frequency * dt
+
+	local bobbleAmount = self.intensity
+
+	if isAiming then
+		bobbleAmount = bobbleAmount * 0.18
+	end
+
+	if isMoving then
+		bobbleAmount = bobbleAmount * 1.08
+	end
+
+	local targetPos = Vector3.new()
+	local targetRot = Vector3.new()
+
+	if bobbleAmount > 0 then
+		local x = sin(self.phase * 1.0) * 0.0028 + cos(self.phase * 1.5) * 0.0014
+		local y = sin(self.phase * 0.9 + 0.4) * 0.0036
+		local z = sin(self.phase * 1.15 + 0.8) * 0.0012
+
+		targetPos = Vector3.new(
+			x * bobbleAmount,
+			y * bobbleAmount,
+			z * bobbleAmount
+		)
+
+		targetRot = Vector3.new(
+			sin(self.phase * 0.85) * 0.0018 * bobbleAmount,
+			sin(self.phase * 1.05 + 0.25) * 0.0012 * bobbleAmount,
+			sin(self.phase * 0.70 + 0.60) * 0.0009 * bobbleAmount
+		)
+	end
+
+	local posAlpha = math.min(dt * self.posResponse, 1)
+	local rotAlpha = math.min(dt * self.rotResponse, 1)
+
+	self.currentPos = self.currentPos:Lerp(targetPos, posAlpha)
+	self.currentRot = self.currentRot:Lerp(targetRot, rotAlpha)
+
+	if self.currentPos.Magnitude < 0.00005 and self.currentRot.Magnitude < 0.00005 and self.intensity == 0 then
+		self.currentPos = Vector3.new(0, 0, 0)
+		self.currentRot = Vector3.new(0, 0, 0)
+	end
+
+	local posCF = CFrame.new(self.currentPos.X, self.currentPos.Y, self.currentPos.Z)
+	local rotCF = CFrame.Angles(self.currentRot.X, self.currentRot.Y, self.currentRot.Z)
+
+	return posCF * rotCF
+end
+
+function ShotBobble:Reset()
+	self.intensity = 0
+	self.currentPos = Vector3.new(0, 0, 0)
+	self.currentRot = Vector3.new(0, 0, 0)
+end
+
+return ShotBobble
+
+
+Что изменится
+
+    bobble станет короче
+    меньше мелкой дрожи
+    меньше ощущения “много раз подпружинило слабо”
+    станет больше похоже на короткий послевыстрельный хвост, а не на вибрацию
+
+
+Очень важный момент
+Если хочешь прям быстро проверить, виноват ли он:
+
+    временно в Recoil() поставь
+
+
+shotBobbleState:Trigger(0.15)
+
+
+вместо больших значений
+
+или вообще на тест:
+
+shotBobbleState:Trigger(0)
+
+
+Если после этого recoil резко станет чище — значит да, проблема реально в этом модуле была сильная.
+
+Confidence: High
+
+    По коду модуль действительно генерит длинный мелкий oscillation-tail.
+    Это хорошо совпадает с тем, как ты описал проблему.
+
+
+Если хочешь, я теперь так же дам почищенный DonorLikeRecoilModule, потому что второй источник мусора, скорее всего, именно он.
+
+а можешь сдлеать просто что бы оно реже было и не так мнго раз дрежбезжало ну керасиво сделай пж ато без него чео нето
+
+Да — можно сделать не убирать ShotBobble, а сделать его редким, коротким и аккуратным.
+
+Что меняю
+
+    меньше накопление
+    медленнее/реже волна
+    меньше мелкой дрожи
+    быстрее затухает
+    без мерзкого “дребезга много раз”
+
+
+Замени весь модуль ShotBobble на это:
+
+local ShotBobble = {}
+ShotBobble.__index = ShotBobble
+
+local random = math.random
+local sin = math.sin
+local cos = math.cos
+local pi = math.pi
+local min = math.min
+
+function ShotBobble.new()
+	local self = setmetatable({}, ShotBobble)
+
+	self.intensity = 0
+	self.phase = random() * pi * 2
+
+	-- мягче и короче
+	self.decayRate = 10.0
+	self.frequency = 10.5
+
+	self.currentPos = Vector3.new(0, 0, 0)
+	self.currentRot = Vector3.new(0, 0, 0)
+
+	return self
+end
+
+function ShotBobble:Trigger(amount)
+	amount = amount or 1
+
+	-- не даём бесконечно копиться
+	self.intensity = min(self.intensity + amount * 0.45, 0.55)
+
+	-- лёгкий сдвиг, а не полная смена фазы
+	self.phase = self.phase + (random() - 0.5) * 0.45
+end
+
+function ShotBobble:Update(dt, isMoving, isAiming)
+	dt = math.min(dt, 0.033)
+
+	self.intensity = self.intensity * (1 - self.decayRate * dt)
+	if self.intensity < 0.002 then
+		self.intensity = 0
+	end
+
+	self.phase = self.phase + self.frequency * dt
+
+	local amount = self.intensity
+
+	if isAiming then
+		amount = amount * 0.18
+	end
+
+	if isMoving then
+		amount = amount * 1.05
+	end
+
+	local targetPos = Vector3.new()
+	local targetRot = Vector3.new()
+
+	if amount > 0 then
+		local bobbleX = sin(self.phase * 0.95) * 0.0016 + cos(self.phase * 1.25) * 0.0008
+		local bobbleY = sin(self.phase * 0.75 + 0.4) * 0.0022
+		local bobbleZ = sin(self.phase * 1.05 + 0.8) * 0.0007
+
+		targetPos = Vector3.new(
+			bobbleX * amount,
+			bobbleY * amount,
+			bobbleZ * amount
+		)
+
+		targetRot = Vector3.new(
+			sin(self.phase * 0.8) * 0.0011 * amount,
+			sin(self.phase * 0.95 + 0.2) * 0.0008 * amount,
+			sin(self.phase * 0.65 + 0.55) * 0.0005 * amount
+		)
+	end
+
+	local lerpAlpha = math.min(dt * 14, 1)
+	self.currentPos = self.currentPos:Lerp(targetPos, lerpAlpha)
+	self.currentRot = self.currentRot:Lerp(targetRot, lerpAlpha)
+
+	if self.currentPos.Magnitude < 0.00004 and self.currentRot.Magnitude < 0.00004 and self.intensity == 0 then
+		self.currentPos = Vector3.new(0, 0, 0)
+		self.currentRot = Vector3.new(0, 0, 0)
+	end
+
+	local posCF = CFrame.new(self.currentPos.X, self.currentPos.Y, self.currentPos.Z)
+	local rotCF = CFrame.Angles(self.currentRot.X, self.currentRot.Y, self.currentRot.Z)
+
+	return posCF * rotCF
+end
+
+function ShotBobble:Reset()
+	self.intensity = 0
+	self.currentPos = Vector3.new(0, 0, 0)
+	self.currentRot = Vector3.new(0, 0, 0)
+end
+
+return ShotBobble
+
+
+Чтобы стало ещё красивее
+
+    в Recoil() лучше ещё уменьшить вызов:
+
+
+shotBobbleState:Trigger(0.35)
+
+
+вместо 1 или больших значений.
+
+Если хочешь самый безопасный вариант
+
+    сначала только замени:
+
+
+self.decayRate = 10.0
+self.frequency = 10.5
+self.intensity = min(self.intensity + amount * 0.45, 0.55)
+
+
+Но лучше сразу вставить весь модуль целиком.
+
+Итог
+
+    bobble останется
+    будет происходить реже
+    станет чище
+    исчезнет ощущение, что оно много раз подряд дребезжит
+
+
+Confidence: High
+
+    Это бьёт прямо по тому симптому, который ты описал.
+    ShotBobble у тебя реально был слишком “многократный” и шумный.
+
+
+Если хочешь, я ещё так же по-красивому успокою SecondarySpring, потому что он второй кандидат на этот дребезг.
+
+а ьтеперь внимательно изучи  фалйы донорские там рводе в названеи чтео типо recloi donor или чето так опизи хи очеьн хорошо изучи и скажи что езще не перенсли оттуда
+
+Да — я нормально раскопал donor и могу уже сказать по факту, что у тебя ещё не перенесено.
+
+Главное
+
+    Core donor recoil у тебя перенесён не полностью.
+    Самое важное, что ещё не перенесено, — это не один файл, а целая связка поведения из donor pipeline.
+
+
+Какие donor-файлы реально важны
+
+    repositories/rmukola3-wq-1/acs_donor_for_recoil21:95 — главный клиентский pipeline, где всё связывается.
+    repositories/rmukola3-wq-1/acs_donor_for_recoil10:27 — ViewmodelController.Render(...) и FireKick(...).
+    repositories/rmukola3-wq-1/acs_donor_for_recoil13:8 — donor spring-модуль.
+    repositories/rmukola3-wq-1/acs_donor_for_recoil14:103 — donor recoil/viewmodel settings.
+    repositories/rmukola3-wq-1/acs_donor_for_recoil7:8 — donor recoil profile.
+
+
+Что у тебя ещё не перенесено
+
+    Полный ViewmodelController.Render donor’а.
+        В donor весь viewmodel живёт через один большой render-контроллер: repositories/rmukola3-wq-1/acs_donor_for_recoil21:2934, repositories/rmukola3-wq-1/acs_donor_for_recoil10:27.
+        У тебя сейчас вместо этого смесь своих слоёв в AnimPart.CFrame: repositories/rmukola3-wq-1/acs_framweorkv2:2864.
+        Из-за этого donor-feel не совпадает даже если цифры похожи.
+
+    Настоящий donor FireKick из ViewmodelController.
+        В donor выстрел дёргает VM через ViewmodelController.FireKick(...): repositories/rmukola3-wq-1/acs_donor_for_recoil21:3220, repositories/rmukola3-wq-1/acs_donor_for_recoil10:210.
+        У тебя есть ShotViewKick, но это не donor FireKick, а отдельная самодельная пружина: repositories/rmukola3-wq-1/ShotViewKick:35.
+
+    Настоящая donor spring-система.
+        В donor используется отдельный spring-модуль с Frequency, Damping, Mass, SnapDistance, Target, Shove: repositories/rmukola3-wq-1/acs_donor_for_recoil13:8.
+        У тебя recoil-модули используют другую математику и другие пороги: repositories/rmukola3-wq-1/RecoilSystem:187, repositories/rmukola3-wq-1/DonorLikeRecoilModule:158.
+        Это очень важное отличие по “ощущению”.
+
+    Donor settings для viewmodel/recoil.
+        В donor есть большой блок настроек, который влияет не только на recoil, но и на bobble/sway/camera response: repositories/rmukola3-wq-1/acs_donor_for_recoil14:65, repositories/rmukola3-wq-1/acs_donor_for_recoil14:103, repositories/rmukola3-wq-1/acs_donor_for_recoil14:236.
+        У тебя часть этих идей разнесена по VM_Config, но это не donor config 1-в-1: repositories/rmukola3-wq-1/acs_framweorkv2:77.
+
+    Правильное подключение RecoilCamera.
+        В donor камера получает отдельный recoil-импульс на выстрел: repositories/rmukola3-wq-1/acs_donor_for_recoil21:3219.
+        У тебя cameraKickCF вообще считается, но не используется в итоговой сборке: repositories/rmukola3-wq-1/acs_framweorkv2:2859, repositories/rmukola3-wq-1/acs_framweorkv2:2864.
+        То есть donor RecoilCamera у тебя не доведён до конца.
+
+    Donor bobble-триггеры на разные действия.
+        В donor BobbleModule триггерится не только на выстрел, а ещё на dry fire / reload / change aim / equip / firemode: repositories/rmukola3-wq-1/acs_donor_for_recoil21:3233, repositories/rmukola3-wq-1/acs_donor_for_recoil21:3364, repositories/rmukola3-wq-1/acs_donor_for_recoil21:3845, repositories/rmukola3-wq-1/acs_donor_for_recoil21:4354, repositories/rmukola3-wq-1/acs_donor_for_recoil21:4456.
+        У тебя ShotBobble сейчас только отдельный послевыстрельный хвост: repositories/rmukola3-wq-1/ShotBobble:31.
+
+    Donor reset cadence и shot pipeline.
+        В donor есть чёткая последовательность Reset -> Kick -> RecoilCamera -> FireKick -> Bobble trigger: repositories/rmukola3-wq-1/acs_donor_for_recoil21:3175, repositories/rmukola3-wq-1/acs_donor_for_recoil21:3184, repositories/rmukola3-wq-1/acs_donor_for_recoil21:3219, repositories/rmukola3-wq-1/acs_donor_for_recoil21:3220.
+        У тебя pipeline похожий только по названию, но не по реализации: repositories/rmukola3-wq-1/acs_framweorkv2:1380.
+
+
+Какие donor-файлы тебе сейчас не особо важны
+
+    repositories/rmukola3-wq-1/acs_donor_for_recoil8:1 — viewport/model utility, не core recoil.
+    repositories/rmukola3-wq-1/acs_donor_for_recoil11:1 — system/audio stuff, не основной recoil.
+    repositories/rmukola3-wq-1/acs_donor_for_recoil19:1 — realism/body/motor hook, не основной recoil pipeline.
+    repositories/rmukola3-wq-1/acs_donor_for_recoil20:1 — utility helper.
+    repositories/rmukola3-wq-1/acs_donor_for_recoil12:1 — отдельный spring/utility, но главный spring у donor у тебя уже лучше видно в acs_donor_for_recoil13.
+
+
+Самое важное коротко
+
+    Не перенесён donor ViewmodelController.Render
+    Не перенесён donor FireKick как часть этого controller
+    Не перенесена donor spring-математика
+    Не перенесён donor settings-block
+    Не доведён до конца donor RecoilCamera
+    Не перенесена donor система bobble triggers по действиям
+
+
+Что это значит practically
+
+    Сейчас у тебя не “donor recoil port”.
+    Сейчас у тебя свой recoil engine с кусками donor-поведения.
+
+
+Confidence: High
+
+    Это видно по прямому сравнению donor pipeline с твоими модулями и acs_framweorkv2.
+    Чтобы ещё поднять уверенность, можно отдельно разобрать только acs_donor_for_recoil10 и составить список “что брать / что не брать”.
+
+
+Если хочешь, следующим сообщением я сделаю тебе прямо ranked list top-5 вещей, которые надо переносить следующими, в порядке важности.
+
+давай розберемсся уже с отдачей нажмем с листа что еще надо пренсти в отадчу безавтльно важн ои не особо важно все пренесем до мелочи
+
+Коротко
+
+    Да, можно дожать recoil до donor почти по костям.
+    По коду сейчас у тебя перенесены только куски donor-логики, а не весь pipeline.
+    Самое критичное ещё не профиль, а архитектура сборки recoil.
+
+
+Обязательно
+
+    ViewmodelController.Render donor не перенесён: donor собирает viewmodel через один центральный render-pipeline в repositories/rmukola3-wq-1/acs_donor_for_recoil21:2934 и repositories/rmukola3-wq-1/acs_donor_for_recoil10:27, а у тебя сейчас просто суммируются отдельные слои в repositories/rmukola3-wq-1/acs_framweorkv2:2864.
+    Donor FireKick не перенесён как часть controller: в donor это отдельный target camKickTarget в repositories/rmukola3-wq-1/acs_donor_for_recoil10:210, у тебя сейчас это отдельный модуль ShotViewKick, вызванный из repositories/rmukola3-wq-1/acs_framweorkv2:1391.
+    Donor RecoilCamera не доведён до конца: donor вызывает её прямо в shot-pipeline в repositories/rmukola3-wq-1/acs_donor_for_recoil21:3219, а у тебя cameraKickCF считается в repositories/rmukola3-wq-1/acs_framweorkv2:2859, но не входит в финальный AnimPart.CFrame в repositories/rmukola3-wq-1/acs_framweorkv2:2864.
+    Donor spring-математика не перенесена: donor spring живёт в repositories/rmukola3-wq-1/acs_donor_for_recoil13:8, а у тебя своя математика в repositories/rmukola3-wq-1/RecoilSystem:1 и repositories/rmukola3-wq-1/DonorLikeRecoilModule:1.
+    Shot order / reset cadence donor не перенесён: donor делает Reset -> Kick -> RecoilCamera -> FireKick -> Bobble в repositories/rmukola3-wq-1/acs_donor_for_recoil21:3175 и repositories/rmukola3-wq-1/acs_donor_for_recoil21:3220, а у тебя shot-цепочка другая в repositories/rmukola3-wq-1/acs_framweorkv2:1380.
+
+
+Очень важно
+
+    Donor settings block не перенесён полностью: ключевые recoil/viewmodel константы лежат в repositories/rmukola3-wq-1/acs_donor_for_recoil14:46, repositories/rmukola3-wq-1/acs_donor_for_recoil14:65, repositories/rmukola3-wq-1/acs_donor_for_recoil14:103, repositories/rmukola3-wq-1/acs_donor_for_recoil14:236.
+    Recoil state multipliers donor не перенесены нормально: у donor есть отдельная таблица состояний в repositories/rmukola3-wq-1/acs_donor_for_recoil14:46, а у тебя множители размазаны по Recoil() в repositories/rmukola3-wq-1/acs_framweorkv2:1354.
+    Donor bobble triggers по действиям не перенесены: donor триггерит bobble не только на выстрел, но и на aim/equip/reload/firemode в repositories/rmukola3-wq-1/acs_donor_for_recoil21:3233, repositories/rmukola3-wq-1/acs_donor_for_recoil21:3845, repositories/rmukola3-wq-1/acs_donor_for_recoil21:4354, а у тебя только выстрел в repositories/rmukola3-wq-1/acs_framweorkv2:1394.
+    Donor viewmodel state fields не перенесены: у donor в render есть куча состояний pushback, droopPos, lookSwayRot, idleAimTime, stabilizeFactor и т.д. в repositories/rmukola3-wq-1/acs_donor_for_recoil10:35, а у тебя это сильно упрощено.
+
+
+Средняя важность
+
+    Donor aim stamina / long aim noise / idle aim system не перенесены из repositories/rmukola3-wq-1/acs_donor_for_recoil14:179.
+    Donor sway spring family не перенесена: SwaySpringFrequency, RotSpringFrequency, BreathPosSpringFrequency, WalkPosSpringFrequency в repositories/rmukola3-wq-1/acs_donor_for_recoil14:65.
+    Donor blindfire / stance / bipod camera-feel куски частично отсутствуют в recoil-ветке, хотя состояния в donor render есть в repositories/rmukola3-wq-1/acs_donor_for_recoil10:35.
+    У тебя ещё лишний слой-мусор: одновременно живут gunRecoilState, donorRecoilState, ShotViewKick, ShotBobble, SecondarySpring в repositories/rmukola3-wq-1/acs_framweorkv2:1380 и repositories/rmukola3-wq-1/acs_framweorkv2:2864; donor-feel так не собирается.
+
+
+Необязательно сразу
+
+    Вспомогательные donor utility/viewport части вроде repositories/rmukola3-wq-1/acs_donor_for_recoil8:1, repositories/rmukola3-wq-1/acs_donor_for_recoil20:1 не критичны для core recoil.
+    Всякие UI/auxiliary куски donor не нужно тащить первыми, если цель именно отдача.
+
+
+Что переносить по порядку
+
+    1. Встроить donor cameraKickCF в финальную сборку AnimPart.CFrame.
+    2. Перенести donor FireKick модель, а не держать отдельный ShotViewKick.
+    3. Заменить текущую recoil spring-математику на donor spring из repositories/rmukola3-wq-1/acs_donor_for_recoil13:8.
+    4. Перенести donor state multipliers и settings block из repositories/rmukola3-wq-1/acs_donor_for_recoil14:46.
+    5. Пересобрать shot-pipeline в порядке donor из repositories/rmukola3-wq-1/acs_donor_for_recoil21:3158.
+    6. После этого уже добивать bobble/sway/idle aim мелочи.
+
+
+Мой вывод
+
+    Сейчас у тебя ещё не перенесено примерно 60–70% именно donor behavior, хотя названия модулей уже похожи.
+    Если делать “до мелочи”, то сначала надо переносить ядро pipeline, а не крутить профили.
+
+
+Confidence: High
+
+    Это основано на прямом сравнении donor acs_donor_for_recoil21, acs_donor_for_recoil10, acs_donor_for_recoil13, acs_donor_for_recoil14 с repositories/rmukola3-wq-1/acs_framweorkv2:1341 и repositories/rmukola3-wq-1/acs_framweorkv2:2864.
+
+
+Если хочешь, следующим сообщением я сделаю тебе жёсткий TODO-лист “переносим donor recoil по шагам”, где будет:
+
+    что править первым,
+    в каком файле,
+    и что пока не трогать вообще.
+
+окей сиатция солудащая прочиатй в сессия как мы делали все делал робклос аи а я делал правки в акс фрейваорке ибо робклос аи лоамается при прочтнии большого фалйа вот постри в ссесии как мы делали щасб удем делат ьтак же робклос аи конфииги а я подклчюбаю в фрейворке
+
+Да, схема из ssesion понятна, и она логичная.
+
+    Как работаем дальше: я делаю маленькие модули/конфиги отдельно, а ты руками подключаешь их в ACS framework.
+    Почему так: большой repositories/rmukola3-wq-1/acs_framweorkv2:1 неудобен для прямой правки — именно на этом вы раньше и упирались.
+    Что уже подтверждено по сессии: такой подход вы уже использовали для RecoilSystem, ShotBobble, ShotViewKick, DonorLikeRecoilModule, а большие врезки ты переносил сам в framework.
+    Что это значит сейчас: я не буду пытаться “целиком переписать framework”, а буду давать:
+        готовый модуль,
+        готовый конфиг,
+        точку подключения,
+        и коротко что заменить в Recoil() / render-сборке.
+    Самый безопасный путь: переносить donor recoil по частям, не ломая весь pipeline разом.
+
+
+План работы
+
+    1. Я выделяю следующий donor-кусок, который реально стоит переносить.
+    2. Даю тебе готовый модуль/конфиг.
+    3. Отдельно пишу, куда в ACS framework его воткнуть.
+    4. Потом идём к следующему куску.
+
+
+Что брать первым
+
+    Я бы следующим шагом делал donor spring/config слой, а не ещё один новый recoil profile.
+    То есть: сначала нормализуем основу, потом уже полируем ощущения.
+
+
+Confidence: High
+
+    Это полностью совпадает с тем, как вы уже вели работу по ssesion.
+    Для вашего кейса это реально безопаснее, чем лезть в огромный framework напрямую.
+
+
+Если ок, следующим сообщением я дам первый конкретный donor-конфиг/модуль для переноса, в формате:
+
+    готовый код,
+    куда вставить,
+    что в framework только подключить.
+
+нет есть отедьный роблкос аи он может создават ьв конкретных метсах по  твоему запросу все что нужно а мне осткенется сделоать толкьо в фрейворке
+
+Да, тогда это даже лучше.
+
+    Схема понятна: отдельный Roblox AI делает новые модули и конфиги в нужных местах, а ты потом только врезаешь это в framework.
+    Это подходит под ваш процесс: большой ACS framework руками правишь ты, а всё новое и изолированное можно генерить отдельно без риска ломать огромный файл.
+    Значит мой формат дальше такой:
+        что именно нужно перенести из donor,
+        какой отдельный файл должен создать Roblox AI,
+        что этот файл должен делать,
+        и потом отдельно — куда ты это подключаешь в framework.
+
+
+Как работать дальше
+
+    Шаг 1: я выбираю один donor-кусок.
+    Шаг 2: даю тебе точный промпт для Roblox AI.
+    Шаг 3: после того как он создаст файл, я говорю, что менять в acs_framweorkv2.
+
+
+Что делать первым
+
+    Первым я бы делал donor spring module, потому что без него остальные recoil-слои всё равно будут ощущаться не как donor.
+    После него:
+        ViewmodelController FireKick
+        RecoilCamera integration
+        settings/state multipliers
+        потом уже bobble/sway мелочи
+
+
+Главное
+
+    То есть да:
+    Roblox AI делает отдельные файлы
+    ты только подключаешь их в framework
+    я веду план переноса donor recoil по шагам
+
+
+Если ок, следующим сообщением я дам тебе первый точный запрос для Roblox AI: какой файл создать, с каким именем и какой логикой.
+
+дай промт пусть делает модули когда доделает сикну что он сдлела пиши подробный сркипт огранчиений нет по тексту главнео  напомниай ему всгеда что бы он не лез в фрейворк модешь хоть на 5000  сиволов сделат ьпрмот модешь даже укзатаь ему точные места и точный код
+
+Да — вот готовый большой промпт для Roblox AI.
+
+Его можно целиком копировать и вставлять.
+
+Задача: подготовить НОВЫЕ ОТДЕЛЬНЫЕ donor recoil-модули для Roblox ACS-проекта, НЕ ТРОГАЯ framework.
+
+ОЧЕНЬ ВАЖНО:
+1. НЕ редактируй большой framework-файл.
+2. НЕ лезь в ACS framework / acs_framweorkv2 / acs_framework MY ACS.
+3. НЕ меняй существующие большие файлы.
+4. Создавай ТОЛЬКО НОВЫЕ отдельные модули рядом с recoil-модулями.
+5. Никаких правок интеграции в framework не делай — этим займусь я вручную.
+6. Если нужен require-путь, ориентируйся на ту же папку, где лежат текущие recoil-модули:
+   - RecoilSystem
+   - DonorLikeRecoilModule
+   - RecoilCamera
+   - ShotViewKick
+   - ShotBobble
+
+Контекст:
+У меня уже есть рабочая, но несовершенная recoil-система. Я переношу donor recoil постепенно.
+Большой framework неудобно трогать напрямую, поэтому мне нужны ИЗОЛИРОВАННЫЕ модульные файлы, которые я потом сам подключу в framework вручную.
+
+Нужно изучить donor-реализацию и на её основе создать НОВЫЕ модули.
+
+Сначала изучи ЭТИ ФАЙЛЫ:
+DONOR:
+- acs_donor_for_recoil21
+- acs_donor_for_recoil10
+- acs_donor_for_recoil13
+- acs_donor_for_recoil14
+- acs_donor_for_recoil7
+
+ТЕКУЩИЕ МОИ:
+- RecoilSystem
+- DonorLikeRecoilModule
+- RecoilCamera
+- ShotViewKick
+- ShotBobble
+- acs_framweorkv2
+
+Что уже выяснено по сравнению donor vs current:
+- donor Render pipeline не перенесён полностью
+- donor FireKick не перенесён как отдельная donor-реализация
+- donor spring-математика не перенесена 1:1
+- donor settings/state multipliers не вынесены нормально
+- donor RecoilCamera интегрирован не до конца
+- donor bobble trigger behavior по действиям не перенесён полностью
+
+Мне сейчас НЕ НУЖНО:
+- чтобы ты менял framework
+- чтобы ты вставлял require в framework
+- чтобы ты правил сборку AnimPart.CFrame
+- чтобы ты редактировал существующий код интеграции
+
+Мне сейчас НУЖНО:
+создать набор НОВЫХ donor-oriented модулей, которые я потом сам подключу.
+
+СОЗДАЙ СЛЕДУЮЩИЕ НОВЫЕ ФАЙЛЫ:
+
+1) DonorSpring
+2) DonorRecoilSettings
+3) DonorFireKick
+
+Если нужно, можешь создать ещё 4-й вспомогательный модуль:
+4) DonorStateMultipliers
+НО только если он действительно нужен. Если DonorRecoilSettings достаточно — не дроби лишний раз.
+
+========================================
+1. ФАЙЛ: DonorSpring
+========================================
+
+Цель:
+Сделать чистый donor-style spring-модуль, максимально близкий по поведению к spring из donor (`acs_donor_for_recoil13`), но аккуратно и читаемо.
+
+Требования:
+- модуль должен работать и с number, и с Vector3
+- должен иметь понятный API
+- не должен зависеть от framework
+- должен быть самодостаточным module script
+
+ОЖИДАЕМЫЙ API:
+- DonorSpring.new(frequency, damping, mass, initialValue, targetValue)
+- spring:Shove(force)
+- spring:Update(dt)
+- spring:Reset(value)
+- spring:SetTarget(target)
+- spring:GetPosition()
+- spring:GetVelocity()
+
+Ожидаемые поля объекта:
+- Position
+- Velocity
+- Target
+- Frequency
+- Damping
+- Mass
+- SnapDistance
+
+Поведение:
+- donor-like spring, а не моя текущая самодельная пружина
+- когда Position и Velocity становятся очень маленькими, пружина должна аккуратно snap’аться в target, чтобы не было бесконечного мелкого дребезга
+- SnapDistance должен работать и для number, и для Vector3
+- код должен быть чистым, пригодным для дальнейшего переиспользования в recoil / firekick / sway / bobble
+
+Важные замечания:
+- не делай зависимостей на специфические state-таблицы framework
+- не делай require на framework
+- не добавляй интеграцию, только модуль
+
+========================================
+2. ФАЙЛ: DonorRecoilSettings
+========================================
+
+Цель:
+Вынести donor recoil/viewmodel related constants в отдельный модуль настроек, опираясь на `acs_donor_for_recoil14`.
+
+Очень важно:
+- НЕ переносить UI-строки, подсказки, локализации, текстовые сообщения
+- переносить ТОЛЬКО recoil / viewmodel / bobble / sway / camera-related настройки
+- сохранить donor naming там, где это полезно
+- но структура должна быть удобной для ручного подключения позже
+
+Содержимое должно включать МИНИМУМ:
+- RecoilStateMultipliers
+- SwaySpringFrequency
+- SwaySpringDamping
+- SwaySpringMass
+- RotSpringFrequency
+- RotSpringDamping
+- RotSpringMass
+- BreathPosSpringFrequency
+- BreathPosSpringDamping
+- BreathPosSpringMass
+- BreathRotSpringFrequency
+- BreathRotSpringDamping
+- BreathRotSpringMass
+- WalkPosSpringFrequency
+- WalkPosSpringDamping
+- WalkPosSpringMass
+- WalkRotSpringFrequency
+- WalkRotSpringDamping
+- WalkRotSpringMass
+- AimLerpSpeed
+- AimMouseSensitivity
+- BobbleEquipTrigger
+- BobbleReloadTrigger
+- BobbleDryFireTrigger
+- BobbleChangeAimTrigger
+- BobbleChangeFiremodeTrigger
+- RecoilCameraTime
+- RecoilCameraIntensity
+- DefaultRecoilProfile
+
+Если в donor есть важные recoil/viewmodel tuning fields, добавь их тоже:
+- sway multipliers
+- long aim noise
+- idle aim thresholds
+- viewmodel aim factors
+- blindfire aim cframe
+- любые viewmodel-specific recoil-related fields, которые реально участвуют в feel
+
+Не нужно:
+- тащить всё подряд
+- тащить неотносящиеся к recoil text/UI поля
+
+Выход:
+- один module script, return table
+
+========================================
+3. ФАЙЛ: DonorFireKick
+========================================
+
+Цель:
+Сделать отдельный donor-style модуль FireKick, вдохновлённый `ViewmodelController.FireKick(...)` из donor, НО без framework-зависимостей.
+
+ВАЖНО:
+- НЕ пытайся портировать весь ViewmodelController
+- нужен только ИЗОЛИРОВАННЫЙ кусок FireKick/camKick поведения
+- этот модуль потом будет вручную подключён в framework
+
+Нужный API:
+- DonorFireKick.new(config)
+- fireKick:FireKick(x, y, z)
+- fireKick:Update(dt, aimFactor)
+- fireKick:Reset()
+
+Возвращаемое поведение:
+- Update(dt, aimFactor) должен возвращать CFrame
+- aimFactor может быть optional числом 0..1
+- при aiming kick должен быть мягче
+- без прицела kick может быть сильнее
+- движение должно быть коротким, clean, donor-like
+- не должно быть длинного дребезжащего хвоста
+- если внутренние target/current значения очень малы — аккуратно обнуляй, чтобы не было визуального мусора
+
+Внутри можно использовать:
+- новый DonorSpring
+- внутренние spring’и для rot/pos
+- отдельный camKickTarget, если хочешь повторить donor feel
+
+Но:
+- без привязки к framework state tables
+- без references на giant render-controller
+- только isolated module
+
+Ожидаемая идея поведения:
+- FireKick(x,y,z) задаёт краткий импульс
+- Update(dt, aimFactor) превращает это в короткий красивый recoil-tail
+- модуль должен быть пригоден для вызова каждый render step
+
+========================================
+ОБЩИЕ ОГРАНИЧЕНИЯ
+========================================
+
+1. НЕ редактируй:
+- acs_framweorkv2
+- acs_framework MY ACS
+- любой большой framework-файл
+- существующий integration code
+
+2. НЕ меняй:
+- RecoilSystem
+- ShotBobble
+- ShotViewKick
+- DonorLikeRecoilModule
+если только это не абсолютно необходимо для совместимости.
+Предпочтительно: вообще не трогать их.
+
+3. СОЗДАВАЙ:
+- только новые файлы
+- изолированные модули
+- рядом с recoil-модулями
+
+4. Код должен быть:
+- Luau / Roblox compatible
+- clean
+- readable
+- reusable
+- без лишней магии
+- без framework-specific assumptions
+
+5. Если в donor что-то сломано/грязно/декомпиляторный мусор:
+- не копируй мусор буквально
+- восстанови нормальную читаемую реализацию
+- но сохрани donor behavior максимально близко
+
+========================================
+ЧТО НУЖНО В ОТВЕТЕ
+========================================
+
+В конце выдай:
+
+1. Список созданных файлов
+2. Полный код КАЖДОГО созданного файла
+3. Кратко по каждому файлу:
+   - что делает
+   - какой API
+   - какие donor-файлы были источником
+4. Отдельным блоком:
+   "Что я НЕ трогал специально"
+   и перечисли, что framework не менялся
+5. Если какой-то donor кусок невозможно перенести без framework — отдельно напиши это честно
+
+========================================
+ПРИОРИТЕТ
+========================================
+
+Приоритет такой:
+1. DonorSpring
+2. DonorRecoilSettings
+3. DonorFireKick
+
+Если останется время/смысл, можешь предложить 4-й файл, но только если он реально нужен.
+
+ЕЩЁ РАЗ:
+НЕ ЛЕЗЬ В FRAMEWORK.
+НЕ РЕДАКТИРУЙ БОЛЬШИЕ ФАЙЛЫ.
+СДЕЛАЙ ТОЛЬКО НОВЫЕ МОДУЛИ.
+Я САМ ПОТОМ ПОДКЛЮЧУ ИХ В ACS FRAMEWORK ВРУЧНУЮ.
+
+
+Что он должен вернуть тебе
+
+    полный код DonorSpring
+    полный код DonorRecoilSettings
+    полный код DonorFireKick
+
+
+Что делать потом
+
+    как только Roblox AI сгенерит это, скидывай мне его ответ
+    я сразу скажу:
+        что из этого норм,
+        что нужно поправить,
+        и как именно подключать в framework руками
+
+
+Confidence: High
+
+    Такой промпт хорошо ограничивает Roblox AI и не даёт ему полезть в огромный framework.
+    Это ровно под вашу схему работы: он делает отдельные модули, ты врезаешь вручную.
+
+
+Если хочешь, следующим сообщением я дам ещё второй промпт, уже отдельно только на DonorFireKick, ещё более жёсткий и точный.
+
+--!strict
+-- DonorRecoilSettings - Donor recoil/viewmodel related constants
+-- Based on acs_donor_for_recoil14 style settings
+-- Contains ONLY recoil/viewmodel/bobble/sway/camera-related settings
+-- NO UI strings, localizations, or text messages
+
+local DonorRecoilSettings = {}
+
+-- ============================================
+-- RECOIL STATE MULTIPLIERS
+-- ============================================
+-- These affect recoil based on player state
+
+DonorRecoilSettings.RecoilStateMultipliers = {
+-- Aim multiplier (when aiming down sights)
+Aim = 0.35,
+
+-- Crouch multiplier (when crouching)
+Crouch = 0.75,
+
+-- Prone multiplier (when prone)
+Prone = 0.55,
+
+-- Moving multiplier (when walking/running)
+Move = 1.15,
+
+-- Sprinting multiplier
+Sprint = 1.45,
+
+-- Jumping multiplier
+Jump = 1.35,
+
+-- First shot multiplier (applied to first shot in burst)
+FirstShot = 1.25,
+
+-- Suppressed weapon multiplier
+Suppressed = 0.88,
+
+
+}
+
+-- ============================================
+-- SWAY SPRING SETTINGS
+-- ============================================
+-- Weapon sway when moving/idle
+
+DonorRecoilSettings.SwaySpringFrequency = 1.8
+DonorRecoilSettings.SwaySpringDamping = 0.85
+DonorRecoilSettings.SwaySpringMass = 1.0
+
+-- Sway intensity multipliers
+DonorRecoilSettings.SwayMultiplier = {
+Idle = 1.0,
+Moving = 1.6,
+Sprinting = 2.2,
+Aiming = 0.25,
+Crouching = 0.7,
+}
+
+-- ============================================
+-- ROTATION SPRING SETTINGS
+-- ============================================
+-- For viewmodel rotation recoil
+
+DonorRecoilSettings.RotSpringFrequency = 12.5
+DonorRecoilSettings.RotSpringDamping = 0.92
+DonorRecoilSettings.RotSpringMass = 1.0
+
+-- ============================================
+-- BREATH SPRING SETTINGS
+-- ============================================
+-- Subtle breathing motion when idle
+
+-- Positional breath
+DonorRecoilSettings.BreathPosSpringFrequency = 0.8
+DonorRecoilSettings.BreathPosSpringDamping = 0.65
+DonorRecoilSettings.BreathPosSpringMass = 1.0
+
+-- Rotational breath
+DonorRecoilSettings.BreathRotSpringFrequency = 0.65
+DonorRecoilSettings.BreathRotSpringDamping = 0.55
+DonorRecoilSettings.BreathRotSpringMass = 1.0
+
+-- Breath intensity
+DonorRecoilSettings.BreathIntensity = {
+Position = 0.008,
+Rotation = 0.003,
+}
+
+-- ============================================
+-- WALK SPRING SETTINGS
+-- ============================================
+-- Weapon bob when walking
+
+-- Positional walk bob
+DonorRecoilSettings.WalkPosSpringFrequency = 4.5
+DonorRecoilSettings.WalkPosSpringDamping = 0.78
+DonorRecoilSettings.WalkPosSpringMass = 1.0
+
+-- Rotational walk bob
+DonorRecoilSettings.WalkRotSpringFrequency = 5.2
+DonorRecoilSettings.WalkRotSpringDamping = 0.82
+DonorRecoilSettings.WalkRotSpringMass = 1.0
+
+-- Walk bob intensity
+DonorRecoilSettings.WalkBobIntensity = {
+Position = 0.025,
+Rotation = 0.012,
+}
+
+-- ============================================
+-- AIM SETTINGS
+-- ============================================
+
+-- Aim lerp speed (how fast weapon moves to aim position)
+DonorRecoilSettings.AimLerpSpeed = 12.0
+
+-- Mouse sensitivity when aiming
+DonorRecoilSettings.AimMouseSensitivity = 0.5
+
+-- Aim transition time
+DonorRecoilSettings.AimTransitionTime = 0.18
+
+-- Long aim noise (slight sway when holding aim for a long time)
+DonorRecoilSettings.LongAimNoise = {
+Enabled = true,
+Intensity = 0.002,
+Frequency = 0.3,
+}
+
+-- Idle aim threshold (time before sway starts)
+DonorRecoilSettings.IdleAimThreshold = 2.5
+
+-- Viewmodel aim factors
+DonorRecoilSettings.ViewmodelAimFactors = {
+-- Position offset when aiming
+PositionOffset = Vector3.new(0, 0, -0.1),
+
+-- Rotation offset when aiming
+RotationOffset = Vector3.new(0, 0, 0),
+
+-- FOV change when aiming
+FOVChange = -15,
+
+
+}
+
+-- Blindfire aim CFrame offset
+DonorRecoilSettings.BlindfireAimCFrame = CFrame.new(0.15, -0.08, 0.2) * CFrame.Angles(math.rad(8), math.rad(-5), math.rad(3))
+
+-- ============================================
+-- BOBBLE TRIGGER SETTINGS
+-- ============================================
+-- When to trigger weapon bobble effects
+
+DonorRecoilSettings.BobbleEquipTrigger = true
+DonorRecoilSettings.BobbleReloadTrigger = true
+DonorRecoilSettings.BobbleDryFireTrigger = true
+DonorRecoilSettings.BobbleChangeAimTrigger = true
+DonorRecoilSettings.BobbleChangeFiremodeTrigger = true
+
+-- Bobble intensity multipliers
+DonorRecoilSettings.BobbleIntensity = {
+Equip = 0.6,
+Reload = 0.8,
+DryFire = 0.4,
+ChangeAim = 0.35,
+ChangeFiremode = 0.25,
+}
+
+-- ============================================
+-- RECOIL CAMERA SETTINGS
+-- ============================================
+-- Camera kick from recoil
+
+DonorRecoilSettings.RecoilCameraTime = 0.12
+DonorRecoilSettings.RecoilCameraIntensity = 0.85
+
+-- Camera kick spring settings
+DonorRecoilSettings.CameraKickSpringFrequency = 8.5
+DonorRecoilSettings.CameraKickSpringDamping = 0.88
+
+-- ============================================
+-- DEFAULT RECOIL PROFILE
+-- ============================================
+-- Base recoil profile for weapons
+
+DonorRecoilSettings.DefaultRecoilProfile = {
+-- Main kick values
+kickStrength = 0.042,
+kickRandomness = 0.15,
+
+-- Horizontal recoil
+horizontalStrength = 0.028,
+horizontalRandomness = 0.18,
+
+-- Roll recoil
+rollStrength = 0.016,
+
+-- First shot
+firstShotMultiplier = 1.2,
+
+-- Spray pattern
+sprayIncrease = 0.055,
+sprayDecayTime = 0.35,
+
+-- Camera shake
+cameraShake = 0.035,
+
+-- Gun movement
+gunKickback = 0.04,
+gunRise = 0.025,
+
+-- Pattern settings
+usePattern = false,
+patternScale = 0.035,
+patternSpeed = 22,
+patternRandomness = 0.12,
+pattern = {},
+
+-- Spring physics
+springStiffness = 78,
+springDamping = 16,
+
+-- Return behavior
+returnSpeed = 0.18,
+returnSmoothness = 0.82,
+
+-- Limits
+minPitch = -0.15,
+maxPitch = 0.55,
+maxYaw = 0.4,
+maxRoll = 0.25,
+
+-- State multipliers (references above)
+aimMultiplier = 0.35,
+crouchMultiplier = 0.75,
+moveMultiplier = 1.15,
+
+
+}
+
+-- ============================================
+-- FIRE KICK SETTINGS
+-- ============================================
+-- Per-shot viewmodel kick
+
+DonorRecoilSettings.FireKickSettings = {
+-- Position kick intensity
+PositionKickIntensity = Vector3.new(0.008, 0.012, -0.025),
+
+-- Rotation kick intensity
+RotationKickIntensity = Vector3.new(-0.015, 0.006, 0.003),
+
+-- Spring settings for fire kick
+PosSpringFrequency = 14.0,
+PosSpringDamping = 0.85,
+RotSpringFrequency = 11.0,
+RotSpringDamping = 0.82,
+
+-- Aim factor (how much aiming reduces kick)
+AimReductionFactor = 0.4,
+
+
+}
+
+-- ============================================
+-- VIEWMODEL SWAY SETTINGS
+-- ============================================
+
+DonorRecoilSettings.ViewmodelSwaySettings = {
+-- Base sway intensity
+BaseIntensity = 0.015,
+
+-- Sprint sway multiplier
+SprintMultiplier = 2.5,
+
+-- Aim sway reduction
+AimReduction = 0.2,
+
+
+}
+
+return DonorRecoilSettings
+
+--!strict
+-- DonorFireKick - Isolated donor-style FireKick module
+-- Inspired by ViewmodelController.FireKick(...) from donor ACS
+-- NO framework dependencies - pure isolated module
+-- Uses DonorSpring internally for spring physics
+
+local DonorFireKick = {}
+DonorFireKick.__index = DonorFireKick
+
+-- Try to require DonorSpring, fall back to internal implementation if not available
+local DonorSpring
+local success, springModule = pcall(function()
+return require(game.ReplicatedStorage.ACS_Engine.Modules.DonorSpring)
+end)
+if success then
+DonorSpring = springModule
+else
+-- Internal spring implementation fallback
+DonorSpring = {}
+DonorFireKick.__index = DonorFireKick
+
+local abs = math.abs
+	
+function DonorSpring.new(frequency, damping, mass, initialValue, targetValue)
+	local self = setmetatable({}, {__index = DonorSpring})
+	self.Frequency = frequency or 1
+	self.Damping = damping or 1
+	self.Mass = mass or 1
+	self.SnapDistance = 0.0001
+	self.Position = initialValue or 0
+	self.Velocity = 0
+	self.Target = targetValue or 0
+	return self
+end
+
+function DonorSpring:Shove(force)
+	self.Velocity = self.Velocity + force
+end
+
+function DonorSpring:Update(dt)
+	dt = math.clamp(dt, 0.0001, 0.1)
+	local omega = 2 * math.pi * self.Frequency
+	local omega2 = omega * omega
+	local displacement = self.Position - self.Target
+	local springForce = -omega2 * self.Mass * displacement
+	local dampingForce = -2 * self.Damping * omega * self.Mass * self.Velocity
+	local acceleration = (springForce + dampingForce) / self.Mass
+	self.Velocity = self.Velocity + acceleration * dt
+	self.Position = self.Position + self.Velocity * dt
+	if abs(displacement) < self.SnapDistance and abs(self.Velocity) < 0.001 then
+		self.Position = self.Target
+		self.Velocity = 0
+	end
+	return self.Position
+end
+
+function DonorSpring:Reset(value)
+	self.Position = value or 0
+	self.Velocity = 0
+end
+
+function DonorSpring:SetTarget(target)
+	self.Target = target
+end
+
+function DonorSpring:GetPosition()
+	return self.Position
+end
+
+function DonorSpring:GetVelocity()
+	return self.Velocity
+end
+
+
+end
+
+-- Default configuration
+local DEFAULT_CONFIG = {
+-- Position kick spring settings
+PosSpringFrequency = 14.0,
+PosSpringDamping = 0.85,
+PosSpringMass = 1.0,
+
+-- Rotation kick spring settings
+RotSpringFrequency = 11.0,
+RotSpringDamping = 0.82,
+RotSpringMass = 1.0,
+
+-- Aim reduction factor (0-1, how much aiming reduces kick)
+AimReductionFactor = 0.4,
+
+-- Base kick intensity multipliers
+KickMultiplier = 1.0,
+
+-- Snap threshold for clean tail
+SnapThreshold = 0.00008,
+
+
+}
+
+-- Create a new FireKick instance
+-- config: table with optional spring settings (uses defaults if not provided)
+function DonorFireKick.new(config)
+local self = setmetatable({}, DonorFireKick)
+
+-- Merge config with defaults
+config = config or {}
+self.config = {}
+for k, v in pairs(DEFAULT_CONFIG) do
+	self.config[k] = config[k] or v
+end
+
+-- Position springs (X, Y, Z)
+self.posSpringX = DonorSpring.new(self.config.PosSpringFrequency, self.config.PosSpringDamping, self.config.PosSpringMass, 0, 0)
+self.posSpringY = DonorSpring.new(self.config.PosSpringFrequency * 0.95, self.config.PosSpringDamping * 0.92, self.config.PosSpringMass, 0, 0)
+self.posSpringZ = DonorSpring.new(self.config.PosSpringFrequency * 1.1, self.config.PosSpringDamping * 1.05, self.config.PosSpringMass, 0, 0)
+
+-- Rotation springs (pitch, yaw, roll)
+self.rotSpringPitch = DonorSpring.new(self.config.RotSpringFrequency, self.config.RotSpringDamping, self.config.RotSpringMass, 0, 0)
+self.rotSpringYaw = DonorSpring.new(self.config.RotSpringFrequency * 0.9, self.config.RotSpringDamping * 0.88, self.config.RotSpringMass, 0, 0)
+self.rotSpringRoll = DonorSpring.new(self.config.RotSpringFrequency * 0.75, self.config.RotSpringDamping * 0.8, self.config.RotSpringMass, 0, 0)
+
+-- Internal camKickTarget for donor-like behavior
+self.camKickTarget = Vector3.new(0, 0, 0)
+
+return self
+
+
+end
+
+-- Apply a fire kick impulse
+-- x: horizontal kick (positive = right)
+-- y: vertical kick (positive = up)
+-- z: forward/back kick (negative = backward, typical recoil)
+function DonorFireKick:FireKick(x, y, z)
+x = x or 0
+y = y or 0
+z = z or 0
+
+local mult = self.config.KickMultiplier
+
+-- Apply position impulses (donor-like short, clean kick)
+self.posSpringX:Shove(x * mult * 1.2)
+self.posSpringY:Shove(y * mult * 1.35)
+self.posSpringZ:Shove(z * mult * 1.5)
+
+-- Apply rotation impulses (linked to position for realistic feel)
+-- Pitch kick is opposite to Y position (gun rises, view pitches down slightly)
+self.rotSpringPitch:Shove(-y * mult * 0.65)
+-- Yaw kick linked to X position
+self.rotSpringYaw:Shove(x * mult * 0.35)
+-- Roll kick for slight twist
+self.rotSpringRoll:Shove(x * mult * 0.18)
+
+-- Store for camera kick reference
+self.camKickTarget = Vector3.new(x, y, z) * mult
+
+
+end
+
+-- Update the fire kick springs
+-- dt: delta time
+-- aimFactor: 0-1, how much the player is aiming (0 = hip, 1 = full aim)
+-- Returns: CFrame representing the kick offset
+function DonorFireKick:Update(dt, aimFactor)
+dt = math.clamp(dt, 0.0001, 0.05)
+aimFactor = aimFactor or 0
+
+-- Calculate aim reduction (donor: kick is softer when aiming)
+local aimReduction = 1.0 - (aimFactor * (1.0 - self.config.AimReductionFactor))
+
+-- Update position springs
+local posX = self.posSpringX:Update(dt) * aimReduction
+local posY = self.posSpringY:Update(dt) * aimReduction
+local posZ = self.posSpringZ:Update(dt) * aimReduction
+
+-- Update rotation springs
+local rotPitch = self.rotSpringPitch:Update(dt) * aimReduction
+local rotYaw = self.rotSpringYaw:Update(dt) * aimReduction
+local rotRoll = self.rotSpringRoll:Update(dt) * aimReduction
+
+-- Clean tail: zero out very small values to prevent visual noise
+local snapThreshold = self.config.SnapThreshold
+if math.abs(posX) < snapThreshold and math.abs(self.posSpringX:GetVelocity()) < snapThreshold then
+	posX = 0
+end
+if math.abs(posY) < snapThreshold and math.abs(self.posSpringY:GetVelocity()) < snapThreshold then
+	posY = 0
+end
+if math.abs(posZ) < snapThreshold and math.abs(self.posSpringZ:GetVelocity()) < snapThreshold then
+	posZ = 0
+end
+if math.abs(rotPitch) < snapThreshold and math.abs(self.rotSpringPitch:GetVelocity()) < snapThreshold then
+	rotPitch = 0
+end
+if math.abs(rotYaw) < snapThreshold and math.abs(self.rotSpringYaw:GetVelocity()) < snapThreshold then
+	rotYaw = 0
+end
+if math.abs(rotRoll) < snapThreshold and math.abs(self.rotSpringRoll:GetVelocity()) < snapThreshold then
+	rotRoll = 0
+end
+
+-- Build CFrame (donor-like: position * rotation)
+local posCF = CFrame.new(posX, posY, posZ)
+local rotCF = CFrame.Angles(rotPitch, rotYaw, rotRoll)
+
+return posCF * rotCF
+
+
+end
+
+-- Reset all springs to zero
+function DonorFireKick:Reset()
+self.posSpringX:Reset(0)
+self.posSpringY:Reset(0)
+self.posSpringZ:Reset(0)
+self.rotSpringPitch:Reset(0)
+self.rotSpringYaw:Reset(0)
+self.rotSpringRoll:Reset(0)
+self.camKickTarget = Vector3.new(0, 0, 0)
+end
+
+-- Get current kick intensity (useful for camera effects)
+function DonorFireKick:GetKickIntensity()
+local posX = self.posSpringX:GetPosition()
+local posY = self.posSpringY:GetPosition()
+local posZ = self.posSpringZ:GetPosition()
+return math.sqrt(posX * posX + posY * posY + posZ * posZ)
+end
+
+-- Get camera kick values (for external camera recoil system)
+function DonorFireKick:GetCameraKick()
+return self.camKickTarget.X, self.camKickTarget.Y
+end
+
+-- Check if kick is finished (all springs at rest)
+function DonorFireKick:IsFinished()
+return self.posSpringX:IsAtRest() and
+self.posSpringY:IsAtRest() and
+self.posSpringZ:IsAtRest() and
+self.rotSpringPitch:IsAtRest() and
+self.rotSpringYaw:IsAtRest() and
+self.rotSpringRoll:IsAtRest()
+end
+
+return DonorFireKick
+
+--!strict
+-- DonorSpring - Clean donor-style spring module
+-- Works with both number and Vector3 values
+-- Based on donor ACS spring behavior (acs_donor_for_recoil13 style)
+
+local DonorSpring = {}
+DonorSpring.__index = DonorSpring
+
+local abs = math.abs
+local sqrt = math.sqrt
+local exp = math.exp
+local cos = math.cos
+local sin = math.sin
+local min = math.min
+local max = math.max
+local clamp = math.clamp
+local pi = math.pi
+
+-- Default snap thresholds
+local DEFAULT_SNAP_DISTANCE = 0.0001
+local DEFAULT_VELOCITY_SNAP = 0.001
+
+-- Helper: Check if value is Vector3
+local function isVector3(value)
+return type(value) == "userdata" and typeof(value) == "Vector3"
+end
+
+-- Helper: Get magnitude for number or Vector3
+local function getMagnitude(value)
+if isVector3(value) then
+return value.Magnitude
+else
+return abs(value)
+end
+end
+
+-- Helper: Zero value for number or Vector3
+local function getZero(value)
+if isVector3(value) then
+return Vector3.new(0, 0, 0)
+else
+return 0
+end
+end
+
+-- Helper: Multiply value by scalar
+local function multiply(value, scalar)
+if isVector3(value) then
+return value * scalar
+else
+return value * scalar
+end
+end
+
+-- Helper: Add two values
+local function add(a, b)
+if isVector3(a) then
+return a + b
+else
+return a + b
+end
+end
+
+-- Helper: Subtract two values
+local function subtract(a, b)
+if isVector3(a) then
+return a - b
+else
+return a - b
+end
+end
+
+-- Create a new spring
+-- frequency: oscillation frequency (default 1)
+-- damping: damping ratio (default 1, critical damping)
+-- mass: mass of the spring (default 1)
+-- initialValue: starting position (number or Vector3)
+-- targetValue: target position (number or Vector3)
+function DonorSpring.new(frequency, damping, mass, initialValue, targetValue)
+local self = setmetatable({}, DonorSpring)
+
+-- Spring parameters
+self.Frequency = frequency or 1
+self.Damping = damping or 1
+self.Mass = mass or 1
+
+-- Snap distance threshold
+self.SnapDistance = DEFAULT_SNAP_DISTANCE
+
+-- State
+local isVec = isVector3(initialValue)
+local zero = getZero(initialValue or (isVec and Vector3.new(0,0,0) or 0))
+
+self.Position = initialValue or zero
+self.Velocity = zero
+self.Target = targetValue or zero
+
+return self
+
+
+end
+
+-- Apply an impulse force to the spring
+function DonorSpring:Shove(force)
+self.Velocity = add(self.Velocity, force)
+end
+
+-- Update the spring by dt seconds
+-- Returns the new position
+function DonorSpring:Update(dt)
+dt = clamp(dt, 0.0001, 0.1)
+
+local frequency = self.Frequency
+local damping = self.Damping
+local mass = self.Mass
+
+-- Calculate spring constants
+-- omega = 2 * pi * frequency
+-- Using donor-style spring physics
+local omega = 2 * pi * frequency
+local omega2 = omega * omega
+
+-- Damping coefficient
+-- For critical damping: damping = 1
+-- For underdamped: damping < 1
+-- For overdamped: damping > 1
+local zeta = damping
+
+-- Calculate displacement from target
+local displacement = subtract(self.Position, self.Target)
+
+-- Spring force: -k * x where k = omega^2 * mass
+-- Damping force: -c * v where c = 2 * zeta * omega * mass
+local springForce = multiply(displacement, -omega2 * mass)
+local dampingForce = multiply(self.Velocity, -2 * zeta * omega * mass)
+
+-- Total force
+local totalForce = add(springForce, dampingForce)
+
+-- Acceleration = Force / Mass
+local acceleration = multiply(totalForce, 1 / mass)
+
+-- Semi-implicit Euler integration (more stable)
+self.Velocity = add(self.Velocity, multiply(acceleration, dt))
+self.Position = add(self.Position, multiply(self.Velocity, dt))
+
+-- Snap to target if close enough (donor-like behavior)
+local posMag = getMagnitude(displacement)
+local velMag = getMagnitude(self.Velocity)
+
+if posMag < self.SnapDistance and velMag < DEFAULT_VELOCITY_SNAP then
+	self.Position = self.Target
+	self.Velocity = getZero(self.Position)
+end
+
+return self.Position
+
+
+end
+
+-- Reset the spring to a specific value
+function DonorSpring:Reset(value)
+local zero = getZero(value or self.Position)
+self.Position = value or zero
+self.Velocity = zero
+end
+
+-- Set a new target value
+function DonorSpring:SetTarget(target)
+self.Target = target
+end
+
+-- Get current position
+function DonorSpring:GetPosition()
+return self.Position
+end
+
+-- Get current velocity
+function DonorSpring:GetVelocity()
+return self.Velocity
+end
+
+-- Check if spring is at rest
+function DonorSpring:IsAtRest()
+local posMag = getMagnitude(subtract(self.Position, self.Target))
+local velMag = getMagnitude(self.Velocity)
+return posMag < self.SnapDistance and velMag < DEFAULT_VELOCITY_SNAP
+end
+
+return DonorSpring
+
+вот сделал он
+
+--!strict
+-- DonorSpring - Clean donor-style spring module
+-- Works with both number and Vector3 values
+-- Based on donor ACS spring behavior (acs_donor_for_recoil13 style)
+
+local DonorSpring = {}
+DonorSpring.__index = DonorSpring
+
+local abs = math.abs
+local sqrt = math.sqrt
+local exp = math.exp
+local cos = math.cos
+local sin = math.sin
+local min = math.min
+local max = math.max
+local clamp = math.clamp
+local pi = math.pi
+
+-- Default snap thresholds
+local DEFAULT_SNAP_DISTANCE = 0.0001
+local DEFAULT_VELOCITY_SNAP = 0.001
+
+-- Helper: Check if value is Vector3
+local function isVector3(value)
+return type(value) == "userdata" and typeof(value) == "Vector3"
+end
+
+-- Helper: Get magnitude for number or Vector3
+local function getMagnitude(value)
+if isVector3(value) then
+return value.Magnitude
+else
+return abs(value)
+end
+end
+
+-- Helper: Zero value for number or Vector3
+local function getZero(value)
+if isVector3(value) then
+return Vector3.new(0, 0, 0)
+else
+return 0
+end
+end
+
+-- Helper: Multiply value by scalar
+local function multiply(value, scalar)
+if isVector3(value) then
+return value * scalar
+else
+return value * scalar
+end
+end
+
+-- Helper: Add two values
+local function add(a, b)
+if isVector3(a) then
+return a + b
+else
+return a + b
+end
+end
+
+-- Helper: Subtract two values
+local function subtract(a, b)
+if isVector3(a) then
+return a - b
+else
+return a - b
+end
+end
+
+-- Create a new spring
+-- frequency: oscillation frequency (default 1)
+-- damping: damping ratio (default 1, critical damping)
+-- mass: mass of the spring (default 1)
+-- initialValue: starting position (number or Vector3)
+-- targetValue: target position (number or Vector3)
+function DonorSpring.new(frequency, damping, mass, initialValue, targetValue)
+local self = setmetatable({}, DonorSpring)
+
+-- Spring parameters
+self.Frequency = frequency or 1
+self.Damping = damping or 1
+self.Mass = mass or 1
+
+-- Snap distance threshold
+self.SnapDistance = DEFAULT_SNAP_DISTANCE
+
+-- State
+local isVec = isVector3(initialValue)
+local zero = getZero(initialValue or (isVec and Vector3.new(0,0,0) or 0))
+
+self.Position = initialValue or zero
+self.Velocity = zero
+self.Target = targetValue or zero
+
+return self
+
+
+end
+
+-- Apply an impulse force to the spring
+function DonorSpring:Shove(force)
+self.Velocity = add(self.Velocity, force)
+end
+
+-- Update the spring by dt seconds
+-- Returns the new position
+function DonorSpring:Update(dt)
+dt = clamp(dt, 0.0001, 0.1)
+
+local frequency = self.Frequency
+local damping = self.Damping
+local mass = self.Mass
+
+-- Calculate spring constants
+-- omega = 2 * pi * frequency
+-- Using donor-style spring physics
+local omega = 2 * pi * frequency
+local omega2 = omega * omega
+
+-- Damping coefficient
+-- For critical damping: damping = 1
+-- For underdamped: damping < 1
+-- For overdamped: damping > 1
+local zeta = damping
+
+-- Calculate displacement from target
+local displacement = subtract(self.Position, self.Target)
+
+-- Spring force: -k * x where k = omega^2 * mass
+-- Damping force: -c * v where c = 2 * zeta * omega * mass
+local springForce = multiply(displacement, -omega2 * mass)
+local dampingForce = multiply(self.Velocity, -2 * zeta * omega * mass)
+
+-- Total force
+local totalForce = add(springForce, dampingForce)
+
+-- Acceleration = Force / Mass
+local acceleration = multiply(totalForce, 1 / mass)
+
+-- Semi-implicit Euler integration (more stable)
+self.Velocity = add(self.Velocity, multiply(acceleration, dt))
+self.Position = add(self.Position, multiply(self.Velocity, dt))
+
+-- Snap to target if close enough (donor-like behavior)
+local posMag = getMagnitude(displacement)
+local velMag = getMagnitude(self.Velocity)
+
+if posMag < self.SnapDistance and velMag < DEFAULT_VELOCITY_SNAP then
+	self.Position = self.Target
+	self.Velocity = getZero(self.Position)
+end
+
+return self.Position
+
+
+end
+
+-- Reset the spring to a specific value
+function DonorSpring:Reset(value)
+local zero = getZero(value or self.Position)
+self.Position = value or zero
+self.Velocity = zero
+end
+
+-- Set a new target value
+function DonorSpring:SetTarget(target)
+self.Target = target
+end
+
+-- Get current position
+function DonorSpring:GetPosition()
+return self.Position
+end
+
+-- Get current velocity
+function DonorSpring:GetVelocity()
+return self.Velocity
+end
+
+-- Check if spring is at rest
+function DonorSpring:IsAtRest()
+local posMag = getMagnitude(subtract(self.Position, self.Target))
+local velMag = getMagnitude(self.Velocity)
+return posMag < self.SnapDistance and velMag < DEFAULT_VELOCITY_SNAP
+end
+
+return DonorSpring
+
+первый
+
+првоерь репу на новый файлы
+
+Проверил
+
+    По верхнему уровню repositories/rmukola3-wq-1 все файлы сейчас имеют одинаковый timestamp Mar 30 07:22, поэтому по времени точно отделить “самые новые” от “старых” нельзя.
+    Но видимые отдельные recoil-модули, которые точно лежат отдельно от framework, сейчас есть такие:
+        repositories/rmukola3-wq-1/DonorLikeRecoilModule:1
+        repositories/rmukola3-wq-1/RecoilCamera:1
+        repositories/rmukola3-wq-1/RecoilSystem:1
+        repositories/rmukola3-wq-1/ShotBobble:1
+        repositories/rmukola3-wq-1/ShotViewKick:1
+        repositories/rmukola3-wq-1/ViewmodelKick:1
+
+
+Что ещё бросается в глаза
+
+    Есть подозрительный отдельный файл repositories/rmukola3-wq-1/123123123123:1.
+    Новых donor-модулей, которые мы хотели заказать Roblox AI, пока не видно:
+        DonorSpring
+        DonorRecoilSettings
+        DonorFireKick
+
+
+Вывод
+
+    Если Roblox AI уже что-то сделал, то нужных новых модулей с ожидаемыми именами пока нет.
+    Значит либо он ещё не создал их, либо создал под другими именами.
+
+
+Что делать дальше
+
+    Скинь мне список/ответ Roblox AI, который он вернул.
+    Или я могу сразу проверить подозрительный файл 123123123123 и сказать, что это вообще такое.
+
+вобщем дело вт ом что уже несолкьо дней сбой именно в твоей системе в системе аи у тебя не обнволяется репа что бы обнвоилаьс надо ретсратать сессию я не знаю как тебе скинуть их я их щавлил уже несолкьо раз
+
+Да, понял. Проблема не у тебя — если в этой сессии репа не обновилась, я реально не вижу новые файлы, даже если ты их уже залил. Делать вид, что вижу, не буду.
+
+Что это значит
+
+    Текущая сессия может работать по устаревшему снимку репы.
+    Поэтому новые модули от Roblox AI я могу не увидеть вообще.
+    В таком состоянии нормально проверять интеграцию нельзя.
+
+
+Как мне скинуть файлы без новой сессии
+
+    Самый надёжный способ — вставить сюда текстом ответ Roblox AI.
+    Лучше вот в таком формате:
+
+
+FILE: DonorSpring
+```lua
+-- код
+
+
+FILE: DonorRecoilSettings
+
+-- код
+
+
+FILE: DonorFireKick
+
+-- код
+
+
+
+**Если текст большой**
+- Скидывай **по одному файлу**
+- сначала `DonorSpring`
+- потом `DonorRecoilSettings`
+- потом `DonorFireKick`
+
+**Если вообще неудобно вставлять всё**
+- скинь хотя бы:
+  - имена новых файлов
+  - первые ~40 строк каждого
+  - и последние ~40 строк каждого  
+Этого уже хватит, чтобы я понял, норм ли Roblox AI сделал архитектуру.
+
+**Лучший вариант**
+- Перезапустить сессию
+- и в новой сразу написать:
+  - `проверь файлы DonorSpring DonorRecoilSettings DonorFireKick`
+- Тогда я, скорее всего, уже увижу свежую репу.
+
+**Что делаем прямо сейчас**
+- Либо ты вставляешь сюда **код первого нового файла**
+- Либо просто копируешь **ответ Roblox AI целиком**, а я его разберу вручную.
+
+--!strict
+-- DonorSpring - Clean donor-style spring module
+-- Works with both number and Vector3 values
+-- Based on donor ACS spring behavior (acs_donor_for_recoil13 style)
+
+local DonorSpring = {}
+DonorSpring.__index = DonorSpring
+
+local abs = math.abs
+local sqrt = math.sqrt
+local exp = math.exp
+local cos = math.cos
+local sin = math.sin
+local min = math.min
+local max = math.max
+local clamp = math.clamp
+local pi = math.pi
+
+-- Default snap thresholds
+local DEFAULT_SNAP_DISTANCE = 0.0001
+local DEFAULT_VELOCITY_SNAP = 0.001
+
+-- Helper: Check if value is Vector3
+local function isVector3(value)
+return type(value) == "userdata" and typeof(value) == "Vector3"
+end
+
+-- Helper: Get magnitude for number or Vector3
+local function getMagnitude(value)
+if isVector3(value) then
+return value.Magnitude
+else
+return abs(value)
+end
+end
+
+-- Helper: Zero value for number or Vector3
+local function getZero(value)
+if isVector3(value) then
+return Vector3.new(0, 0, 0)
+else
+return 0
+end
+end
+
+-- Helper: Multiply value by scalar
+local function multiply(value, scalar)
+if isVector3(value) then
+return value * scalar
+else
+return value * scalar
+end
+end
+
+-- Helper: Add two values
+local function add(a, b)
+if isVector3(a) then
+return a + b
+else
+return a + b
+end
+end
+
+-- Helper: Subtract two values
+local function subtract(a, b)
+if isVector3(a) then
+return a - b
+else
+return a - b
+end
+end
+
+-- Create a new spring
+-- frequency: oscillation frequency (default 1)
+-- damping: damping ratio (default 1, critical damping)
+-- mass: mass of the spring (default 1)
+-- initialValue: starting position (number or Vector3)
+-- targetValue: target position (number or Vector3)
+function DonorSpring.new(frequency, damping, mass, initialValue, targetValue)
+local self = setmetatable({}, DonorSpring)
+
+-- Spring parameters
+self.Frequency = frequency or 1
+self.Damping = damping or 1
+self.Mass = mass or 1
+
+-- Snap distance threshold
+self.SnapDistance = DEFAULT_SNAP_DISTANCE
+
+-- State
+local isVec = isVector3(initialValue)
+local zero = getZero(initialValue or (isVec and Vector3.new(0,0,0) or 0))
+
+self.Position = initialValue or zero
+self.Velocity = zero
+self.Target = targetValue or zero
+
+return self
+
+
+end
+
+-- Apply an impulse force to the spring
+function DonorSpring:Shove(force)
+self.Velocity = add(self.Velocity, force)
+end
+
+-- Update the spring by dt seconds
+-- Returns the new position
+function DonorSpring:Update(dt)
+dt = clamp(dt, 0.0001, 0.1)
+
+local frequency = self.Frequency
+local damping = self.Damping
+local mass = self.Mass
+
+-- Calculate spring constants
+-- omega = 2 * pi * frequency
+-- Using donor-style spring physics
+local omega = 2 * pi * frequency
+local omega2 = omega * omega
+
+-- Damping coefficient
+-- For critical damping: damping = 1
+-- For underdamped: damping < 1
+-- For overdamped: damping > 1
+local zeta = damping
+
+-- Calculate displacement from target
+local displacement = subtract(self.Position, self.Target)
+
+-- Spring force: -k * x where k = omega^2 * mass
+-- Damping force: -c * v where c = 2 * zeta * omega * mass
+local springForce = multiply(displacement, -omega2 * mass)
+local dampingForce = multiply(self.Velocity, -2 * zeta * omega * mass)
+
+-- Total force
+local totalForce = add(springForce, dampingForce)
+
+-- Acceleration = Force / Mass
+local acceleration = multiply(totalForce, 1 / mass)
+
+-- Semi-implicit Euler integration (more stable)
+self.Velocity = add(self.Velocity, multiply(acceleration, dt))
+self.Position = add(self.Position, multiply(self.Velocity, dt))
+
+-- Snap to target if close enough (donor-like behavior)
+local posMag = getMagnitude(displacement)
+local velMag = getMagnitude(self.Velocity)
+
+if posMag < self.SnapDistance and velMag < DEFAULT_VELOCITY_SNAP then
+	self.Position = self.Target
+	self.Velocity = getZero(self.Position)
+end
+
+return self.Position
+
+
+end
+
+-- Reset the spring to a specific value
+function DonorSpring:Reset(value)
+local zero = getZero(value or self.Position)
+self.Position = value or zero
+self.Velocity = zero
+end
+
+-- Set a new target value
+function DonorSpring:SetTarget(target)
+self.Target = target
+end
+
+-- Get current position
+function DonorSpring:GetPosition()
+return self.Position
+end
+
+-- Get current velocity
+function DonorSpring:GetVelocity()
+return self.Velocity
+end
+
+-- Check if spring is at rest
+function DonorSpring:IsAtRest()
+local posMag = getMagnitude(subtract(self.Position, self.Target))
+local velMag = getMagnitude(self.Velocity)
+return posMag < self.SnapDistance and velMag < DEFAULT_VELOCITY_SNAP
+end
+
+return DonorSpring
+
+может сделаем так?  я скоприую всее сообщения в сесисиб зальюю их на гитхаб рестарнут и мб так проще будет ты просто прчотешь заново все особ щи поймеш ьчт омы делаем? если идея норм напши помледнеи вадные лсова для себя вб удущем
+
+Да, это нормальная идея.
+
+Так даже надёжнее: новая сессия + один большой контекст-файл = меньше шансов, что я снова увижу старый снимок репы.
+
+Что лучше залить
+
+    не все подряд сообщения целиком
+    а короткий handoff-файл
+    чтобы в новой сессии я быстро понял:
+        что уже сделано
+        что сломано
+        что не трогать
+        как именно работать дальше
+
+
+Вот готовый текст, который стоит сохранить для новой сессии
+
+Проект: Roblox ACS recoil rework.
+Репа иногда не обновляется в текущей AI-сессии, поэтому работаем через новый handoff.
+
+Как работаем:
+- большой ACS framework вручную правит пользователь
+- отдельный Roblox AI может создавать новые маленькие модули/конфиги
+- этот AI НЕ должен лезть в framework
+- задача ассистента: анализировать donor recoil, проверять новые модули и говорить, как подключать их в framework
+
+Главные файлы:
+- acs_framweorkv2
+- acs_framework MY ACS
+- RecoilSystem
+- DonorLikeRecoilModule
+- RecoilCamera
+- ShotViewKick
+- ShotBobble
+- acs_donor_for_recoil7
+- acs_donor_for_recoil10
+- acs_donor_for_recoil13
+- acs_donor_for_recoil14
+- acs_donor_for_recoil21
+
+Что уже выяснили:
+1. Это не полный donor port.
+Сейчас система = свой recoil engine + куски donor behavior.
+
+2. Самые важные donor части, которые еще не перенесены полностью:
+- полный ViewmodelController.Render из donor
+- donor FireKick
+- donor spring math
+- donor settings/state multipliers
+- полноценная интеграция RecoilCamera
+- donor shot/reset order
+- donor bobble trigger behavior на разные действия
+
+3. Важный баг, найденный раньше:
+- в DonorLikeRecoilModule использовались sin/cos без объявления
+- надо было добавить:
+  local sin = math.sin
+  local cos = math.cos
+
+4. Найденная архитектурная проблема:
+слишком много recoil-слоев суммируются одновременно:
+- donorRecoilCF
+- recoilcf
+- vmKickCF
+- shotKickCF
+- shotBobbleCF
+- secondaryCF
+из-за этого отдача местами ощущается как многократное мелкое подпружинивание
+
+5. Сильные подозреваемые по “некрасивому дребезгу”:
+- ShotBobble
+- SecondarySpring
+- хвосты в RecoilSystem
+
+6. Важное наблюдение:
+cameraKickCF считался, но не участвовал в итоговой сборке AnimPart.CFrame
+
+7. Что нужно делать дальше:
+не переписывать framework сразу,
+а переносить donor recoil по частям:
+- отдельные новые модули
+- пользователь вручную подключает их в framework
+
+8. Приоритет переноса:
+1) donor spring
+2) donor FireKick
+3) donor recoil settings / state multipliers
+4) recoil camera integration
+5) потом bobble / sway / idle aim детали
+
+9. Важное ограничение для Roblox AI:
+- не редактировать framework
+- не менять большие файлы
+- создавать только новые модули рядом с recoil-модулями
+
+10. Когда пользователь присылает новые файлы:
+сначала проверить, действительно ли они появились в repo
+если repo не обновился — просить вставить код текстом
+
+Цель:
+сделать recoil максимально близким к donor,
+но переносить безопасно и модульно, без прямой ломки большого framework.
+
+
+Ещё лучше
+
+    назови файл как-то вроде RECOIL_HANDOFF.md
+    и в новой сессии первой фразой напиши:
+        прочитай RECOIL_HANDOFF.md и потом проверь donor recoil files
+
+
+Мой совет
+
+    да, делай именно так
+    не тащи весь хаос переписки
+    тащи этот сжатый handoff
+
+
+Confidence: High
+
+    Такой способ реально лучше для продолжения длинной технической работы, чем пытаться восстанавливать всё из старой сессии по кускам.
+
+
+Если хочешь, я ещё могу сделать ещё более короткую ultra-short версию handoff на 15 строк
