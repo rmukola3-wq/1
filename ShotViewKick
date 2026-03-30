@@ -1,0 +1,67 @@
+local ShotViewKick = {}
+ShotViewKick.__index = ShotViewKick
+
+local function createSpring(stiffness, damping)
+	return {
+		position = Vector3.new(0, 0, 0),
+		velocity = Vector3.new(0, 0, 0),
+		stiffness = stiffness or 180,
+		damping = damping or 22
+	}
+end
+
+local function updateSpringVec3(spring, dt)
+	local accel = -spring.stiffness * spring.position - spring.damping * spring.velocity
+	spring.velocity = spring.velocity + accel * dt
+	spring.position = spring.position + spring.velocity * dt
+
+	if spring.position.Magnitude < 0.0001 and spring.velocity.Magnitude < 0.001 then
+		spring.position = Vector3.new(0, 0, 0)
+		spring.velocity = Vector3.new(0, 0, 0)
+	end
+
+	return spring.position
+end
+
+function ShotViewKick.new()
+	local self = setmetatable({}, ShotViewKick)
+
+	self.posSpring = createSpring(180, 22)
+	self.rotSpring = createSpring(150, 20)
+
+	return self
+end
+
+function ShotViewKick:FireKick(x, y, z)
+	x = x or 0
+	y = y or 0
+	z = z or 0
+
+	self.posSpring.velocity = self.posSpring.velocity + Vector3.new(x, y, z) * 1.6
+	self.rotSpring.velocity = self.rotSpring.velocity + Vector3.new(
+		-y * 0.55,
+		x * 0.25,
+		z * 0.18
+	)
+end
+
+function ShotViewKick:Update(dt)
+	dt = math.min(dt, 0.033)
+
+	local pos = updateSpringVec3(self.posSpring, dt)
+	local rot = updateSpringVec3(self.rotSpring, dt)
+
+	local posCF = CFrame.new(pos.X * 0.32, pos.Y * 0.32, pos.Z * 0.32)
+	local rotCF = CFrame.Angles(rot.X, rot.Y, rot.Z)
+
+	return posCF * rotCF
+end
+
+function ShotViewKick:Reset()
+	self.posSpring.position = Vector3.new(0, 0, 0)
+	self.posSpring.velocity = Vector3.new(0, 0, 0)
+	self.rotSpring.position = Vector3.new(0, 0, 0)
+	self.rotSpring.velocity = Vector3.new(0, 0, 0)
+end
+
+return ShotViewKick
