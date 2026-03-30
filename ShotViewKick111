@@ -1,0 +1,101 @@
+local ShotViewKick = {}
+ShotViewKick.__index = ShotViewKick
+
+local random = math.random
+local rad = math.rad
+local min = math.min
+local abs = math.abs
+
+local ZERO = Vector3.new(0, 0, 0)
+
+local function createSpring(stiffness, damping)
+	return {
+		position = ZERO,
+		velocity = ZERO,
+		stiffness = stiffness or 170,
+		damping = damping or 24,
+	}
+end
+
+local function updateSpringVec3(spring, dt)
+	local accel = -spring.stiffness * spring.position - spring.damping * spring.velocity
+	spring.velocity = spring.velocity + accel * dt
+	spring.position = spring.position + spring.velocity * dt
+
+	if spring.position.Magnitude < 0.00008 and spring.velocity.Magnitude < 0.0009 then
+		spring.position = ZERO
+		spring.velocity = ZERO
+	end
+
+	return spring.position
+end
+
+function ShotViewKick.new()
+	local self = setmetatable({}, ShotViewKick)
+
+	self.posSpring = createSpring(165, 24)
+	self.rotSpring = createSpring(145, 22)
+
+	self.sideBias = -0.16
+
+	return self
+end
+
+function ShotViewKick:FireKick(x, y, z)
+	x = x or 0
+	y = y or 0
+	z = z or 0
+
+	local lateral = x + self.sideBias * (0.65 + random() * 0.35)
+	local vertical = y
+	local depth = z
+
+	self.posSpring.velocity = self.posSpring.velocity + Vector3.new(
+		lateral * 1.15,
+		vertical * 1.45,
+		depth * 1.65
+	)
+
+	self.rotSpring.velocity = self.rotSpring.velocity + Vector3.new(
+		(-vertical * 0.78) + rad(random(-3, 2) * 0.01),
+		(lateral * 0.34),
+		(lateral * 0.18) + (depth * 0.08)
+	)
+end
+
+function ShotViewKick:Update(dt)
+	dt = min(dt, 0.033)
+
+	local pos = updateSpringVec3(self.posSpring, dt)
+	local rot = updateSpringVec3(self.rotSpring, dt)
+
+	local posX = pos.X * 0.20
+	local posY = pos.Y * 0.30
+	local posZ = pos.Z * 0.34
+
+	local rotX = rot.X
+	local rotY = rot.Y
+	local rotZ = rot.Z
+
+	if abs(posX) < 0.00002 then posX = 0 end
+	if abs(posY) < 0.00002 then posY = 0 end
+	if abs(posZ) < 0.00002 then posZ = 0 end
+
+	if abs(rotX) < 0.00002 then rotX = 0 end
+	if abs(rotY) < 0.00002 then rotY = 0 end
+	if abs(rotZ) < 0.00002 then rotZ = 0 end
+
+	local posCF = CFrame.new(posX, posY, posZ)
+	local rotCF = CFrame.Angles(rotX, rotY, rotZ)
+
+	return posCF * rotCF
+end
+
+function ShotViewKick:Reset()
+	self.posSpring.position = ZERO
+	self.posSpring.velocity = ZERO
+	self.rotSpring.position = ZERO
+	self.rotSpring.velocity = ZERO
+end
+
+return ShotViewKick
