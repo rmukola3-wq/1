@@ -1,0 +1,95 @@
+local ShotBobble = {}
+ShotBobble.__index = ShotBobble
+
+-- Shot bobble: light shake/bobble reaction after each shot
+-- Separate from main recoil, adds life to viewmodel
+-- Inspired by donor's secondary spring reactions
+
+local random = math.random
+local sin = math.sin
+local cos = math.cos
+local pi = math.pi
+
+function ShotBobble.new()
+	local self = setmetatable({}, ShotBobble)
+	
+	-- Bobble state
+	self.intensity = 0
+	self.phase = random() * pi * 2
+	
+	-- Decay parameters
+	self.decayRate = 4.5  -- How fast bobble fades
+	self.frequency = 28   -- Bobble oscillation speed
+	
+	-- Current bobble values
+	self.currentPos = Vector3.new(0, 0, 0)
+	self.currentRot = Vector3.new(0, 0, 0)
+	
+	return self
+end
+
+function ShotBobble:Trigger(amount)
+	-- Add bobble impulse, accumulates for rapid fire
+	self.intensity = self.intensity + (amount or 1)
+	self.phase = random() * pi * 2  -- Randomize phase for variety
+end
+
+function ShotBobble:Update(dt, isMoving, isAiming)
+	dt = math.min(dt, 0.033)
+	
+	-- Decay intensity over time
+	self.intensity = self.intensity * (1 - self.decayRate * dt)
+	if self.intensity < 0.001 then
+		self.intensity = 0
+	end
+	
+	-- Phase advances for oscillation
+	self.phase = self.phase + self.frequency * dt
+	
+	-- Calculate bobble based on intensity
+	local bobbleAmount = self.intensity
+	
+	-- Reduce when aiming (donor-like behavior)
+	if isAiming then
+		bobbleAmount = bobbleAmount * 0.35
+	end
+	
+	-- Slightly increase when moving
+	if isMoving then
+		bobbleAmount = bobbleAmount * 1.15
+	end
+	
+	-- Multi-frequency bobble for organic feel (donor uses multiple sine waves)
+	local bobbleX = sin(self.phase * 1.0) * 0.006 + cos(self.phase * 1.7) * 0.004
+	local bobbleY = sin(self.phase * 0.8 + 0.5) * 0.008 + cos(self.phase * 1.3) * 0.005
+	local bobbleZ = sin(self.phase * 1.2 + 1.0) * 0.003
+	
+	-- Apply intensity
+	self.currentPos = Vector3.new(
+		bobbleX * bobbleAmount,
+		bobbleY * bobbleAmount,
+		bobbleZ * bobbleAmount
+	)
+	
+	-- Rotational bobble (lighter than positional)
+	local rotBobble = bobbleAmount * 0.7
+	self.currentRot = Vector3.new(
+		sin(self.phase * 0.9) * 0.004 * rotBobble,  -- pitch
+		sin(self.phase * 1.1 + 0.3) * 0.003 * rotBobble,  -- yaw
+		sin(self.phase * 0.7 + 0.7) * 0.002 * rotBobble   -- roll
+	)
+	
+	-- Build CFrame
+	local posCF = CFrame.new(self.currentPos.X, self.currentPos.Y, self.currentPos.Z)
+	local rotCF = CFrame.Angles(self.currentRot.X, self.currentRot.Y, self.currentRot.Z)
+	
+	return posCF * rotCF
+end
+
+function ShotBobble:Reset()
+	self.intensity = 0
+	self.currentPos = Vector3.new(0, 0, 0)
+	self.currentRot = Vector3.new(0, 0, 0)
+end
+
+return ShotBobble
