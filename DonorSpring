@@ -1,0 +1,186 @@
+--!strict
+-- DonorSpring - Clean donor-style spring module
+-- Works with both number and Vector3 values
+-- Based on donor ACS spring behavior (acs_donor_for_recoil13 style)
+
+local DonorSpring = {}
+DonorSpring.__index = DonorSpring
+
+local abs = math.abs
+local sqrt = math.sqrt
+local exp = math.exp
+local cos = math.cos
+local sin = math.sin
+local min = math.min
+local max = math.max
+local clamp = math.clamp
+local pi = math.pi
+
+-- Default snap thresholds
+local DEFAULT_SNAP_DISTANCE = 0.0001
+local DEFAULT_VELOCITY_SNAP = 0.001
+
+-- Helper: Check if value is Vector3
+local function isVector3(value)
+	return type(value) == "userdata" and typeof(value) == "Vector3"
+end
+
+-- Helper: Get magnitude for number or Vector3
+local function getMagnitude(value)
+	if isVector3(value) then
+		return value.Magnitude
+	else
+		return abs(value)
+	end
+end
+
+-- Helper: Zero value for number or Vector3
+local function getZero(value)
+	if isVector3(value) then
+		return Vector3.new(0, 0, 0)
+	else
+		return 0
+	end
+end
+
+-- Helper: Multiply value by scalar
+local function multiply(value, scalar)
+	if isVector3(value) then
+		return value * scalar
+	else
+		return value * scalar
+	end
+end
+
+-- Helper: Add two values
+local function add(a, b)
+	if isVector3(a) then
+		return a + b
+	else
+		return a + b
+	end
+end
+
+-- Helper: Subtract two values
+local function subtract(a, b)
+	if isVector3(a) then
+		return a - b
+	else
+		return a - b
+	end
+end
+
+-- Create a new spring
+-- frequency: oscillation frequency (default 1)
+-- damping: damping ratio (default 1, critical damping)
+-- mass: mass of the spring (default 1)
+-- initialValue: starting position (number or Vector3)
+-- targetValue: target position (number or Vector3)
+function DonorSpring.new(frequency, damping, mass, initialValue, targetValue)
+	local self = setmetatable({}, DonorSpring)
+	
+	-- Spring parameters
+	self.Frequency = frequency or 1
+	self.Damping = damping or 1
+	self.Mass = mass or 1
+	
+	-- Snap distance threshold
+	self.SnapDistance = DEFAULT_SNAP_DISTANCE
+	
+	-- State
+	local isVec = isVector3(initialValue)
+	local zero = getZero(initialValue or (isVec and Vector3.new(0,0,0) or 0))
+	
+	self.Position = initialValue or zero
+	self.Velocity = zero
+	self.Target = targetValue or zero
+	
+	return self
+end
+
+-- Apply an impulse force to the spring
+function DonorSpring:Shove(force)
+	self.Velocity = add(self.Velocity, force)
+end
+
+-- Update the spring by dt seconds
+-- Returns the new position
+function DonorSpring:Update(dt)
+	dt = clamp(dt, 0.0001, 0.1)
+	
+	local frequency = self.Frequency
+	local damping = self.Damping
+	local mass = self.Mass
+	
+	-- Calculate spring constants
+	-- omega = 2 * pi * frequency
+	-- Using donor-style spring physics
+	local omega = 2 * pi * frequency
+	local omega2 = omega * omega
+	
+	-- Damping coefficient
+	-- For critical damping: damping = 1
+	-- For underdamped: damping < 1
+	-- For overdamped: damping > 1
+	local zeta = damping
+	
+	-- Calculate displacement from target
+	local displacement = subtract(self.Position, self.Target)
+	
+	-- Spring force: -k * x where k = omega^2 * mass
+	-- Damping force: -c * v where c = 2 * zeta * omega * mass
+	local springForce = multiply(displacement, -omega2 * mass)
+	local dampingForce = multiply(self.Velocity, -2 * zeta * omega * mass)
+	
+	-- Total force
+	local totalForce = add(springForce, dampingForce)
+	
+	-- Acceleration = Force / Mass
+	local acceleration = multiply(totalForce, 1 / mass)
+	
+	-- Semi-implicit Euler integration (more stable)
+	self.Velocity = add(self.Velocity, multiply(acceleration, dt))
+	self.Position = add(self.Position, multiply(self.Velocity, dt))
+	
+	-- Snap to target if close enough (donor-like behavior)
+	local posMag = getMagnitude(displacement)
+	local velMag = getMagnitude(self.Velocity)
+	
+	if posMag < self.SnapDistance and velMag < DEFAULT_VELOCITY_SNAP then
+		self.Position = self.Target
+		self.Velocity = getZero(self.Position)
+	end
+	
+	return self.Position
+end
+
+-- Reset the spring to a specific value
+function DonorSpring:Reset(value)
+	local zero = getZero(value or self.Position)
+	self.Position = value or zero
+	self.Velocity = zero
+end
+
+-- Set a new target value
+function DonorSpring:SetTarget(target)
+	self.Target = target
+end
+
+-- Get current position
+function DonorSpring:GetPosition()
+	return self.Position
+end
+
+-- Get current velocity
+function DonorSpring:GetVelocity()
+	return self.Velocity
+end
+
+-- Check if spring is at rest
+function DonorSpring:IsAtRest()
+	local posMag = getMagnitude(subtract(self.Position, self.Target))
+	local velMag = getMagnitude(self.Velocity)
+	return posMag < self.SnapDistance and velMag < DEFAULT_VELOCITY_SNAP
+end
+
+return DonorSpring
