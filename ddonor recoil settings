@@ -1,0 +1,166 @@
+--!strict
+
+local DonorRecoilSettings = {}
+
+DonorRecoilSettings.RecoilStateMultipliers = {
+	Aim = 0.35,
+	Crouch = 0.75,
+	Prone = 0.55,
+	Move = 1.15,
+	Sprint = 1.45,
+	Jump = 1.35,
+	FirstShot = 1.25,
+	Suppressed = 0.88,
+}
+
+DonorRecoilSettings.SwaySpringFrequency = 1.8
+DonorRecoilSettings.SwaySpringDamping = 0.85
+DonorRecoilSettings.SwaySpringMass = 1.0
+
+DonorRecoilSettings.SwayMultiplier = {
+	Idle = 1.0,
+	Moving = 1.6,
+	Sprinting = 2.2,
+	Aiming = 0.25,
+	Crouching = 0.7,
+}
+
+DonorRecoilSettings.RotSpringFrequency = 12.5
+DonorRecoilSettings.RotSpringDamping = 0.92
+DonorRecoilSettings.RotSpringMass = 1.0
+
+DonorRecoilSettings.BreathPosSpringFrequency = 0.8
+DonorRecoilSettings.BreathPosSpringDamping = 0.65
+DonorRecoilSettings.BreathPosSpringMass = 1.0
+
+DonorRecoilSettings.BreathRotSpringFrequency = 0.65
+DonorRecoilSettings.BreathRotSpringDamping = 0.55
+DonorRecoilSettings.BreathRotSpringMass = 1.0
+
+DonorRecoilSettings.BreathIntensity = {
+	Position = 0.008,
+	Rotation = 0.003,
+}
+
+DonorRecoilSettings.WalkPosSpringFrequency = 4.5
+DonorRecoilSettings.WalkPosSpringDamping = 0.78
+DonorRecoilSettings.WalkPosSpringMass = 1.0
+
+DonorRecoilSettings.WalkRotSpringFrequency = 5.2
+DonorRecoilSettings.WalkRotSpringDamping = 0.82
+DonorRecoilSettings.WalkRotSpringMass = 1.0
+
+DonorRecoilSettings.WalkBobIntensity = {
+	Position = 0.025,
+	Rotation = 0.012,
+}
+
+DonorRecoilSettings.AimLerpSpeed = 12.0
+DonorRecoilSettings.AimMouseSensitivity = 0.5
+DonorRecoilSettings.AimTransitionTime = 0.18
+
+DonorRecoilSettings.LongAimNoise = {
+	Enabled = true,
+	Intensity = 0.002,
+	Frequency = 0.3,
+}
+
+DonorRecoilSettings.IdleAimThreshold = 6.0
+
+DonorRecoilSettings.ViewmodelAimFactors = {
+	PositionOffset = Vector3.new(0, 0, -0.1),
+	RotationOffset = Vector3.new(0, 0, 0),
+	FOVChange = -15,
+}
+
+DonorRecoilSettings.BlindfireAimCFrame =
+	CFrame.new(-0.1, 0.85, 0.7) * CFrame.Angles(math.rad(-2.5), 0, math.rad(65))
+
+DonorRecoilSettings.BobbleEquipTrigger = true
+DonorRecoilSettings.BobbleReloadTrigger = true
+DonorRecoilSettings.BobbleDryFireTrigger = true
+DonorRecoilSettings.BobbleChangeAimTrigger = true
+DonorRecoilSettings.BobbleChangeFiremodeTrigger = true
+
+DonorRecoilSettings.BobbleIntensity = {
+	Equip = 0.6,
+	Reload = 0.8,
+	DryFire = 0.4,
+	ChangeAim = 0.35,
+	ChangeFiremode = 0.25,
+}
+
+DonorRecoilSettings.RecoilCameraTime = 0.10
+DonorRecoilSettings.RecoilCameraIntensity = 1.5
+DonorRecoilSettings.CameraKickSpringFrequency = 8.5
+DonorRecoilSettings.CameraKickSpringDamping = 0.88
+
+DonorRecoilSettings.DefaultRecoilProfile = {
+	kickStrength = 0.042,
+	kickRandomness = 0.15,
+
+	horizontalStrength = 0.028,
+	horizontalRandomness = 0.18,
+
+	rollStrength = 0.016,
+
+	firstShotMultiplier = 1.2,
+
+	sprayIncrease = 0.055,
+	sprayDecayTime = 0.35,
+
+	cameraShake = 0.035,
+
+	gunKickback = 0.04,
+	gunRise = 0.025,
+
+	usePattern = false,
+	patternScale = 0.035,
+	patternSpeed = 22,
+	patternRandomness = 0.12,
+	pattern = {},
+
+	springStiffness = 78,
+	springDamping = 16,
+
+	returnSpeed = 0.18,
+	returnSmoothness = 0.82,
+
+	minPitch = -0.15,
+	maxPitch = 0.55,
+	maxYaw = 0.4,
+	maxRoll = 0.25,
+
+	aimMultiplier = 0.35,
+	crouchMultiplier = 0.75,
+	moveMultiplier = 1.15,
+}
+
+DonorRecoilSettings.FireKickSettings = {
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	PosSpringMass = 1.0,
+
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	RotSpringMass = 1.0,
+
+	AimReductionFactor = 0.65,
+	KickMultiplier = 1.0,
+
+	PositionScale = Vector3.new(1.2, 1.35, 1.5),
+	RotationScale = Vector3.new(0.65, 0.35, 0.18),
+
+	SnapThreshold = 0.00008,
+
+	HipImpulse = Vector3.new(0, -0.08, 0.05),
+	AimImpulse = Vector3.new(0, -0.055, 0.035),
+}
+
+DonorRecoilSettings.ViewmodelSwaySettings = {
+	BaseIntensity = 0.015,
+	SprintMultiplier = 2.5,
+	AimReduction = 0.2,
+}
+
+return DonorRecoilSettings
