@@ -1,0 +1,54 @@
+--!strict
+-- AK47 Recoil Profile (improved from your soft snap base)
+
+return {
+	kickStrength = 0.0098,
+	kickRandomness = 0.10,
+
+	horizontalStrength = 0.0068,
+	horizontalRandomness = 0.16,
+
+	rollStrength = 0.0044,
+
+	instantKickRatio = 0.42,
+	posInstantKickRatio = 0.32,
+
+	patternSpeed = 18,
+	patternScale = 0.024,
+	patternRandomness = 0.08,
+
+	springStiffness = 50.0,
+	springDamping = 19.0,
+
+	leftBias = -0.0018,
+
+	gunKickback = 0.0125,
+	gunRise = 0.0085,
+
+	posMult = 0.92,
+	verticalMult = 0.98,
+
+	minPitch = -0.08,
+	maxPitch = 0.80,
+	maxYaw = 0.26,
+	maxRoll = 0.18,
+
+	adsViewKickScale = 0.42,
+	adsRecoilCFScale = 0.58,
+	adsSwayScale = 0.26,
+	adsLagScale = 0.20,
+	adsCamRecoilPower = 0.22,
+
+	hipRecoilScale = 0.26,
+	hipVMKickScale = 0.22,
+
+	usePattern = true,
+	pattern = {
+		{x = -0.06, y = 0.90},
+		{x = -0.10, y = 0.78},
+		{x = -0.14, y = 0.66},
+		{x = -0.10, y = 0.64},
+	},
+
+	cameraShake = 0.022,
+}
