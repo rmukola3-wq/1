@@ -1,0 +1,236 @@
+--!strict
+-- DonorFireKick - Isolated donor-style FireKick module
+-- Inspired by ViewmodelController.FireKick(...) from donor ACS
+-- NO framework dependencies - pure isolated module
+-- Uses DonorSpring internally for spring physics
+
+local DonorFireKick = {}
+DonorFireKick.__index = DonorFireKick
+
+-- Try to require DonorSpring, fall back to internal implementation if not available
+local DonorSpring
+local success, springModule = pcall(function()
+	return require(game.ReplicatedStorage.ACS_Engine.Modules.DonorSpring)
+end)
+if success then
+	DonorSpring = springModule
+else
+	-- Internal spring implementation fallback
+	DonorSpring = {}
+	DonorFireKick.__index = DonorFireKick
+	
+	local abs = math.abs
+		
+	function DonorSpring.new(frequency, damping, mass, initialValue, targetValue)
+		local self = setmetatable({}, {__index = DonorSpring})
+		self.Frequency = frequency or 1
+		self.Damping = damping or 1
+		self.Mass = mass or 1
+		self.SnapDistance = 0.0001
+		self.Position = initialValue or 0
+		self.Velocity = 0
+		self.Target = targetValue or 0
+		return self
+	end
+	
+	function DonorSpring:Shove(force)
+		self.Velocity = self.Velocity + force
+	end
+	
+	function DonorSpring:Update(dt)
+		dt = math.clamp(dt, 0.0001, 0.1)
+		local omega = 2 * math.pi * self.Frequency
+		local omega2 = omega * omega
+		local displacement = self.Position - self.Target
+		local springForce = -omega2 * self.Mass * displacement
+		local dampingForce = -2 * self.Damping * omega * self.Mass * self.Velocity
+		local acceleration = (springForce + dampingForce) / self.Mass
+		self.Velocity = self.Velocity + acceleration * dt
+		self.Position = self.Position + self.Velocity * dt
+		if abs(displacement) < self.SnapDistance and abs(self.Velocity) < 0.001 then
+			self.Position = self.Target
+			self.Velocity = 0
+		end
+		return self.Position
+	end
+	
+	function DonorSpring:Reset(value)
+		self.Position = value or 0
+		self.Velocity = 0
+	end
+	
+	function DonorSpring:SetTarget(target)
+		self.Target = target
+	end
+	
+	function DonorSpring:GetPosition()
+		return self.Position
+	end
+	
+	function DonorSpring:GetVelocity()
+		return self.Velocity
+	end
+end
+
+-- Default configuration
+local DEFAULT_CONFIG = {
+	-- Position kick spring settings
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	PosSpringMass = 1.0,
+	
+	-- Rotation kick spring settings
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	RotSpringMass = 1.0,
+	
+	-- Aim reduction factor (0-1, how much aiming reduces kick)
+	AimReductionFactor = 0.4,
+	
+	-- Base kick intensity multipliers
+	KickMultiplier = 1.0,
+	
+	-- Snap threshold for clean tail
+	SnapThreshold = 0.00008,
+}
+
+-- Create a new FireKick instance
+-- config: table with optional spring settings (uses defaults if not provided)
+function DonorFireKick.new(config)
+	local self = setmetatable({}, DonorFireKick)
+	
+	-- Merge config with defaults
+	config = config or {}
+	self.config = {}
+	for k, v in pairs(DEFAULT_CONFIG) do
+		self.config[k] = config[k] or v
+	end
+	
+	-- Position springs (X, Y, Z)
+	self.posSpringX = DonorSpring.new(self.config.PosSpringFrequency, self.config.PosSpringDamping, self.config.PosSpringMass, 0, 0)
+	self.posSpringY = DonorSpring.new(self.config.PosSpringFrequency * 0.95, self.config.PosSpringDamping * 0.92, self.config.PosSpringMass, 0, 0)
+	self.posSpringZ = DonorSpring.new(self.config.PosSpringFrequency * 1.1, self.config.PosSpringDamping * 1.05, self.config.PosSpringMass, 0, 0)
+	
+	-- Rotation springs (pitch, yaw, roll)
+	self.rotSpringPitch = DonorSpring.new(self.config.RotSpringFrequency, self.config.RotSpringDamping, self.config.RotSpringMass, 0, 0)
+	self.rotSpringYaw = DonorSpring.new(self.config.RotSpringFrequency * 0.9, self.config.RotSpringDamping * 0.88, self.config.RotSpringMass, 0, 0)
+	self.rotSpringRoll = DonorSpring.new(self.config.RotSpringFrequency * 0.75, self.config.RotSpringDamping * 0.8, self.config.RotSpringMass, 0, 0)
+	
+	-- Internal camKickTarget for donor-like behavior
+	self.camKickTarget = Vector3.new(0, 0, 0)
+	
+	return self
+end
+
+-- Apply a fire kick impulse
+-- x: horizontal kick (positive = right)
+-- y: vertical kick (positive = up)
+-- z: forward/back kick (negative = backward, typical recoil)
+function DonorFireKick:FireKick(x, y, z)
+	x = x or 0
+	y = y or 0
+	z = z or 0
+	
+	local mult = self.config.KickMultiplier
+	
+	-- Apply position impulses (donor-like short, clean kick)
+	self.posSpringX:Shove(x * mult * 1.2)
+	self.posSpringY:Shove(y * mult * 1.35)
+	self.posSpringZ:Shove(z * mult * 1.5)
+	
+	-- Apply rotation impulses (linked to position for realistic feel)
+	-- Pitch kick is opposite to Y position (gun rises, view pitches down slightly)
+	self.rotSpringPitch:Shove(-y * mult * 0.65)
+	-- Yaw kick linked to X position
+	self.rotSpringYaw:Shove(x * mult * 0.35)
+	-- Roll kick for slight twist
+	self.rotSpringRoll:Shove(x * mult * 0.18)
+	
+	-- Store for camera kick reference
+	self.camKickTarget = Vector3.new(x, y, z) * mult
+end
+
+-- Update the fire kick springs
+-- dt: delta time
+-- aimFactor: 0-1, how much the player is aiming (0 = hip, 1 = full aim)
+-- Returns: CFrame representing the kick offset
+function DonorFireKick:Update(dt, aimFactor)
+	dt = math.clamp(dt, 0.0001, 0.05)
+	aimFactor = aimFactor or 0
+	
+	-- Calculate aim reduction (donor: kick is softer when aiming)
+	local aimReduction = 1.0 - (aimFactor * (1.0 - self.config.AimReductionFactor))
+	
+	-- Update position springs
+	local posX = self.posSpringX:Update(dt) * aimReduction
+	local posY = self.posSpringY:Update(dt) * aimReduction
+	local posZ = self.posSpringZ:Update(dt) * aimReduction
+	
+	-- Update rotation springs
+	local rotPitch = self.rotSpringPitch:Update(dt) * aimReduction
+	local rotYaw = self.rotSpringYaw:Update(dt) * aimReduction
+	local rotRoll = self.rotSpringRoll:Update(dt) * aimReduction
+	
+	-- Clean tail: zero out very small values to prevent visual noise
+	local snapThreshold = self.config.SnapThreshold
+	if math.abs(posX) < snapThreshold and math.abs(self.posSpringX:GetVelocity()) < snapThreshold then
+		posX = 0
+	end
+	if math.abs(posY) < snapThreshold and math.abs(self.posSpringY:GetVelocity()) < snapThreshold then
+		posY = 0
+	end
+	if math.abs(posZ) < snapThreshold and math.abs(self.posSpringZ:GetVelocity()) < snapThreshold then
+		posZ = 0
+	end
+	if math.abs(rotPitch) < snapThreshold and math.abs(self.rotSpringPitch:GetVelocity()) < snapThreshold then
+		rotPitch = 0
+	end
+	if math.abs(rotYaw) < snapThreshold and math.abs(self.rotSpringYaw:GetVelocity()) < snapThreshold then
+		rotYaw = 0
+	end
+	if math.abs(rotRoll) < snapThreshold and math.abs(self.rotSpringRoll:GetVelocity()) < snapThreshold then
+		rotRoll = 0
+	end
+	
+	-- Build CFrame (donor-like: position * rotation)
+	local posCF = CFrame.new(posX, posY, posZ)
+	local rotCF = CFrame.Angles(rotPitch, rotYaw, rotRoll)
+	
+	return posCF * rotCF
+end
+
+-- Reset all springs to zero
+function DonorFireKick:Reset()
+	self.posSpringX:Reset(0)
+	self.posSpringY:Reset(0)
+	self.posSpringZ:Reset(0)
+	self.rotSpringPitch:Reset(0)
+	self.rotSpringYaw:Reset(0)
+	self.rotSpringRoll:Reset(0)
+	self.camKickTarget = Vector3.new(0, 0, 0)
+end
+
+-- Get current kick intensity (useful for camera effects)
+function DonorFireKick:GetKickIntensity()
+	local posX = self.posSpringX:GetPosition()
+	local posY = self.posSpringY:GetPosition()
+	local posZ = self.posSpringZ:GetPosition()
+	return math.sqrt(posX * posX + posY * posY + posZ * posZ)
+end
+
+-- Get camera kick values (for external camera recoil system)
+function DonorFireKick:GetCameraKick()
+	return self.camKickTarget.X, self.camKickTarget.Y
+end
+
+-- Check if kick is finished (all springs at rest)
+function DonorFireKick:IsFinished()
+	return self.posSpringX:IsAtRest() and
+	       self.posSpringY:IsAtRest() and
+	       self.posSpringZ:IsAtRest() and
+	       self.rotSpringPitch:IsAtRest() and
+	       self.rotSpringYaw:IsAtRest() and
+	       self.rotSpringRoll:IsAtRest()
+end
+
+return DonorFireKick
