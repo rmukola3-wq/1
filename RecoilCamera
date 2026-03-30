@@ -1,0 +1,71 @@
+local RecoilCamera = {}
+RecoilCamera.__index = RecoilCamera
+
+-- Spring-based camera recoil closer to donor ACS behavior
+local function createSpring(stiffness, damping)
+	return {
+		position = 0,
+		velocity = 0,
+		stiffness = stiffness or 85,
+		damping = damping or 12
+	}
+end
+
+local function updateSpring(spring, dt)
+	local accel = -spring.stiffness * spring.position - spring.damping * spring.velocity
+	spring.velocity = spring.velocity + accel * dt
+	spring.position = spring.position + spring.velocity * dt
+	
+	if math.abs(spring.position) < 0.0001 and math.abs(spring.velocity) < 0.001 then
+		spring.position = 0
+		spring.velocity = 0
+	end
+	
+	return spring.position
+end
+
+function RecoilCamera.new()
+	local self = setmetatable({}, RecoilCamera)
+	
+	-- Separate springs for pitch, yaw, roll - donor uses independent axes
+	self.pitchSpring = createSpring(92, 14)
+	self.yawSpring = createSpring(78, 11)
+	self.rollSpring = createSpring(65, 9)
+	
+	-- Accumulated impulses for rapid fire
+	self.pitchAccum = 0
+	self.yawAccum = 0
+	self.rollAccum = 0
+	
+	return self
+end
+
+function RecoilCamera:Recoil(x, y, z)
+	-- x = pitch impulse, y = yaw impulse, z = roll impulse
+	-- Add to velocity for instant response, donor-like feel
+	self.pitchSpring.velocity = self.pitchSpring.velocity + x
+	self.yawSpring.velocity = self.yawSpring.velocity + y
+	self.rollSpring.velocity = self.rollSpring.velocity + z
+end
+
+function RecoilCamera:Update(dt)
+	dt = math.min(dt, 0.033)
+	
+	local pitch = updateSpring(self.pitchSpring, dt)
+	local yaw = updateSpring(self.yawSpring, dt)
+	local roll = updateSpring(self.rollSpring, dt)
+	
+	-- Return CFrame for camera rotation
+	return CFrame.Angles(pitch, yaw, roll)
+end
+
+function RecoilCamera:Reset()
+	self.pitchSpring.position = 0
+	self.pitchSpring.velocity = 0
+	self.yawSpring.position = 0
+	self.yawSpring.velocity = 0
+	self.rollSpring.position = 0
+	self.rollSpring.velocity = 0
+end
+
+return RecoilCamera
