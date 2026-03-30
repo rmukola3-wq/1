@@ -1,0 +1,274 @@
+--!strict
+-- DonorRecoilSettings - Donor recoil/viewmodel related constants
+-- Based on acs_donor_for_recoil14 style settings
+-- Contains ONLY recoil/viewmodel/bobble/sway/camera-related settings
+-- NO UI strings, localizations, or text messages
+
+local DonorRecoilSettings = {}
+
+-- ============================================
+-- RECOIL STATE MULTIPLIERS
+-- ============================================
+-- These affect recoil based on player state
+
+DonorRecoilSettings.RecoilStateMultipliers = {
+	-- Aim multiplier (when aiming down sights)
+	Aim = 0.35,
+	
+	-- Crouch multiplier (when crouching)
+	Crouch = 0.75,
+	
+	-- Prone multiplier (when prone)
+	Prone = 0.55,
+	
+	-- Moving multiplier (when walking/running)
+	Move = 1.15,
+	
+	-- Sprinting multiplier
+	Sprint = 1.45,
+	
+	-- Jumping multiplier
+	Jump = 1.35,
+	
+	-- First shot multiplier (applied to first shot in burst)
+	FirstShot = 1.25,
+	
+	-- Suppressed weapon multiplier
+	Suppressed = 0.88,
+}
+
+-- ============================================
+-- SWAY SPRING SETTINGS
+-- ============================================
+-- Weapon sway when moving/idle
+
+DonorRecoilSettings.SwaySpringFrequency = 1.8
+DonorRecoilSettings.SwaySpringDamping = 0.85
+DonorRecoilSettings.SwaySpringMass = 1.0
+
+-- Sway intensity multipliers
+DonorRecoilSettings.SwayMultiplier = {
+	Idle = 1.0,
+	Moving = 1.6,
+	Sprinting = 2.2,
+	Aiming = 0.25,
+	Crouching = 0.7,
+}
+
+-- ============================================
+-- ROTATION SPRING SETTINGS
+-- ============================================
+-- For viewmodel rotation recoil
+
+DonorRecoilSettings.RotSpringFrequency = 12.5
+DonorRecoilSettings.RotSpringDamping = 0.92
+DonorRecoilSettings.RotSpringMass = 1.0
+
+-- ============================================
+-- BREATH SPRING SETTINGS
+-- ============================================
+-- Subtle breathing motion when idle
+
+-- Positional breath
+DonorRecoilSettings.BreathPosSpringFrequency = 0.8
+DonorRecoilSettings.BreathPosSpringDamping = 0.65
+DonorRecoilSettings.BreathPosSpringMass = 1.0
+
+-- Rotational breath
+DonorRecoilSettings.BreathRotSpringFrequency = 0.65
+DonorRecoilSettings.BreathRotSpringDamping = 0.55
+DonorRecoilSettings.BreathRotSpringMass = 1.0
+
+-- Breath intensity
+DonorRecoilSettings.BreathIntensity = {
+	Position = 0.008,
+	Rotation = 0.003,
+}
+
+-- ============================================
+-- WALK SPRING SETTINGS
+-- ============================================
+-- Weapon bob when walking
+
+-- Positional walk bob
+DonorRecoilSettings.WalkPosSpringFrequency = 4.5
+DonorRecoilSettings.WalkPosSpringDamping = 0.78
+DonorRecoilSettings.WalkPosSpringMass = 1.0
+
+-- Rotational walk bob
+DonorRecoilSettings.WalkRotSpringFrequency = 5.2
+DonorRecoilSettings.WalkRotSpringDamping = 0.82
+DonorRecoilSettings.WalkRotSpringMass = 1.0
+
+-- Walk bob intensity
+DonorRecoilSettings.WalkBobIntensity = {
+	Position = 0.025,
+	Rotation = 0.012,
+}
+
+-- ============================================
+-- AIM SETTINGS
+-- ============================================
+
+-- Aim lerp speed (how fast weapon moves to aim position)
+DonorRecoilSettings.AimLerpSpeed = 12.0
+
+-- Mouse sensitivity when aiming
+DonorRecoilSettings.AimMouseSensitivity = 0.5
+
+-- Aim transition time
+DonorRecoilSettings.AimTransitionTime = 0.18
+
+-- Long aim noise (slight sway when holding aim for a long time)
+DonorRecoilSettings.LongAimNoise = {
+	Enabled = true,
+	Intensity = 0.002,
+	Frequency = 0.3,
+}
+
+-- Idle aim threshold (time before sway starts)
+DonorRecoilSettings.IdleAimThreshold = 2.5
+
+-- Viewmodel aim factors
+DonorRecoilSettings.ViewmodelAimFactors = {
+	-- Position offset when aiming
+	PositionOffset = Vector3.new(0, 0, -0.1),
+	
+	-- Rotation offset when aiming
+	RotationOffset = Vector3.new(0, 0, 0),
+	
+	-- FOV change when aiming
+	FOVChange = -15,
+}
+
+-- Blindfire aim CFrame offset
+DonorRecoilSettings.BlindfireAimCFrame = CFrame.new(0.15, -0.08, 0.2) * CFrame.Angles(math.rad(8), math.rad(-5), math.rad(3))
+
+-- ============================================
+-- BOBBLE TRIGGER SETTINGS
+-- ============================================
+-- When to trigger weapon bobble effects
+
+DonorRecoilSettings.BobbleEquipTrigger = true
+DonorRecoilSettings.BobbleReloadTrigger = true
+DonorRecoilSettings.BobbleDryFireTrigger = true
+DonorRecoilSettings.BobbleChangeAimTrigger = true
+DonorRecoilSettings.BobbleChangeFiremodeTrigger = true
+
+-- Bobble intensity multipliers
+DonorRecoilSettings.BobbleIntensity = {
+	Equip = 0.6,
+	Reload = 0.8,
+	DryFire = 0.4,
+	ChangeAim = 0.35,
+	ChangeFiremode = 0.25,
+}
+
+-- ============================================
+-- RECOIL CAMERA SETTINGS
+-- ============================================
+-- Camera kick from recoil
+
+DonorRecoilSettings.RecoilCameraTime = 0.12
+DonorRecoilSettings.RecoilCameraIntensity = 0.85
+
+-- Camera kick spring settings
+DonorRecoilSettings.CameraKickSpringFrequency = 8.5
+DonorRecoilSettings.CameraKickSpringDamping = 0.88
+
+-- ============================================
+-- DEFAULT RECOIL PROFILE
+-- ============================================
+-- Base recoil profile for weapons
+
+DonorRecoilSettings.DefaultRecoilProfile = {
+	-- Main kick values
+	kickStrength = 0.042,
+	kickRandomness = 0.15,
+	
+	-- Horizontal recoil
+	horizontalStrength = 0.028,
+	horizontalRandomness = 0.18,
+	
+	-- Roll recoil
+	rollStrength = 0.016,
+	
+	-- First shot
+	firstShotMultiplier = 1.2,
+	
+	-- Spray pattern
+	sprayIncrease = 0.055,
+	sprayDecayTime = 0.35,
+	
+	-- Camera shake
+	cameraShake = 0.035,
+	
+	-- Gun movement
+	gunKickback = 0.04,
+	gunRise = 0.025,
+	
+	-- Pattern settings
+	usePattern = false,
+	patternScale = 0.035,
+	patternSpeed = 22,
+	patternRandomness = 0.12,
+	pattern = {},
+	
+	-- Spring physics
+	springStiffness = 78,
+	springDamping = 16,
+	
+	-- Return behavior
+	returnSpeed = 0.18,
+	returnSmoothness = 0.82,
+	
+	-- Limits
+	minPitch = -0.15,
+	maxPitch = 0.55,
+	maxYaw = 0.4,
+	maxRoll = 0.25,
+	
+	-- State multipliers (references above)
+	aimMultiplier = 0.35,
+	crouchMultiplier = 0.75,
+	moveMultiplier = 1.15,
+}
+
+-- ============================================
+-- FIRE KICK SETTINGS
+-- ============================================
+-- Per-shot viewmodel kick
+
+DonorRecoilSettings.FireKickSettings = {
+	-- Position kick intensity
+	PositionKickIntensity = Vector3.new(0.008, 0.012, -0.025),
+	
+	-- Rotation kick intensity
+	RotationKickIntensity = Vector3.new(-0.015, 0.006, 0.003),
+	
+	-- Spring settings for fire kick
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	
+	-- Aim factor (how much aiming reduces kick)
+	AimReductionFactor = 0.4,
+}
+
+-- ============================================
+-- VIEWMODEL SWAY SETTINGS
+-- ============================================
+
+DonorRecoilSettings.ViewmodelSwaySettings = {
+	-- Base sway intensity
+	BaseIntensity = 0.015,
+	
+	-- Sprint sway multiplier
+	SprintMultiplier = 2.5,
+	
+	-- Aim sway reduction
+	AimReduction = 0.2,
+}
+
+return DonorRecoilSettings
