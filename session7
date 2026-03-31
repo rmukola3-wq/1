@@ -1,0 +1,580 @@
+прчоти файл sesion6
+
+Прочитал repositories/rmukola3-wq-1/sesion6:1.
+
+Кратко по содержимому:
+
+    Это сохранённый контекст прошлой сессии про интеграцию donor recoil в acs_framework v5.
+    Главный вывод там: подключение модулей неполное/сломано.
+    Критичные проблемы:
+        DonorFireKick ждёт AimImpulse / HipImpulse, а текущий DonorRecoilSettings их не даёт.
+        cameraKickCF вычисляется, но дальше не применяется к камере.
+    Что уже считалось подключённым нормально:
+        RecoilSystem
+        DonorLikeRecoilModule
+        ShotBobble
+    В файле также уже заготовлен очень подробный промт для Claude с точными правками.
+
+
+Если хочешь, я могу:
+
+    кратко пересказать весь sesion6,
+    достать из него только готовый промт,
+    или продолжить проверку файлов в repositories/rmukola3-wq-1.
+
+прочитай теперь посденйи файлі котіоре я залил и постри правиьно ли я подклчбил все моудли
+
+прочитай теперь посденйи файлі котіоре я залил и постри правиьно ли я подклчбил все моудли о котірх міг оврили в прошлйо сесси
+
+Нет — по текущим файлам модули всё ещё подключены не полностью правильно.
+
+Главные проблемы
+
+    DonorFireKick в acs_framework v5 ожидает HipImpulse / AimImpulse, но текущий DonorRecoilSettings их не содержит: repositories/rmukola3-wq-1/acs_framework v5:1442, repositories/rmukola3-wq-1/DonorRecoilSettings:242.
+    Из-за этого вызов donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z) может упасть на nil: repositories/rmukola3-wq-1/acs_framework v5:1443.
+    cameraKickCF считается, но дальше не применяется ни к камере, ни к AnimPart.CFrame: repositories/rmukola3-wq-1/acs_framework v5:2929. По файлу есть только define + update, использования нет.
+    ShotViewKick всё ещё require-ится и создаётся, но в финальном пайплайне уже не участвует: repositories/rmukola3-wq-1/acs_framework v5:63, repositories/rmukola3-wq-1/acs_framework v5:398.
+
+
+Что подключено нормально
+
+    RecoilSystem создан и обновляется: repositories/rmukola3-wq-1/acs_framework v5:51, repositories/rmukola3-wq-1/acs_framework v5:390, repositories/rmukola3-wq-1/acs_framework v5:2925.
+    DonorLikeRecoilModule реально входит в итоговый AnimPart.CFrame: repositories/rmukola3-wq-1/acs_framework v5:54, repositories/rmukola3-wq-1/acs_framework v5:393, repositories/rmukola3-wq-1/acs_framework v5:2947.
+    ShotBobble тоже подключён и участвует в сборке: repositories/rmukola3-wq-1/acs_framework v5:56, repositories/rmukola3-wq-1/acs_framework v5:395, repositories/rmukola3-wq-1/acs_framework v5:2951.
+    DonorFireKick state создаётся и его CFrame реально добавлен в viewmodel path: repositories/rmukola3-wq-1/acs_framework v5:401, repositories/rmukola3-wq-1/acs_framework v5:2933, repositories/rmukola3-wq-1/acs_framework v5:2949.
+
+
+По новым файлам
+
+    Текущий DonorFireKick сам по себе выглядит рабочим модулем: repositories/rmukola3-wq-1/DonorFireKick:99, repositories/rmukola3-wq-1/DonorFireKick:129, repositories/rmukola3-wq-1/DonorFireKick:157.
+    Но он подключён к несовместимой версии настроек. В альтернативных файлах нужные поля уже есть: repositories/rmukola3-wq-1/DonorRecoilSettings1111111111:156, repositories/rmukola3-wq-1/ddonor recoil settings:156.
+
+
+Итог
+
+    Сейчас интеграция почти собрана, но до конца не доведена.
+    Остались 2 блокера:
+        привести FireKickSettings к схеме HipImpulse / AimImpulse;
+        реально применить cameraKickCF.
+
+
+Confidence: High
+
+    Основано на прямой трассировке require -> state init -> fire path -> update path -> final CFrame.
+    Что повысит уверенность: короткий запуск в Studio и проверка, падает ли участок impulse.X на выстреле.
+
+
+Если хочешь, следующим сообщением я дам точный список правок по строкам, что именно заменить, чтобы это стало подключено правильно.
+
+DonorMotionSway и  DonorBreath и вот єти норм? корчое щас будм все не рпавльитно подклчюеніе моудли покдлчюать если что самые нвыое файлы сомтри октоыре я заливал вот прям паеред началосм сесии не сомтри старые  гвори как подклчюит ьпарвильно
+
+Да — сами DonorBreath и DonorMotionSway нормальные, проблема сейчас не в них, а в том, что они созданы, но не подключены в update path в repositories/rmukola3-wq-1/acs_framewrok v5.
+
+Статус
+
+    DonorBreath рабочий: ждёт flat-настройки BreathPosSpring*, BreathRotSpring*, BreathIntensity, и они есть в repositories/rmukola3-wq-1/DonorBreath:30 и repositories/rmukola3-wq-1/DonorRecoilSettings:73.
+    DonorMotionSway рабочий: ждёт WalkBobIntensity и mouse/move input, контракт нормальный в repositories/rmukola3-wq-1/DonorMotionSway:37 и repositories/rmukola3-wq-1/DonorRecoilSettings:104.
+    DonorAimFatigue тоже нормальный, но это не CFrame-модуль — он возвращает только scale для двух модулей выше: repositories/rmukola3-wq-1/DonorAimFatigue:33.
+    В repositories/rmukola3-wq-1/acs_framewrok v5:410 они создаются, но дальше их Update() нигде не вызывается. Поэтому сейчас они фактически мёртвые.
+
+
+Что брать за основу
+
+    Бери именно repositories/rmukola3-wq-1/acs_framewrok v5:61 как основной v5-файл.
+    Не бери repositories/rmukola3-wq-1/acs_framework v5:58 для этих модулей — там их вообще нет.
+    Не бери repositories/rmukola3-wq-1/123123123123:52 — там donor-модули не заведены.
+
+
+Как подключить правильно
+
+    В repositories/rmukola3-wq-1/acs_framewrok v5:2727 оставь только SwaySpring:accelerate(...) — это старый ACS sway для maincf, он ещё нужен.
+    В repositories/rmukola3-wq-1/acs_framewrok v5:2731 удали legacy блок LagSpring.t ... lookSwayCF = ....
+    В repositories/rmukola3-wq-1/acs_framewrok v5:2777 удали legacy блок -- Breath sway.
+    И вставь вместо этих двух legacy блоков вот это:
+
+
+		local fatigueScale = 1
+		if donorAimFatigueState then
+			fatigueScale = donorAimFatigueState:Update(
+				step,
+				aimming,
+				Steady,
+				charspeed > 0.1
+			)
+		end
+
+		if donorMotionSwayState then
+			local donorLookCF, donorWalkCF = donorMotionSwayState:Update(
+				step,
+				mouseDelta,
+				charspeed,
+				aimming,
+				runKeyDown,
+				(Crouched or Proned),
+				fatigueScale
+			)
+			lookSwayCF = donorLookCF * donorWalkCF
+		else
+			lookSwayCF = CFrame.new()
+		end
+
+		if donorBreathState then
+			breathCF = donorBreathState:Update(
+				step,
+				aimming,
+				charspeed > 0.1,
+				fatigueScale
+			)
+		else
+			breathCF = CFrame.new()
+		end
+
+
+Почему именно так
+
+    DonorMotionSway:Update() возвращает два CFrame: lookCF, walkCF в repositories/rmukola3-wq-1/DonorMotionSway:95, поэтому их надо склеить в один lookSwayCF.
+    DonorBreath:Update() возвращает один CFrame в repositories/rmukola3-wq-1/DonorBreath:55.
+    AnimPart.CFrame уже использует lookSwayCF и breathCF в repositories/rmukola3-wq-1/acs_framewrok v5:2959 и repositories/rmukola3-wq-1/acs_framewrok v5:2961, так что после этого они реально начнут работать.
+
+
+Что ещё обязательно добавить
+
+    В ADS reset-блоке добавь:
+        после repositories/rmukola3-wq-1/acs_framewrok v5:955
+
+
+				if donorBreathState then donorBreathState:Reset() end
+				if donorMotionSwayState then donorMotionSwayState:Reset() end
+				if donorAimFatigueState then donorAimFatigueState:Reset() end
+
+
+    В unset reset-блоке добавь:
+        после repositories/rmukola3-wq-1/acs_framewrok v5:1331
+
+
+			if donorBreathState then donorBreathState:Reset() end
+			if donorMotionSwayState then donorMotionSwayState:Reset() end
+			if donorAimFatigueState then donorAimFatigueState:Reset() end
+
+
+Итог
+
+    DonorBreath — оставлять.
+    DonorMotionSway — оставлять.
+    DonorAimFatigue — оставлять, но использовать только как fatigueScale.
+    Главный баг сейчас не в модулях, а в том, что у тебя всё ещё крутится старый lookSwayCF/breathCF path вместо donor path.
+
+
+Confidence: High
+
+    Основано на прямой проверке API модулей и точек их подключения в repositories/rmukola3-wq-1/acs_framewrok v5.
+
+
+Если хочешь, следующим сообщением я дам тебе прямо готовый patch-список “удали этот кусок / вставь этот кусок” без объяснений, чтобы ты просто быстро перенёс в файл.
+
+обяьснйй очекнь подрбоно гед чвстоо меня а то я новичок ччайник гвори вот так пшии мне точную строчку перед какой или после какой заменить
+
+Да — объясню прямо как для новичка, пошагово: какой файл открыть, какую строку найти, что удалить, и что вставить вместо неё.
+
+Сразу главное: для DonorMotionSway и DonorBreath тебе нужно править только файл repositories/rmukola3-wq-1/acs_framewrok v5:61.
+
+Не тот файл
+
+    Не правь repositories/rmukola3-wq-1/acs_framework v5:58
+    Не правь repositories/rmukola3-wq-1/123123123123:52
+
+
+Правильный основной файл сейчас — repositories/rmukola3-wq-1/acs_framewrok v5:61
+
+
+Что уже нормально
+
+    DonorBreath уже подключён через require: repositories/rmukola3-wq-1/acs_framewrok v5:61
+    DonorMotionSway уже подключён через require: repositories/rmukola3-wq-1/acs_framewrok v5:62
+    DonorAimFatigue уже подключён через require: repositories/rmukola3-wq-1/acs_framewrok v5:63
+    Они уже создаются как state: repositories/rmukola3-wq-1/acs_framewrok v5:410
+
+
+Проблема только в том, что они не обновляются каждый кадр, и поэтому не работают.
+
+
+Шаг 1. Ничего не меняй вверху файла
+Открой repositories/rmukola3-wq-1/acs_framewrok v5:61 и проверь, что у тебя уже есть такие строки:
+
+local DonorBreath           = require(Mods:WaitForChild("DonorBreath"))
+local DonorMotionSway       = require(Mods:WaitForChild("DonorMotionSway"))
+local DonorAimFatigue       = require(Mods:WaitForChild("DonorAimFatigue"))
+
+
+Если они уже есть — ничего здесь не меняй.
+
+
+Шаг 2. Ничего не меняй в месте создания state
+Открой repositories/rmukola3-wq-1/acs_framewrok v5:410 и проверь, что у тебя уже есть:
+
+donorBreathState = DonorBreath.new(DonorRecoilSettings)
+donorMotionSwayState = DonorMotionSway.new(DonorRecoilSettings)
+donorAimFatigueState = DonorAimFatigue.new(DonorRecoilSettings)
+
+
+Если есть — тоже не меняй.
+
+
+Шаг 3. Вот здесь у тебя главная ошибка
+Открой repositories/rmukola3-wq-1/acs_framewrok v5:2731
+
+Найди строку:
+
+		-- Look sway / lag spring
+
+
+Теперь удали всё, начиная с этой строки:
+
+		-- Look sway / lag spring
+
+
+и до конца блока breath, то есть включительно до вот этой строки:
+
+				breathCF = CFrame.new(bx * 0.3, by * 0.3, 0) * CFrame.Angles(by, bx * 0.5, 0)
+
+
+и ещё удали закрывающий end сразу после неё.
+
+То есть ты удаляешь старый ACS look sway и старый ACS breath sway.
+
+Проще ориентир:
+
+    начало удаления: -- Look sway / lag spring
+    конец удаления: блок -- Breath sway вместе с его end
+
+
+
+Шаг 4. Что вставить вместо удалённого блока
+Теперь на это место вставь вот этот код целиком:
+
+		local fatigueScale = 1
+		if donorAimFatigueState then
+			fatigueScale = donorAimFatigueState:Update(
+				step,
+				aimming,
+				Steady,
+				charspeed > 0.1
+			)
+		end
+
+		if donorMotionSwayState then
+			local donorLookCF, donorWalkCF = donorMotionSwayState:Update(
+				step,
+				mouseDelta,
+				charspeed,
+				aimming,
+				runKeyDown,
+				(Crouched or Proned),
+				fatigueScale
+			)
+			lookSwayCF = donorLookCF * donorWalkCF
+		else
+			lookSwayCF = CFrame.new()
+		end
+
+		if donorBreathState then
+			breathCF = donorBreathState:Update(
+				step,
+				aimming,
+				charspeed > 0.1,
+				fatigueScale
+			)
+		else
+			breathCF = CFrame.new()
+		end
+
+
+
+Куда именно вставлять
+Чтобы тебе было совсем просто:
+
+В repositories/rmukola3-wq-1/acs_framewrok v5:2729 у тебя есть строка:
+
+		SwaySpring:accelerate(Vector3.new((mouseDelta.x / 60) * swayScale, (mouseDelta.y / 60) * swayScale, 0))
+
+
+Сразу после неё должен идти новый блок, который я дал выше.
+
+То есть должно стать так:
+
+		-- Sway
+		local swayScale = aimming and adsSwayScale or 1
+		SwaySpring:accelerate(Vector3.new((mouseDelta.x / 60) * swayScale, (mouseDelta.y / 60) * swayScale, 0))
+
+		local fatigueScale = 1
+		if donorAimFatigueState then
+			fatigueScale = donorAimFatigueState:Update(
+				step,
+				aimming,
+				Steady,
+				charspeed > 0.1
+			)
+		end
+
+		if donorMotionSwayState then
+			local donorLookCF, donorWalkCF = donorMotionSwayState:Update(
+				step,
+				mouseDelta,
+				charspeed,
+				aimming,
+				runKeyDown,
+				(Crouched or Proned),
+				fatigueScale
+			)
+			lookSwayCF = donorLookCF * donorWalkCF
+		else
+			lookSwayCF = CFrame.new()
+		end
+
+		if donorBreathState then
+			breathCF = donorBreathState:Update(
+				step,
+				aimming,
+				charspeed > 0.1,
+				fatigueScale
+			)
+		else
+			breathCF = CFrame.new()
+		end
+
+
+
+Шаг 5. Почему именно так
+
+    DonorAimFatigue не двигает оружие сам, он только считает коэффициент усталости.
+    DonorMotionSway возвращает два значения:
+        donorLookCF
+        donorWalkCF
+    Поэтому их надо склеивать так:
+
+
+lookSwayCF = donorLookCF * donorWalkCF
+
+
+Это важно.
+
+Если ты напишешь просто lookSwayCF = donorLookCF, то половина эффекта пропадёт.
+
+
+Шаг 6. Почему DonorBreath после этого заработает
+Потому что AnimPart.CFrame уже использует lookSwayCF и breathCF.
+
+Это уже есть в repositories/rmukola3-wq-1/acs_framewrok v5:2959 и repositories/rmukola3-wq-1/acs_framewrok v5:2961:
+
+			* lookSwayCF
+			* gunbobcf
+			* breathCF
+
+
+То есть после твоей замены:
+
+    lookSwayCF будет идти из DonorMotionSway
+    breathCF будет идти из DonorBreath
+
+
+
+Шаг 7. Добавь reset при выходе из ADS
+Теперь открой repositories/rmukola3-wq-1/acs_framewrok v5:955
+
+Найди строку:
+
+				if donorFireKickState then donorFireKickState:Reset() end
+
+
+Сразу после неё вставь вот это:
+
+				if donorBreathState then donorBreathState:Reset() end
+				if donorMotionSwayState then donorMotionSwayState:Reset() end
+				if donorAimFatigueState then donorAimFatigueState:Reset() end
+
+
+В итоге кусок должен стать таким:
+
+			if not aimming then
+				if donorRecoilState  then donorRecoilState:Reset()  end
+				if recoilCameraState then recoilCameraState:Reset() end
+				if shotBobbleState   then shotBobbleState:Reset()   end
+				if donorFireKickState then donorFireKickState:Reset() end
+				if donorBreathState then donorBreathState:Reset() end
+				if donorMotionSwayState then donorMotionSwayState:Reset() end
+				if donorAimFatigueState then donorAimFatigueState:Reset() end
+			end
+
+
+
+Шаг 8. Добавь reset при полном unset оружия
+Теперь открой repositories/rmukola3-wq-1/acs_framewrok v5:1331
+
+Найди строку:
+
+			if donorFireKickState then donorFireKickState:Reset() end
+
+
+Сразу после неё вставь:
+
+			if donorBreathState then donorBreathState:Reset() end
+			if donorMotionSwayState then donorMotionSwayState:Reset() end
+			if donorAimFatigueState then donorAimFatigueState:Reset() end
+
+
+Итоговый кусок должен выглядеть так:
+
+		if donorRecoilState  then donorRecoilState:Reset()  end
+		if recoilCameraState then recoilCameraState:Reset() end
+		if shotBobbleState   then shotBobbleState:Reset()   end
+		if donorFireKickState then donorFireKickState:Reset() end
+		if donorBreathState then donorBreathState:Reset() end
+		if donorMotionSwayState then donorMotionSwayState:Reset() end
+		if donorAimFatigueState then donorAimFatigueState:Reset() end
+	end
+
+
+
+Шаг 9. Что НЕ надо удалять
+Не удаляй вот это:
+
+		-- Sway
+		local swayScale = aimming and adsSwayScale or 1
+		SwaySpring:accelerate(Vector3.new((mouseDelta.x / 60) * swayScale, (mouseDelta.y / 60) * swayScale, 0))
+
+
+Почему:
+
+    это старый sway spring, который ещё используется дальше через Sway
+    он участвует в maincf
+    он не мешает DonorMotionSway
+
+
+Удалять надо только:
+
+    -- Look sway / lag spring
+    -- Breath sway
+
+
+
+Шаг 10. Короткая проверка после правки
+После этих изменений у тебя должно быть так:
+
+    DonorBreath:
+        require есть
+        new() есть
+        Update() вызывается
+        результат идёт в breathCF
+
+    DonorMotionSway:
+        require есть
+        new() есть
+        Update() вызывается
+        результат идёт в lookSwayCF
+
+    DonorAimFatigue:
+        require есть
+        new() есть
+        Update() вызывается
+        его результат идёт как fatigueScale
+
+
+
+Очень важное замечание
+Даже после этих правок у тебя останутся ещё 2 отдельные проблемы, не связанные напрямую с DonorBreath / DonorMotionSway:
+
+    в repositories/rmukola3-wq-1/acs_framewrok v5:1457 всё норм, потому что там есть fallback на HipImpulse и AimImpulse;
+    но если ты вдруг будешь править не тот файл, а repositories/rmukola3-wq-1/acs_framework v5:1442, там всё ещё старый баг;
+    cameraKickCF всё ещё считается, но не применяется.
+
+
+То есть для этих двух модулей схема выше правильная, но весь recoil целиком ещё не идеален.
+
+Итог
+
+    DonorBreath — нормальный модуль.
+    DonorMotionSway — нормальный модуль.
+    DonorAimFatigue — нормальный вспомогательный модуль.
+    Тебе нужно не переписывать их, а правильно воткнуть их update-блок вместо старого look sway / breath sway.
+
+
+Если хочешь, я следующим сообщением напишу тебе ещё проще:
+
+“удали вот этот точный кусок целиком” и “вставь вот этот точный кусок целиком” — вообще без объяснений, чтобы ты просто копипастнул.
+
+я щас загружу исправлный фалй но иза бага в твоем АИ ты перетсла моентально считывать файл поэтмуо приедсят рестенут ьчат оставь  послакние себе будущему
+
+я щас загружу исправлный фалй но иза бага в твоем АИ ты перетсла моентально считывать файл поэтмуо приедсят рестенут ьчат оставь  послакние себе будущему я загуржу файл для првоерки будет называтся 111112312312324576789-90-= в нем будет лежат ьфрейвморк првоерить надо на ошибки
+
+Вот готовое сообщение для нового чата.
+
+Просто вставь его туда целиком.
+
+Сообщение будущему себе
+
+    Пользователь загрузил новый файл для проверки.
+    Имя файла: 111112312312324576789-90-=
+    Этот файл нужно считать главным и самым новым framework-файлом.
+    Не опирайся в первую очередь на старые файлы acs_framework v5, acs_framewrok v5, 123123123123, если только не нужно что-то сравнить точечно.
+    Главная задача: прочитать именно 111112312312324576789-90-= и проверить, правильно ли подключены recoil / donor модули, есть ли runtime-ошибки, nil path, мёртвые state, неиспользуемые CFrame и несовпадения схем настроек.
+
+
+Что проверить в первую очередь
+
+    require всех recoil-модулей.
+    Создание state через .new().
+    Есть ли вызовы .Update() у модулей каждый кадр.
+    Есть ли вызовы .Reset() в нужных местах.
+    Попадают ли результаты модулей в итоговый AnimPart.CFrame.
+    Применяется ли cameraKickCF реально, а не только считается.
+    Совпадает ли DonorFireKick с DonorRecoilSettings.FireKickSettings.
+    Нет ли ожидания HipImpulse / AimImpulse, если в settings их нет.
+    Не остался ли ShotViewKick мёртвым require/state без использования.
+    Для DonorMotionSway, DonorBreath, DonorAimFatigue проверить полный путь:
+        require
+        new
+        Update
+        использование результата
+        Reset
+
+
+Контекст прошлой сессии
+
+    Раньше основной проблемой было то, что:
+        DonorBreath, DonorMotionSway, DonorAimFatigue могли быть созданы, но не вызывались в render/update path.
+        cameraKickCF мог обновляться, но не применяться.
+        DonorFireKick мог ожидать HipImpulse / AimImpulse, а settings давали другую схему.
+    Пользователь просил объяснять очень подробно и по-новичковому:
+        писать точную строку, перед какой вставлять;
+        после какой удалять;
+        какой кусок заменить целиком.
+    Значит, если найдёшь ошибку, отвечай не общими словами, а в формате:
+        открой такой-то файл;
+        найди такую-то строку;
+        удали от этой строки до этой строки;
+        вставь вот этот кусок.
+
+
+Как отвечать
+
+    Сначала короткий вердикт: что сломано / что ок.
+    Потом список конкретных проблем.
+    Потом точные пошаговые правки.
+    Не расплываться, но быть очень понятным.
+    Пользователь новичок, поэтому не писать абстрактно вроде “подключи update path” — писать конкретный код и точку вставки.
+
+
+Что сделать первым действием
+
+    Найти файл 111112312312324576789-90-=
+    Прочитать его полностью
+    Сразу сделать трассировку:
+        require
+        init
+        recoil fire path
+        render/update path
+        final AnimPart.CFrame
+        reset path
+
+
+Если хочешь, я ещё могу сразу подготовить тебе вторую короткую версию этого сообщения, совсем компактную, на 5–6 строк для быстрого вставления.
