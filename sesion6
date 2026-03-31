@@ -1,0 +1,5065 @@
+привет мн епршилсоь ерстенут ьчат но я сохранил прошулю ссесимю в файл файл находится в репе навзание sesion3 что бы я не обяьнил тебе долнг опрочти его просто
+
+Прочитал repositories/rmukola3-wq-1/sesion3.
+
+Понял контекст:
+
+    вы переносили donor-style recoil в ACS;
+    ключевые модули: DonorSpring, DonorRecoilSettings, DonorFireKick;
+    цель — нормально подключить это в ACS Client V3 / related framework и проверить, насколько модули реально похожи на donor.
+
+
+Можем продолжать без долгих объяснений. Сразу пиши, что делаем дальше:
+
+    проверить текущие файлы в репе;
+    сравнить модули с donor;
+    дать точную схему подключения;
+    или разобрать конкретный файл/framework.
+
+проверяй текущие файлы в репе acs _ cleint v5 особенно првоерь все ли модули правльно покдлбчены
+
+Нет — в acs_framework v5 не все модули подключены правильно.
+
+Критичное
+
+    DonorFireKick подключён, но импульс для него берётся из полей, которых нет в текущем DonorRecoilSettings: fireKickSettings.AimImpulse / HipImpulse читаются в repositories/rmukola3-wq-1/acs_framework v5:1442, а в repositories/rmukola3-wq-1/DonorRecoilSettings:242 этих полей нет вообще.
+    Из-за этого следующая строка donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z) в repositories/rmukola3-wq-1/acs_framework v5:1443 логически ломается: impulse может быть nil.
+    RecoilCamera тоже подключён не до конца: recoilCameraState:Update(dt) пишется в cameraKickCF в repositories/rmukola3-wq-1/acs_framework v5:2929, но дальше cameraKickCF нигде не применяется ни к cam.CFrame, ни к AnimPart.CFrame.
+    То есть сейчас donor-camera path фактически оборван: модуль работает, но его результат выбрасывается.
+
+
+Что подключено нормально
+
+    RecoilSystem создан и используется корректно: repositories/rmukola3-wq-1/acs_framework v5:390, repositories/rmukola3-wq-1/acs_framework v5:1422, repositories/rmukola3-wq-1/acs_framework v5:2925.
+    DonorLikeRecoilModule создан, получает профиль, обновляется и реально входит в итоговый AnimPart.CFrame: repositories/rmukola3-wq-1/acs_framework v5:393, repositories/rmukola3-wq-1/acs_framework v5:1424, repositories/rmukola3-wq-1/acs_framework v5:2928, repositories/rmukola3-wq-1/acs_framework v5:2947.
+    ShotBobble подключён правильно и реально участвует в пайплайне: repositories/rmukola3-wq-1/acs_framework v5:395, repositories/rmukola3-wq-1/acs_framework v5:1434, repositories/rmukola3-wq-1/acs_framework v5:2930, repositories/rmukola3-wq-1/acs_framework v5:2951.
+    DonorFireKickCF сам по себе уже вставлен в сборку viewmodel: repositories/rmukola3-wq-1/acs_framework v5:2933, repositories/rmukola3-wq-1/acs_framework v5:2949.
+
+
+Несостыковки модулей
+
+    Текущий DonorRecoilSettings и текущий DonorFireKick живут в разных схемах данных: settings содержит PositionKickIntensity / RotationKickIntensity в repositories/rmukola3-wq-1/DonorRecoilSettings:244 и repositories/rmukola3-wq-1/DonorRecoilSettings:247, но DonorFireKick эти поля вообще не использует.
+    При этом acs_framework v5 ожидает другую схему — HipImpulse / AimImpulse в repositories/rmukola3-wq-1/acs_framework v5:1442.
+    В репе есть альтернативная таблица repositories/rmukola3-wq-1/ddonor recoil settings:156, где HipImpulse и AimImpulse уже есть. То есть сейчас у тебя явный mismatch версий файлов.
+    Есть и альтернативный модуль repositories/rmukola3-wq-1/DonorFireKick1111132:3, который чище по зависимости и больше совпадает с этой альтернативной таблицей.
+
+
+Лишнее / мёртвое
+
+    ShotViewKick всё ещё require-ится и создаётся в repositories/rmukola3-wq-1/acs_framework v5:63 и repositories/rmukola3-wq-1/acs_framework v5:398, но в итоговом пайплайне уже не используется.
+    DonorFireKick заявлен как isolated, но внутри делает жёсткий require(game.ReplicatedStorage.ACS_Engine.Modules.DonorSpring) в repositories/rmukola3-wq-1/DonorFireKick:13; fallback есть, так что это не фатально, но модуль не полностью чистый.
+
+
+Итог
+
+    По коду сейчас правильно подключены: RecoilSystem, DonorLikeRecoilModule, ShotBobble.
+    Подключены неправильно или не до конца: DonorFireKick, DonorRecoilSettings, RecoilCamera.
+    Главный баг — несовпадение формата FireKickSettings между acs_framework v5 и DonorRecoilSettings.
+    Второй баг — cameraKickCF считается, но не применяется.
+
+
+Confidence: High
+
+    Основано на прямой трассировке require, init, recoil call path и render path.
+    Что повысит уверенность до максимума: короткий прогон в Roblox Studio, чтобы подтвердить фактическую ошибку на строке с impulse.X.
+
+
+Если хочешь, следующим сообщением я дам тебе коротко и точно:
+
+    какие 3–5 строк надо поменять, чтобы acs_framework v5 стал подключён правильно,
+    или
+    какой набор файлов сейчас лучше оставить: DonorFireKick + DonorRecoilSettings или альтернативную пару из DonorFireKick1111132 + ddonor recoil settings.
+
+очень подрбоній промт для клауда дай это аи такой как ты но токль уо него нету дсортупа к репе поэьтмоу в промте напиши ему все асблжтнро где вставить какюу строку а не просто соедни то то то а прям точный кусок коад дай куда вставит ьчто удалить
+
+Вот готовый подробный промт для Claude.
+
+Можешь просто отправить ему целиком как есть.
+
+Готовый Промт
+
+Тебе нужно исправить интеграцию donor recoil в Roblox ACS.
+
+У тебя НЕТ доступа к репозиторию, поэтому работай СТРОГО по этому сообщению.
+Не пиши общие советы. Не пиши “соедини это с этим”. Сделай точечные правки по exact instructions ниже.
+
+ЗАДАЧА:
+Исправить broken integration в этих файлах:
+1. `acs_framework v5`
+2. `DonorRecoilSettings`
+3. `DonorFireKick`
+
+ВАЖНО:
+- `DonorSpring` НЕ ТРОГАЙ.
+- `RecoilSystem`, `DonorLikeRecoilModule`, `ShotBobble` уже подключены нормально — их не ломай.
+- Цель:
+  - чтобы `DonorFireKick` реально работал;
+  - чтобы `DonorRecoilSettings.FireKickSettings` совпадал с тем, что ждёт `DonorFireKick`;
+  - чтобы `cameraKickCF` реально влиял на камеру;
+  - чтобы `donorFireKickCF` продолжал использоваться в `AnimPart.CFrame`.
+
+НЕ ДЕЛАЙ лишний рефакторинг.
+НЕ ПЕРЕИМЕНОВЫВАЙ файлы.
+НЕ МЕНЯЙ остальной recoil pipeline без необходимости.
+
+========================================
+ШАГ 1. ПОЛНОСТЬЮ ЗАМЕНИ ФАЙЛ `DonorFireKick`
+========================================
+
+Полностью удали текущее содержимое файла `DonorFireKick` и вставь вместо него ЭТОТ КОД ЦЕЛИКОМ:
+
+```lua
+--!strict
+
+local DonorSpring = require(script.Parent:WaitForChild("DonorSpring"))
+
+local DonorFireKick = {}
+DonorFireKick.__index = DonorFireKick
+
+local DEFAULT_CONFIG = {
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	PosSpringMass = 1.0,
+
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	RotSpringMass = 1.0,
+
+	AimReductionFactor = 0.65,
+	KickMultiplier = 1.0,
+
+	PositionScale = Vector3.new(1.2, 1.35, 1.5),
+	RotationScale = Vector3.new(0.65, 0.35, 0.18),
+
+	SnapThreshold = 0.00008,
+}
+
+local function mergeConfig(config)
+	local finalConfig = {}
+
+	for key, value in pairs(DEFAULT_CONFIG) do
+		finalConfig[key] = value
+	end
+
+	if config then
+		for key, value in pairs(config) do
+			finalConfig[key] = value
+		end
+	end
+
+	return finalConfig
+end
+
+local function zeroIfTinyVector3(value, velocity, threshold)
+	if value.Magnitude < threshold and velocity.Magnitude < threshold then
+		return Vector3.new(0, 0, 0)
+	end
+
+	return value
+end
+
+function DonorFireKick.new(config)
+	local self = setmetatable({}, DonorFireKick)
+
+	self.config = mergeConfig(config)
+
+	self.posSpring = DonorSpring.new(
+		self.config.PosSpringFrequency,
+		self.config.PosSpringDamping,
+		self.config.PosSpringMass,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.rotSpring = DonorSpring.new(
+		self.config.RotSpringFrequency,
+		self.config.RotSpringDamping,
+		self.config.RotSpringMass,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.camKickTarget = Vector3.new(0, 0, 0)
+
+	return self
+end
+
+function DonorFireKick:FireKick(x, y, z)
+	x = x or 0
+	y = y or 0
+	z = z or 0
+
+	local impulse = Vector3.new(x, y, z) * self.config.KickMultiplier
+	local posScale = self.config.PositionScale
+	local rotScale = self.config.RotationScale
+
+	self.posSpring:Shove(Vector3.new(
+		impulse.X * posScale.X,
+		impulse.Y * posScale.Y,
+		impulse.Z * posScale.Z
+	))
+
+	self.rotSpring:Shove(Vector3.new(
+		-impulse.Y * rotScale.X,
+		impulse.X * rotScale.Y,
+		impulse.X * rotScale.Z
+	))
+
+	self.camKickTarget = impulse
+end
+
+function DonorFireKick:Update(dt, aimFactor)
+	dt = math.clamp(dt or 0, 0.0001, 0.05)
+	aimFactor = math.clamp(aimFactor or 0, 0, 1)
+
+	local aimScale = 1 - (aimFactor * (1 - self.config.AimReductionFactor))
+
+	local pos = self.posSpring:Update(dt) * aimScale
+	local rot = self.rotSpring:Update(dt) * aimScale
+
+	pos = zeroIfTinyVector3(pos, self.posSpring:GetVelocity(), self.config.SnapThreshold)
+	rot = zeroIfTinyVector3(rot, self.rotSpring:GetVelocity(), self.config.SnapThreshold)
+
+	local camLerpAlpha = math.clamp(dt * 20, 0, 1)
+	self.camKickTarget = self.camKickTarget:Lerp(Vector3.new(0, 0, 0), camLerpAlpha)
+
+	if self.camKickTarget.Magnitude < self.config.SnapThreshold then
+		self.camKickTarget = Vector3.new(0, 0, 0)
+	end
+
+	return CFrame.new(pos.X, pos.Y, pos.Z) * CFrame.Angles(rot.X, rot.Y, rot.Z)
+end
+
+function DonorFireKick:Reset()
+	self.posSpring:Reset(Vector3.new(0, 0, 0))
+	self.rotSpring:Reset(Vector3.new(0, 0, 0))
+	self.camKickTarget = Vector3.new(0, 0, 0)
+end
+
+function DonorFireKick:GetKickIntensity()
+	local pos = self.posSpring:GetPosition()
+	return pos.Magnitude
+end
+
+function DonorFireKick:GetCameraKick()
+	return self.camKickTarget.X, self.camKickTarget.Y
+end
+
+function DonorFireKick:IsFinished()
+	return self.posSpring:IsAtRest()
+		and self.rotSpring:IsAtRest()
+		and self.camKickTarget.Magnitude < self.config.SnapThreshold
+end
+
+return DonorFireKick
+
+
+ПРИЧИНА ЭТОЙ ЗАМЕНЫ:
+
+    текущий DonorFireKick использует менее чистую зависимость;
+    этот вариант напрямую работает с sibling-модулем DonorSpring;
+    этот вариант совпадает по структуре с нужным FireKickSettings.
+
+
+========================================
+ШАГ 2. В DonorRecoilSettings ЗАМЕНИ ТОЛЬКО БЛОК FireKickSettings
+
+Найди в файле DonorRecoilSettings текущий блок:
+
+DonorRecoilSettings.FireKickSettings = {
+	-- Position kick intensity
+	PositionKickIntensity = Vector3.new(0.008, 0.012, -0.025),
+	
+	-- Rotation kick intensity
+	RotationKickIntensity = Vector3.new(-0.015, 0.006, 0.003),
+	
+	-- Spring settings for fire kick
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	
+	-- Aim factor (how much aiming reduces kick)
+	AimReductionFactor = 0.4,
+}
+
+
+Удали этот блок полностью и вставь ВМЕСТО НЕГО вот этот:
+
+DonorRecoilSettings.FireKickSettings = {
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	PosSpringMass = 1.0,
+
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	RotSpringMass = 1.0,
+
+	AimReductionFactor = 0.65,
+	KickMultiplier = 1.0,
+
+	PositionScale = Vector3.new(1.2, 1.35, 1.5),
+	RotationScale = Vector3.new(0.65, 0.35, 0.18),
+
+	SnapThreshold = 0.00008,
+
+	HipImpulse = Vector3.new(0, -0.08, 0.05),
+	AimImpulse = Vector3.new(0, -0.055, 0.035),
+}
+
+
+ВАЖНО:
+
+    не оставляй старые поля PositionKickIntensity и RotationKickIntensity;
+    после замены FireKickSettings должен соответствовать новому DonorFireKick.
+
+
+========================================
+ШАГ 3. В acs_framework v5 ИСПРАВЬ renderCam()
+
+Найди в файле acs_framework v5 функцию:
+
+local lastCameraSpringCF = CFrame.new()
+function renderCam()
+	local newCF = CFrame.Angles(cameraspring.p.x, cameraspring.p.y, cameraspring.p.z)
+	local delta = lastCameraSpringCF:Inverse() * newCF
+	cam.CFrame = cam.CFrame * delta
+	lastCameraSpringCF = newCF
+end
+
+
+Замени ЕЁ ЦЕЛИКОМ на:
+
+local lastCameraSpringCF = CFrame.new()
+function renderCam()
+	local newCF = CFrame.Angles(cameraspring.p.x, cameraspring.p.y, cameraspring.p.z) * cameraKickCF
+	local delta = lastCameraSpringCF:Inverse() * newCF
+	cam.CFrame = cam.CFrame * delta
+	lastCameraSpringCF = newCF
+end
+
+
+ЭТО ОБЯЗАТЕЛЬНО:
+
+    cameraKickCF уже считается в коде, но сейчас не применяется;
+    после этой правки RecoilCamera начнёт реально работать.
+
+
+========================================
+ШАГ 4. В acs_framework v5 ИСПРАВЬ БЛОК ВЫЗОВА DonorFireKick
+
+Найди в функции Recoil() этот кусок:
+
+-- ШАГ 5 (НОВОЕ): вызов DonorFireKick вместо ShotViewKick
+local fireKickSettings = DonorRecoilSettings.FireKickSettings
+local impulse = aimming and fireKickSettings.AimImpulse or fireKickSettings.HipImpulse
+donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z)
+
+
+Замени его на ЭТО:
+
+-- ШАГ 5 (НОВОЕ): вызов DonorFireKick вместо ShotViewKick
+local fireKickSettings = DonorRecoilSettings.FireKickSettings
+local hipImpulse = fireKickSettings.HipImpulse or Vector3.new(0, -0.08, 0.05)
+local aimImpulse = fireKickSettings.AimImpulse or Vector3.new(0, -0.055, 0.035)
+local impulse = aimming and aimImpulse or hipImpulse
+donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z)
+
+
+ЭТО НУЖНО:
+
+    чтобы не было nil-crash, если settings снова окажется неполным;
+    это безопасный fallback.
+
+
+========================================
+ШАГ 5. В acs_framework v5 НИЧЕГО НЕ МЕНЯЙ В ЭТОМ БЛОКЕ
+
+Убедись, что этот участок ОСТАЁТСЯ в итоговом коде и не ломается:
+
+donorFireKickCF = donorFireKickState:Update(dt, aimming and 1 or 0)
+
+AnimPart.CFrame = cam.CFrame
+	* NearZ
+	* BipodCF
+	* maincf
+	* crouchCF
+	* strafeTiltCF
+	* lookSwayCF
+	* gunbobcf
+	* breathCF
+	* driftCF
+	* aimcf
+	* donorRecoilCF
+	* recoilcf
+	* donorFireKickCF
+	* vmKickCF
+	* shotBobbleCF
+	* secondaryCF
+	* bumpPushCF
+	* bumpCF
+
+
+donorFireKickCF должен остаться в пайплайне.
+
+========================================
+ШАГ 6. МИНИМАЛЬНАЯ CLEANUP-ПРАВКА В acs_framework v5
+
+Если в файле всё ещё есть эти строки:
+
+local ShotViewKick          = require(Mods:WaitForChild("ShotViewKick"))
+
+
+и ниже:
+
+shotViewKickState = ShotViewKick.new()
+
+
+то УДАЛИ ИХ.
+
+Но:
+
+    удаляй ТОЛЬКО если они реально больше нигде не используются;
+    если хочешь избежать риска, можешь оставить их как dead code;
+    это cleanup, а не обязательная functional fix.
+
+
+========================================
+ИТОГОВЫЕ ПРОВЕРКИ ПОСЛЕ ПРАВОК
+
+После редактирования код должен удовлетворять всем условиям:
+
+    donorFireKickState = DonorFireKick.new(DonorRecoilSettings.FireKickSettings) должен работать без ошибок.
+    fireKickSettings.HipImpulse и AimImpulse должны существовать.
+    donorFireKickState:FireKick(...) не должен получать nil.
+    cameraKickCF должен реально влиять на cam.CFrame.
+    donorFireKickCF должен оставаться в AnimPart.CFrame.
+    DonorSpring не должен быть изменён.
+    Не трогай остальной recoil pipeline без необходимости.
+
+
+========================================
+ФОРМАТ ОТВЕТА
+
+Верни ответ в таком формате:
+
+    сначала коротко: “готово”;
+    потом по пунктам перечисли, какие exact blocks ты заменил;
+    не пересказывай теорию;
+    не пиши общих советов;
+    не предлагай архитектурный рефакторинг;
+    не пиши “возможно” или “можно ещё”.
+
+
+
+**Что делает этот промт**
+- чинит главный баг с `HipImpulse` / `AimImpulse`;
+- подключает `cameraKickCF` в камеру;
+- выравнивает `DonorFireKick` и `DonorRecoilSettings` между собой;
+- не лезет в лишние части recoil pipeline.
+
+Если хочешь, следующим сообщением я ещё сделаю тебе вторую версию промта:
+- **супер-короткую**, чтобы Claude просто внёс правки,  
+или
+- **максимально жёсткую patch-style**, где будет прямо “найди этот кусок → замени на этот кусок” без пояснений вообще.
+
+щас првоерим пофиксили ли у тебя досутп к гитхбау или все щее плохо доохдя тсркипті проверь репу гитхба скажи какорей последний файл видишь
+
+Сейчас GitHub-репу я не вижу — в локальном репозитории repositories/rmukola3-wq-1 вообще нет настроенного remote.
+
+    Локальный git-репозиторий есть: repositories/rmukola3-wq-1
+    git remote -v внутри него пустой
+    Последний локальный коммит: 761d590 — Create sesion3
+    Если смотреть последний файл из отслеживаемых локально (по хвосту git ls-files), то это viewmodel kick 11111
+
+
+Вывод
+
+    доступ к конкретной GitHub-репе не подтверждён, потому что URL репы в git не прописан;
+    сейчас я вижу только локальную копию, не GitHub.
+
+
+Confidence: High
+
+    Основано на прямой проверке .git, git remote -v, git log -1, git ls-files.
+
+
+Если хочешь, скинь ссылку на GitHub-репу или имя owner/repo, и я скажу, вижу ли её и какой там последний файл/состояние.
+
+https://github.com/rmukola3-wq/1/tree/main
+
+Пока доступ к этой GitHub-ссылке у меня всё ещё не работает.
+
+    Прямая попытка открыть https://github.com/rmukola3-wq/1/tree/main вернула Failed to fetch ... Cache miss. ()
+    Прямая попытка открыть корень репозитория https://github.com/rmukola3-wq/1 тоже вернула Failed to fetch ... Cache miss. ()
+    По этой причине я не могу честно сказать, какой последний файл вижу именно на GitHub — содержимое страницы репозитория снаружи сейчас не читается. ()
+
+
+Что подтверждено локально
+
+    В локальной копии есть репозиторий repositories/rmukola3-wq-1.
+    У него нет remote, поэтому локальная папка сейчас не привязана к GitHub-URL.
+    Последний локальный коммит: 761d590 с сообщением Create sesion3.
+    Если смотреть хвост локально отслеживаемых файлов, последний там — viewmodel kick 11111.
+
+
+Итог
+
+    Снаружи GitHub по ссылке я сейчас не вижу.
+    Значит, доступ ещё не починился.
+    Видеть могу только локальную копию, не содержимое GitHub-страницы.
+
+
+Confidence: High
+
+    Основано на двух неудачных fetch-попытках GitHub-страницы и локальной проверке git-конфига.
+    Что повысит уверенность: если дашь raw-файл, archive-ссылку или пропишешь remote, я смогу сверить точнее.
+
+
+Если хочешь, я сейчас могу:
+
+    проверить, как привязать локальный репозиторий к этой GitHub-ссылке, или
+    дать тебе точные git-команды, чтобы ты быстро понял, синхронизирована ли локальная копия с GitHub.
+
+помнишь ты кидла промт кинь еще раз толкь оу прости или яне знюа че сдлеай ат о клауд не делает то что ты попрсоил а ломается чето а раньше дела все нормально
+
+Да, вот более жёсткий и понятный промт для Claude.
+
+Я специально сделал его так, чтобы он не импровизировал, не рефакторил лишнее и не ломал соседний код.
+
+Скопируй и отправь целиком:
+
+Тебе нужно внести ОЧЕНЬ ТОЧЕЧНЫЕ ПРАВКИ в Roblox Lua код.
+
+ВАЖНО:
+- У тебя НЕТ доступа к репозиторию.
+- Поэтому работай ТОЛЬКО по тексту этого сообщения.
+- НЕЛЬЗЯ придумывать свои архитектурные изменения.
+- НЕЛЬЗЯ делать рефакторинг.
+- НЕЛЬЗЯ “улучшать” соседний код.
+- НЕЛЬЗЯ менять имена файлов.
+- НЕЛЬЗЯ менять логику вне указанных блоков.
+- Нужно сделать только exact replacements.
+
+ТВОЯ ЗАДАЧА:
+Исправить integration donor recoil между файлами:
+1. `DonorFireKick`
+2. `DonorRecoilSettings`
+3. `acs_framework v5`
+
+ПРОБЛЕМА:
+Сейчас `acs_framework v5` читает:
+- `DonorRecoilSettings.FireKickSettings.HipImpulse`
+- `DonorRecoilSettings.FireKickSettings.AimImpulse`
+
+Но в текущем `DonorRecoilSettings` этих полей нет.
+
+Из-за этого ломается этот код:
+
+```lua
+local fireKickSettings = DonorRecoilSettings.FireKickSettings
+local impulse = aimming and fireKickSettings.AimImpulse or fireKickSettings.HipImpulse
+donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z)
+
+
+Также сейчас cameraKickCF считается, но не применяется в renderCam().
+
+========================================
+ЧАСТЬ 1. ПОЛНОСТЬЮ ЗАМЕНИ ФАЙЛ DonorFireKick
+
+Удалить ВСЁ содержимое файла DonorFireKick.
+Вставить ВЕСЬ этот код:
+
+--!strict
+
+local DonorSpring = require(script.Parent:WaitForChild("DonorSpring"))
+
+local DonorFireKick = {}
+DonorFireKick.__index = DonorFireKick
+
+local DEFAULT_CONFIG = {
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	PosSpringMass = 1.0,
+
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	RotSpringMass = 1.0,
+
+	AimReductionFactor = 0.65,
+	KickMultiplier = 1.0,
+
+	PositionScale = Vector3.new(1.2, 1.35, 1.5),
+	RotationScale = Vector3.new(0.65, 0.35, 0.18),
+
+	SnapThreshold = 0.00008,
+}
+
+local function mergeConfig(config)
+	local finalConfig = {}
+
+	for key, value in pairs(DEFAULT_CONFIG) do
+		finalConfig[key] = value
+	end
+
+	if config then
+		for key, value in pairs(config) do
+			finalConfig[key] = value
+		end
+	end
+
+	return finalConfig
+end
+
+local function zeroIfTinyVector3(value, velocity, threshold)
+	if value.Magnitude < threshold and velocity.Magnitude < threshold then
+		return Vector3.new(0, 0, 0)
+	end
+
+	return value
+end
+
+function DonorFireKick.new(config)
+	local self = setmetatable({}, DonorFireKick)
+
+	self.config = mergeConfig(config)
+
+	self.posSpring = DonorSpring.new(
+		self.config.PosSpringFrequency,
+		self.config.PosSpringDamping,
+		self.config.PosSpringMass,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.rotSpring = DonorSpring.new(
+		self.config.RotSpringFrequency,
+		self.config.RotSpringDamping,
+		self.config.RotSpringMass,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.camKickTarget = Vector3.new(0, 0, 0)
+
+	return self
+end
+
+function DonorFireKick:FireKick(x, y, z)
+	x = x or 0
+	y = y or 0
+	z = z or 0
+
+	local impulse = Vector3.new(x, y, z) * self.config.KickMultiplier
+	local posScale = self.config.PositionScale
+	local rotScale = self.config.RotationScale
+
+	self.posSpring:Shove(Vector3.new(
+		impulse.X * posScale.X,
+		impulse.Y * posScale.Y,
+		impulse.Z * posScale.Z
+	))
+
+	self.rotSpring:Shove(Vector3.new(
+		-impulse.Y * rotScale.X,
+		impulse.X * rotScale.Y,
+		impulse.X * rotScale.Z
+	))
+
+	self.camKickTarget = impulse
+end
+
+function DonorFireKick:Update(dt, aimFactor)
+	dt = math.clamp(dt or 0, 0.0001, 0.05)
+	aimFactor = math.clamp(aimFactor or 0, 0, 1)
+
+	local aimScale = 1 - (aimFactor * (1 - self.config.AimReductionFactor))
+
+	local pos = self.posSpring:Update(dt) * aimScale
+	local rot = self.rotSpring:Update(dt) * aimScale
+
+	pos = zeroIfTinyVector3(pos, self.posSpring:GetVelocity(), self.config.SnapThreshold)
+	rot = zeroIfTinyVector3(rot, self.rotSpring:GetVelocity(), self.config.SnapThreshold)
+
+	local camLerpAlpha = math.clamp(dt * 20, 0, 1)
+	self.camKickTarget = self.camKickTarget:Lerp(Vector3.new(0, 0, 0), camLerpAlpha)
+
+	if self.camKickTarget.Magnitude < self.config.SnapThreshold then
+		self.camKickTarget = Vector3.new(0, 0, 0)
+	end
+
+	return CFrame.new(pos.X, pos.Y, pos.Z) * CFrame.Angles(rot.X, rot.Y, rot.Z)
+end
+
+function DonorFireKick:Reset()
+	self.posSpring:Reset(Vector3.new(0, 0, 0))
+	self.rotSpring:Reset(Vector3.new(0, 0, 0))
+	self.camKickTarget = Vector3.new(0, 0, 0)
+end
+
+function DonorFireKick:GetKickIntensity()
+	local pos = self.posSpring:GetPosition()
+	return pos.Magnitude
+end
+
+function DonorFireKick:GetCameraKick()
+	return self.camKickTarget.X, self.camKickTarget.Y
+end
+
+function DonorFireKick:IsFinished()
+	return self.posSpring:IsAtRest()
+		and self.rotSpring:IsAtRest()
+		and self.camKickTarget.Magnitude < self.config.SnapThreshold
+end
+
+return DonorFireKick
+
+
+НИЧЕГО в этом коде не менять.
+Вставить ровно как есть.
+
+========================================
+ЧАСТЬ 2. В DonorRecoilSettings ЗАМЕНИ ТОЛЬКО ОДИН БЛОК
+
+Найди в DonorRecoilSettings вот этот блок:
+
+DonorRecoilSettings.FireKickSettings = {
+	-- Position kick intensity
+	PositionKickIntensity = Vector3.new(0.008, 0.012, -0.025),
+	
+	-- Rotation kick intensity
+	RotationKickIntensity = Vector3.new(-0.015, 0.006, 0.003),
+	
+	-- Spring settings for fire kick
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	
+	-- Aim factor (how much aiming reduces kick)
+	AimReductionFactor = 0.4,
+}
+
+
+Удалить его ПОЛНОСТЬЮ.
+Вместо него вставить РОВНО ЭТО:
+
+DonorRecoilSettings.FireKickSettings = {
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	PosSpringMass = 1.0,
+
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	RotSpringMass = 1.0,
+
+	AimReductionFactor = 0.65,
+	KickMultiplier = 1.0,
+
+	PositionScale = Vector3.new(1.2, 1.35, 1.5),
+	RotationScale = Vector3.new(0.65, 0.35, 0.18),
+
+	SnapThreshold = 0.00008,
+
+	HipImpulse = Vector3.new(0, -0.08, 0.05),
+	AimImpulse = Vector3.new(0, -0.055, 0.035),
+}
+
+
+ВАЖНО:
+
+    старые поля PositionKickIntensity и RotationKickIntensity должны исчезнуть;
+    новые поля HipImpulse и AimImpulse обязаны появиться.
+
+
+========================================
+ЧАСТЬ 3. В acs_framework v5 ЗАМЕНИ ТОЛЬКО ФУНКЦИЮ renderCam()
+
+Найди этот код:
+
+local lastCameraSpringCF = CFrame.new()
+function renderCam()
+	local newCF = CFrame.Angles(cameraspring.p.x, cameraspring.p.y, cameraspring.p.z)
+	local delta = lastCameraSpringCF:Inverse() * newCF
+	cam.CFrame = cam.CFrame * delta
+	lastCameraSpringCF = newCF
+end
+
+
+Удалить его.
+Вместо него вставить РОВНО ЭТО:
+
+local lastCameraSpringCF = CFrame.new()
+function renderCam()
+	local newCF = CFrame.Angles(cameraspring.p.x, cameraspring.p.y, cameraspring.p.z) * cameraKickCF
+	local delta = lastCameraSpringCF:Inverse() * newCF
+	cam.CFrame = cam.CFrame * delta
+	lastCameraSpringCF = newCF
+end
+
+
+НИЧЕГО больше в renderCam() не менять.
+
+========================================
+ЧАСТЬ 4. В acs_framework v5 ЗАМЕНИ ТОЛЬКО БЛОК С DonorFireKick
+
+Найди В ТОЧНОСТИ этот блок:
+
+-- ШАГ 5 (НОВОЕ): вызов DonorFireKick вместо ShotViewKick
+local fireKickSettings = DonorRecoilSettings.FireKickSettings
+local impulse = aimming and fireKickSettings.AimImpulse or fireKickSettings.HipImpulse
+donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z)
+
+
+Удалить его.
+Вместо него вставить РОВНО ЭТО:
+
+-- ШАГ 5 (НОВОЕ): вызов DonorFireKick вместо ShotViewKick
+local fireKickSettings = DonorRecoilSettings.FireKickSettings
+local hipImpulse = fireKickSettings.HipImpulse or Vector3.new(0, -0.08, 0.05)
+local aimImpulse = fireKickSettings.AimImpulse or Vector3.new(0, -0.055, 0.035)
+local impulse = aimming and aimImpulse or hipImpulse
+donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z)
+
+
+ВАЖНО:
+
+    это не переписывать по-своему;
+    это вставить exactly as-is.
+
+
+========================================
+ЧАСТЬ 5. НИЧЕГО НЕ МЕНЯЙ В СБОРКЕ AnimPart.CFrame
+
+Убедись, что этот кусок остаётся:
+
+donorFireKickCF = donorFireKickState:Update(dt, aimming and 1 or 0)
+
+AnimPart.CFrame = cam.CFrame
+	* NearZ
+	* BipodCF
+	* maincf
+	* crouchCF
+	* strafeTiltCF
+	* lookSwayCF
+	* gunbobcf
+	* breathCF
+	* driftCF
+	* aimcf
+	* donorRecoilCF
+	* recoilcf
+	* donorFireKickCF
+	* vmKickCF
+	* shotBobbleCF
+	* secondaryCF
+	* bumpPushCF
+	* bumpCF
+
+
+НЕ УДАЛЯЙ donorFireKickCF.
+НЕ ПЕРЕСТАВЛЯЙ слои местами.
+
+========================================
+ЧАСТЬ 6. НЕОБЯЗАТЕЛЬНАЯ CLEANUP-ПРАВКА
+
+Если в acs_framework v5 есть эти строки:
+
+local ShotViewKick = require(Mods:WaitForChild("ShotViewKick"))
+
+
+и ниже:
+
+shotViewKickState = ShotViewKick.new()
+
+
+то можно удалить ИХ ТОЛЬКО ЕСЛИ:
+
+    shotViewKickState больше нигде не используется.
+
+
+Если есть риск сломать код — НЕ ТРОГАЙ.
+
+========================================
+ЧТО НЕЛЬЗЯ ДЕЛАТЬ
+
+НЕЛЬЗЯ:
+
+    переписывать recoil pipeline;
+    менять DonorSpring;
+    менять RecoilSystem;
+    менять DonorLikeRecoilModule;
+    менять ShotBobble;
+    менять другие таблицы в DonorRecoilSettings;
+    менять порядок слоёв в AnimPart.CFrame;
+    менять что-либо кроме указанных exact blocks.
+
+
+========================================
+ОЖИДАЕМЫЙ РЕЗУЛЬТАТ
+
+После правок должно быть так:
+
+    DonorRecoilSettings.FireKickSettings.HipImpulse существует.
+    DonorRecoilSettings.FireKickSettings.AimImpulse существует.
+    donorFireKickState:FireKick(...) не получает nil.
+    cameraKickCF реально применяется в renderCam().
+    donorFireKickCF остаётся в AnimPart.CFrame.
+    DonorFireKick использует require(script.Parent:WaitForChild("DonorSpring")).
+
+
+========================================
+ФОРМАТ ТВОЕГО ОТВЕТА
+
+Ответь СТРОГО так:
+
+    строка ГОТОВО
+    ниже список:
+
+
+    какой exact block заменён в DonorFireKick
+    какой exact block заменён в DonorRecoilSettings
+    какой exact block заменён в acs_framework v5
+
+
+    не объясняй теорию
+    не предлагай улучшения
+    не делай рефакторинг
+    не пиши “я также улучшил...”
+
+
+
+**Если Claude опять тупит**
+- отправь ему **только этот промт без своих пояснений**;
+- если снова сломается, я сделаю тебе ещё более жёсткую версию в формате:
+  - `НАЙДИ ЭТО`
+  - `УДАЛИ ЭТО`
+  - `ВСТАВЬ ЭТО`
+  вообще без лишнего текста.
+
+Если хочешь, я сейчас сразу дам **ультра-жёсткий patch prompt**, который ещё труднее испортить.
+
+Taking longer than usual. Trying again shortly (attempt 4) вот что выдал
+
+Да, это как раз типичный признак, что Claude не применил патч нормально и завис/свалился на длинной операции.
+
+Скорее всего произошло одно из двух:
+
+    он пытается сам “умно” переписать слишком много кода;
+    или не может стабильно обработать большой промт с полными файлами.
+
+
+Поэтому лучше дать ему ещё более короткий и жёсткий prompt, где от него требуется только точечная замена блоков, а не переписывание всего файла.
+
+Отправь ему вот этот вариант:
+
+Do NOT refactor.
+Do NOT rewrite surrounding code.
+Do NOT improvise.
+Apply only the exact replacements below.
+
+Files to edit:
+- DonorFireKick
+- DonorRecoilSettings
+- acs_framework v5
+
+==================================================
+1) REPLACE ENTIRE FILE: DonorFireKick
+==================================================
+
+Replace the entire contents of `DonorFireKick` with this exact code:
+
+```lua
+--!strict
+
+local DonorSpring = require(script.Parent:WaitForChild("DonorSpring"))
+
+local DonorFireKick = {}
+DonorFireKick.__index = DonorFireKick
+
+local DEFAULT_CONFIG = {
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	PosSpringMass = 1.0,
+
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	RotSpringMass = 1.0,
+
+	AimReductionFactor = 0.65,
+	KickMultiplier = 1.0,
+
+	PositionScale = Vector3.new(1.2, 1.35, 1.5),
+	RotationScale = Vector3.new(0.65, 0.35, 0.18),
+
+	SnapThreshold = 0.00008,
+}
+
+local function mergeConfig(config)
+	local finalConfig = {}
+
+	for key, value in pairs(DEFAULT_CONFIG) do
+		finalConfig[key] = value
+	end
+
+	if config then
+		for key, value in pairs(config) do
+			finalConfig[key] = value
+		end
+	end
+
+	return finalConfig
+end
+
+local function zeroIfTinyVector3(value, velocity, threshold)
+	if value.Magnitude < threshold and velocity.Magnitude < threshold then
+		return Vector3.new(0, 0, 0)
+	end
+
+	return value
+end
+
+function DonorFireKick.new(config)
+	local self = setmetatable({}, DonorFireKick)
+
+	self.config = mergeConfig(config)
+
+	self.posSpring = DonorSpring.new(
+		self.config.PosSpringFrequency,
+		self.config.PosSpringDamping,
+		self.config.PosSpringMass,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.rotSpring = DonorSpring.new(
+		self.config.RotSpringFrequency,
+		self.config.RotSpringDamping,
+		self.config.RotSpringMass,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.camKickTarget = Vector3.new(0, 0, 0)
+
+	return self
+end
+
+function DonorFireKick:FireKick(x, y, z)
+	x = x or 0
+	y = y or 0
+	z = z or 0
+
+	local impulse = Vector3.new(x, y, z) * self.config.KickMultiplier
+	local posScale = self.config.PositionScale
+	local rotScale = self.config.RotationScale
+
+	self.posSpring:Shove(Vector3.new(
+		impulse.X * posScale.X,
+		impulse.Y * posScale.Y,
+		impulse.Z * posScale.Z
+	))
+
+	self.rotSpring:Shove(Vector3.new(
+		-impulse.Y * rotScale.X,
+		impulse.X * rotScale.Y,
+		impulse.X * rotScale.Z
+	))
+
+	self.camKickTarget = impulse
+end
+
+function DonorFireKick:Update(dt, aimFactor)
+	dt = math.clamp(dt or 0, 0.0001, 0.05)
+	aimFactor = math.clamp(aimFactor or 0, 0, 1)
+
+	local aimScale = 1 - (aimFactor * (1 - self.config.AimReductionFactor))
+
+	local pos = self.posSpring:Update(dt) * aimScale
+	local rot = self.rotSpring:Update(dt) * aimScale
+
+	pos = zeroIfTinyVector3(pos, self.posSpring:GetVelocity(), self.config.SnapThreshold)
+	rot = zeroIfTinyVector3(rot, self.rotSpring:GetVelocity(), self.config.SnapThreshold)
+
+	local camLerpAlpha = math.clamp(dt * 20, 0, 1)
+	self.camKickTarget = self.camKickTarget:Lerp(Vector3.new(0, 0, 0), camLerpAlpha)
+
+	if self.camKickTarget.Magnitude < self.config.SnapThreshold then
+		self.camKickTarget = Vector3.new(0, 0, 0)
+	end
+
+	return CFrame.new(pos.X, pos.Y, pos.Z) * CFrame.Angles(rot.X, rot.Y, rot.Z)
+end
+
+function DonorFireKick:Reset()
+	self.posSpring:Reset(Vector3.new(0, 0, 0))
+	self.rotSpring:Reset(Vector3.new(0, 0, 0))
+	self.camKickTarget = Vector3.new(0, 0, 0)
+end
+
+function DonorFireKick:GetKickIntensity()
+	local pos = self.posSpring:GetPosition()
+	return pos.Magnitude
+end
+
+function DonorFireKick:GetCameraKick()
+	return self.camKickTarget.X, self.camKickTarget.Y
+end
+
+function DonorFireKick:IsFinished()
+	return self.posSpring:IsAtRest()
+		and self.rotSpring:IsAtRest()
+		and self.camKickTarget.Magnitude < self.config.SnapThreshold
+end
+
+return DonorFireKick
+
+
+==================================================
+2) IN DonorRecoilSettings: REPLACE ONLY FireKickSettings
+
+Find this exact block:
+
+DonorRecoilSettings.FireKickSettings = {
+	-- Position kick intensity
+	PositionKickIntensity = Vector3.new(0.008, 0.012, -0.025),
+	
+	-- Rotation kick intensity
+	RotationKickIntensity = Vector3.new(-0.015, 0.006, 0.003),
+	
+	-- Spring settings for fire kick
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	
+	-- Aim factor (how much aiming reduces kick)
+	AimReductionFactor = 0.4,
+}
+
+
+Replace it with this exact block:
+
+DonorRecoilSettings.FireKickSettings = {
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	PosSpringMass = 1.0,
+
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	RotSpringMass = 1.0,
+
+	AimReductionFactor = 0.65,
+	KickMultiplier = 1.0,
+
+	PositionScale = Vector3.new(1.2, 1.35, 1.5),
+	RotationScale = Vector3.new(0.65, 0.35, 0.18),
+
+	SnapThreshold = 0.00008,
+
+	HipImpulse = Vector3.new(0, -0.08, 0.05),
+	AimImpulse = Vector3.new(0, -0.055, 0.035),
+}
+
+
+Do not change anything else in DonorRecoilSettings.
+
+==================================================
+3) IN acs_framework v5: REPLACE ONLY renderCam()
+
+Find this exact code:
+
+local lastCameraSpringCF = CFrame.new()
+function renderCam()
+	local newCF = CFrame.Angles(cameraspring.p.x, cameraspring.p.y, cameraspring.p.z)
+	local delta = lastCameraSpringCF:Inverse() * newCF
+	cam.CFrame = cam.CFrame * delta
+	lastCameraSpringCF = newCF
+end
+
+
+Replace it with this exact code:
+
+local lastCameraSpringCF = CFrame.new()
+function renderCam()
+	local newCF = CFrame.Angles(cameraspring.p.x, cameraspring.p.y, cameraspring.p.z) * cameraKickCF
+	local delta = lastCameraSpringCF:Inverse() * newCF
+	cam.CFrame = cam.CFrame * delta
+	lastCameraSpringCF = newCF
+end
+
+
+==================================================
+4) IN acs_framework v5: REPLACE ONLY donor firekick call block
+
+Find this exact code:
+
+-- ШАГ 5 (НОВОЕ): вызов DonorFireKick вместо ShotViewKick
+local fireKickSettings = DonorRecoilSettings.FireKickSettings
+local impulse = aimming and fireKickSettings.AimImpulse or fireKickSettings.HipImpulse
+donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z)
+
+
+Replace it with this exact code:
+
+-- ШАГ 5 (НОВОЕ): вызов DonorFireKick вместо ShotViewKick
+local fireKickSettings = DonorRecoilSettings.FireKickSettings
+local hipImpulse = fireKickSettings.HipImpulse or Vector3.new(0, -0.08, 0.05)
+local aimImpulse = fireKickSettings.AimImpulse or Vector3.new(0, -0.055, 0.035)
+local impulse = aimming and aimImpulse or hipImpulse
+donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z)
+
+
+==================================================
+5) DO NOT TOUCH ANYTHING ELSE
+
+Do NOT:
+
+    refactor
+    reorder recoil layers
+    change AnimPart.CFrame order
+    change DonorSpring
+    change RecoilSystem
+    change DonorLikeRecoilModule
+    change ShotBobble
+    change any other settings blocks
+
+
+Expected result:
+
+    FireKickSettings now contains HipImpulse and AimImpulse
+    DonorFireKick reads matching config
+    cameraKickCF is actually used in renderCam()
+    donorFireKickState no longer breaks on nil impulse
+
+
+At the end, reply only with:
+DONE
+
+
+**Почему Claude написал `Taking longer than usual. Trying again shortly (attempt 4)`**
+- обычно это не “ошибка кода” напрямую;
+- чаще это значит, что он зациклился на редактировании/перегенерации ответа;
+- особенно часто это бывает, когда ему дают слишком большой промт и он пытается “аккуратно” переделать всё вокруг.
+
+**Что лучше сделать сейчас**
+- отправить ему **именно короткий вариант выше**;
+- **без своего дополнительного текста**;
+- одним сообщением.
+
+Если хочешь, я сейчас сделаю тебе **ещё более жёсткий ultra-minimal prompt**, буквально на 30–40 строк, чтобы шанс фейла был ещё меньше.
+
+давай я вручную
+
+Да, это сейчас лучший вариант.
+
+Что делать вручную
+
+    открой DonorFireKick и полностью замени файл на тот код, который я дал;
+    открой DonorRecoilSettings и замени только блок DonorRecoilSettings.FireKickSettings;
+    открой acs_framework v5 и замени только 2 блока:
+        renderCam()
+        блок с local fireKickSettings = DonorRecoilSettings.FireKickSettings
+
+
+Почему вручную лучше
+
+    Claude у тебя сейчас подвисает на длинных replace-операциях;
+    руками ты точнее внесёшь 3 маленькие правки, чем он будет ломать соседний код;
+    проблема здесь локальная и хорошо фиксится точечными заменами.
+
+
+Самый безопасный порядок
+
+    сначала DonorRecoilSettings
+    потом DonorFireKick
+    потом acs_framework v5
+
+
+После правок быстро проверь
+
+    в DonorRecoilSettings появились HipImpulse и AimImpulse;
+    в renderCam() есть * cameraKickCF;
+    в acs_framework v5 вызов идёт через:
+        local hipImpulse = ...
+        local aimImpulse = ...
+        donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z)
+
+
+Если хочешь, я сейчас могу дать тебе супер-короткий чеклист на 1 экран, чтобы ты просто шёл по пунктам и не листал всю переписку.
+
+подбртоный ответ дай что делать мне и что вствалять
+
+Да. Ниже даю пошагово, руками, что открыть, что удалить и что вставить.
+
+Порядок
+
+    Сначала правь repositories/rmukola3-wq-1/DonorRecoilSettings:242
+    Потом repositories/rmukola3-wq-1/DonorFireKick:1
+    Потом repositories/rmukola3-wq-1/acs_framework v5:1337 и repositories/rmukola3-wq-1/acs_framework v5:1440
+
+
+Что у тебя сейчас сломано
+
+    В acs_framework v5 код ждёт HipImpulse и AimImpulse, но в DonorRecoilSettings их нет.
+    В acs_framework v5 cameraKickCF считается, но не применяется в renderCam().
+
+
+Шаг 1 — DonorRecoilSettings
+
+    Открой repositories/rmukola3-wq-1/DonorRecoilSettings:242
+    Найди блок DonorRecoilSettings.FireKickSettings = { ... }
+    Удали весь текущий блок
+    Вставь вместо него это:
+
+
+DonorRecoilSettings.FireKickSettings = {
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	PosSpringMass = 1.0,
+
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	RotSpringMass = 1.0,
+
+	AimReductionFactor = 0.65,
+	KickMultiplier = 1.0,
+
+	PositionScale = Vector3.new(1.2, 1.35, 1.5),
+	RotationScale = Vector3.new(0.65, 0.35, 0.18),
+
+	SnapThreshold = 0.00008,
+
+	HipImpulse = Vector3.new(0, -0.08, 0.05),
+	AimImpulse = Vector3.new(0, -0.055, 0.035),
+}
+
+
+После этого проверь
+
+    в блоке есть HipImpulse
+    в блоке есть AimImpulse
+    старых PositionKickIntensity и RotationKickIntensity больше нет
+
+
+Шаг 2 — DonorFireKick
+
+    Открой repositories/rmukola3-wq-1/DonorFireKick:1
+    Удали всё содержимое файла полностью
+    Вставь целиком этот файл:
+
+
+--!strict
+
+local DonorSpring = require(script.Parent:WaitForChild("DonorSpring"))
+
+local DonorFireKick = {}
+DonorFireKick.__index = DonorFireKick
+
+local DEFAULT_CONFIG = {
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	PosSpringMass = 1.0,
+
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	RotSpringMass = 1.0,
+
+	AimReductionFactor = 0.65,
+	KickMultiplier = 1.0,
+
+	PositionScale = Vector3.new(1.2, 1.35, 1.5),
+	RotationScale = Vector3.new(0.65, 0.35, 0.18),
+
+	SnapThreshold = 0.00008,
+}
+
+local function mergeConfig(config)
+	local finalConfig = {}
+
+	for key, value in pairs(DEFAULT_CONFIG) do
+		finalConfig[key] = value
+	end
+
+	if config then
+		for key, value in pairs(config) do
+			finalConfig[key] = value
+		end
+	end
+
+	return finalConfig
+end
+
+local function zeroIfTinyVector3(value, velocity, threshold)
+	if value.Magnitude < threshold and velocity.Magnitude < threshold then
+		return Vector3.new(0, 0, 0)
+	end
+
+	return value
+end
+
+function DonorFireKick.new(config)
+	local self = setmetatable({}, DonorFireKick)
+
+	self.config = mergeConfig(config)
+
+	self.posSpring = DonorSpring.new(
+		self.config.PosSpringFrequency,
+		self.config.PosSpringDamping,
+		self.config.PosSpringMass,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.rotSpring = DonorSpring.new(
+		self.config.RotSpringFrequency,
+		self.config.RotSpringDamping,
+		self.config.RotSpringMass,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.camKickTarget = Vector3.new(0, 0, 0)
+
+	return self
+end
+
+function DonorFireKick:FireKick(x, y, z)
+	x = x or 0
+	y = y or 0
+	z = z or 0
+
+	local impulse = Vector3.new(x, y, z) * self.config.KickMultiplier
+	local posScale = self.config.PositionScale
+	local rotScale = self.config.RotationScale
+
+	self.posSpring:Shove(Vector3.new(
+		impulse.X * posScale.X,
+		impulse.Y * posScale.Y,
+		impulse.Z * posScale.Z
+	))
+
+	self.rotSpring:Shove(Vector3.new(
+		-impulse.Y * rotScale.X,
+		impulse.X * rotScale.Y,
+		impulse.X * rotScale.Z
+	))
+
+	self.camKickTarget = impulse
+end
+
+function DonorFireKick:Update(dt, aimFactor)
+	dt = math.clamp(dt or 0, 0.0001, 0.05)
+	aimFactor = math.clamp(aimFactor or 0, 0, 1)
+
+	local aimScale = 1 - (aimFactor * (1 - self.config.AimReductionFactor))
+
+	local pos = self.posSpring:Update(dt) * aimScale
+	local rot = self.rotSpring:Update(dt) * aimScale
+
+	pos = zeroIfTinyVector3(pos, self.posSpring:GetVelocity(), self.config.SnapThreshold)
+	rot = zeroIfTinyVector3(rot, self.rotSpring:GetVelocity(), self.config.SnapThreshold)
+
+	local camLerpAlpha = math.clamp(dt * 20, 0, 1)
+	self.camKickTarget = self.camKickTarget:Lerp(Vector3.new(0, 0, 0), camLerpAlpha)
+
+	if self.camKickTarget.Magnitude < self.config.SnapThreshold then
+		self.camKickTarget = Vector3.new(0, 0, 0)
+	end
+
+	return CFrame.new(pos.X, pos.Y, pos.Z) * CFrame.Angles(rot.X, rot.Y, rot.Z)
+end
+
+function DonorFireKick:Reset()
+	self.posSpring:Reset(Vector3.new(0, 0, 0))
+	self.rotSpring:Reset(Vector3.new(0, 0, 0))
+	self.camKickTarget = Vector3.new(0, 0, 0)
+end
+
+function DonorFireKick:GetKickIntensity()
+	local pos = self.posSpring:GetPosition()
+	return pos.Magnitude
+end
+
+function DonorFireKick:GetCameraKick()
+	return self.camKickTarget.X, self.camKickTarget.Y
+end
+
+function DonorFireKick:IsFinished()
+	return self.posSpring:IsAtRest()
+		and self.rotSpring:IsAtRest()
+		and self.camKickTarget.Magnitude < self.config.SnapThreshold
+end
+
+return DonorFireKick
+
+
+После этого проверь
+
+    первая строка require должна быть именно:
+        local DonorSpring = require(script.Parent:WaitForChild("DonorSpring"))
+    в файле должны быть методы:
+        new
+        FireKick
+        Update
+        Reset
+
+
+Шаг 3 — renderCam() в acs_framework v5
+
+    Открой repositories/rmukola3-wq-1/acs_framework v5:1337
+    Найди ровно этот блок:
+
+
+local lastCameraSpringCF = CFrame.new()
+function renderCam()
+	local newCF = CFrame.Angles(cameraspring.p.x, cameraspring.p.y, cameraspring.p.z)
+	local delta = lastCameraSpringCF:Inverse() * newCF
+	cam.CFrame = cam.CFrame * delta
+	lastCameraSpringCF = newCF
+end
+
+
+    Удали его
+    Вставь вместо него это:
+
+
+local lastCameraSpringCF = CFrame.new()
+function renderCam()
+	local newCF = CFrame.Angles(cameraspring.p.x, cameraspring.p.y, cameraspring.p.z) * cameraKickCF
+	local delta = lastCameraSpringCF:Inverse() * newCF
+	cam.CFrame = cam.CFrame * delta
+	lastCameraSpringCF = newCF
+end
+
+
+Что изменилось
+
+    добавилось только * cameraKickCF
+    больше ничего в этом блоке не меняй
+
+
+Шаг 4 — блок вызова DonorFireKick
+
+    Открой repositories/rmukola3-wq-1/acs_framework v5:1440
+    Найди ровно этот кусок:
+
+
+-- ШАГ 5 (НОВОЕ): вызов DonorFireKick вместо ShotViewKick
+local fireKickSettings = DonorRecoilSettings.FireKickSettings
+local impulse = aimming and fireKickSettings.AimImpulse or fireKickSettings.HipImpulse
+donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z)
+
+
+    Удали его
+    Вставь вместо него это:
+
+
+-- ШАГ 5 (НОВОЕ): вызов DonorFireKick вместо ShotViewKick
+local fireKickSettings = DonorRecoilSettings.FireKickSettings
+local hipImpulse = fireKickSettings.HipImpulse or Vector3.new(0, -0.08, 0.05)
+local aimImpulse = fireKickSettings.AimImpulse or Vector3.new(0, -0.055, 0.035)
+local impulse = aimming and aimImpulse or hipImpulse
+donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z)
+
+
+Зачем
+
+    чтобы не упасть, если settings снова окажется неполным
+    чтобы hip/ads импульсы читались безопасно
+
+
+Шаг 5 — это НЕ трогай
+
+    В repositories/rmukola3-wq-1/acs_framework v5:2933 должно остаться:
+
+
+donorFireKickCF = donorFireKickState:Update(dt, aimming and 1 or 0)
+
+
+    В repositories/rmukola3-wq-1/acs_framework v5:2949 должно остаться:
+
+
+* donorFireKickCF
+
+
+    Не меняй порядок слоёв в AnimPart.CFrame
+
+
+Быстрый чек после вставки
+
+    DonorRecoilSettings:
+        есть HipImpulse
+        есть AimImpulse
+    DonorFireKick:
+        файл полностью заменён
+    acs_framework v5:
+        в renderCam() есть * cameraKickCF
+        в firekick-блоке есть hipImpulse и aimImpulse
+        donorFireKickCF всё ещё участвует в AnimPart.CFrame
+
+
+Если хочешь совсем коротко
+
+    1: замени FireKickSettings
+    2: полностью замени DonorFireKick
+    3: в renderCam() добавь * cameraKickCF
+    4: замени вызов impulse = ... на safe-вариант с hipImpulse / aimImpulse
+
+
+Если хочешь, я следующим сообщением дам тебе ультра-короткий чеклист на 10 строк, чтобы ты просто отмечал галочками по мере вставки.
+
+теперь рабоатет камера кик local RecoilCamera = {}
+RecoilCamera.__index = RecoilCamera
+
+local abs = math.abs
+local min = math.min
+local clamp = math.clamp
+
+local function createSpring(stiffness, damping)
+return {
+position = 0,
+velocity = 0,
+stiffness = stiffness or 40,
+damping = damping or 4,
+}
+end
+
+local function updateSpring(spring, dt)
+local accel = -spring.stiffness * spring.position - spring.damping * spring.velocity
+spring.velocity = spring.velocity + accel * dt
+spring.position = spring.position + spring.velocity * dt
+
+if abs(spring.position) < 0.00008 and abs(spring.velocity) < 0.0009 then
+	spring.position = 0
+	spring.velocity = 0
+end
+
+return spring.position
+
+
+end
+
+local function addImpulse(spring, impulse, maxVelocity)
+spring.velocity = spring.velocity + impulse
+spring.velocity = clamp(spring.velocity, -maxVelocity, maxVelocity)
+end
+
+function RecoilCamera.new()
+local self = setmetatable({}, RecoilCamera)
+
+self.pitchSpring = createSpring(38, 3.5)
+self.yawSpring = createSpring(32, 3.0)
+self.rollSpring = createSpring(26, 2.8)
+
+self.pitchKickScale = 18.0
+self.yawKickScale = 14.0
+self.rollKickScale = 12.0
+
+self.maxPitchVelocity = 3.5
+self.maxYawVelocity = 2.8
+self.maxRollVelocity = 2.4
+
+return self
+
+
+end
+
+function RecoilCamera:Recoil(x, y, z)
+x = x or 0
+y = y or 0
+z = z or 0
+
+local pitchImpulse = x * self.pitchKickScale
+local yawImpulse = y * self.yawKickScale
+local rollImpulse = z * self.rollKickScale
+
+rollImpulse = rollImpulse + yawImpulse * 0.65
+
+addImpulse(self.pitchSpring, pitchImpulse, self.maxPitchVelocity)
+addImpulse(self.yawSpring, yawImpulse, self.maxYawVelocity)
+addImpulse(self.rollSpring, rollImpulse, self.maxRollVelocity)
+
+
+end
+
+function RecoilCamera:Update(dt)
+dt = min(dt, 0.033)
+
+local pitch = updateSpring(self.pitchSpring, dt)
+local yaw = updateSpring(self.yawSpring, dt)
+local roll = updateSpring(self.rollSpring, dt)
+
+if abs(pitch) < 0.00002 then pitch = 0 end
+if abs(yaw) < 0.00002 then yaw = 0 end
+if abs(roll) < 0.00002 then roll = 0 end
+
+return CFrame.Angles(pitch, yaw, roll)
+
+
+end
+
+function RecoilCamera:Reset()
+self.pitchSpring.position = 0
+self.pitchSpring.velocity = 0
+
+self.yawSpring.position = 0
+self.yawSpring.velocity = 0
+
+self.rollSpring.position = 0
+self.rollSpring.velocity = 0
+
+
+end
+
+return RecoilCamera
+
+Можешь ее настриоть номрально  а то сл ишком ситлноь тут вроед поставлено чисто дял првоерки рбаоате ли она натсрой ровно как в оригинале в репе етсь файлы donor_for recoil
+
+Да — 18 / 14 / 12 у тебя сейчас сильно завышены.
+
+Для donor-like feel это надо сделать заметно мягче.
+
+Главный вывод
+
+    В оригинале donor camera kick идёт не через такие огромные scale-значения, а через более мягкий spring path: camKickSpring = Spring.new(8, 0.5, Vector3.new(0, 0, 0)) в repositories/rmukola3-wq-1/acs_donor_for_recoil10:199.
+    Сам вызов в donor тоже подаёт уже готовую умеренную величину recoil: Recoil(..., ..., ...) в repositories/rmukola3-wq-1/acs_donor_for_recoil21:3219.
+    У тебя же сейчас модуль отдельно ещё раз слишком сильно усиливает это через pitchKickScale = 18, yawKickScale = 14, rollKickScale = 12, поэтому камера становится тестово-перекачанной.
+
+
+Что тебе вставить
+
+    Если хочешь самый безопасный donor-like вариант без ломки остального пайплайна, то замени весь файл repositories/rmukola3-wq-1/RecoilCamera:1 на этот код:
+
+
+local RecoilCamera = {}
+RecoilCamera.__index = RecoilCamera
+
+local abs = math.abs
+local min = math.min
+local clamp = math.clamp
+
+local function createSpring(stiffness, damping)
+	return {
+		position = 0,
+		velocity = 0,
+		stiffness = stiffness or 40,
+		damping = damping or 4,
+	}
+end
+
+local function updateSpring(spring, dt)
+	local accel = -spring.stiffness * spring.position - spring.damping * spring.velocity
+	spring.velocity = spring.velocity + accel * dt
+	spring.position = spring.position + spring.velocity * dt
+
+	if abs(spring.position) < 0.00008 and abs(spring.velocity) < 0.0009 then
+		spring.position = 0
+		spring.velocity = 0
+	end
+
+	return spring.position
+end
+
+local function addImpulse(spring, impulse, maxVelocity)
+	spring.velocity = spring.velocity + impulse
+	spring.velocity = clamp(spring.velocity, -maxVelocity, maxVelocity)
+end
+
+function RecoilCamera.new()
+	local self = setmetatable({}, RecoilCamera)
+
+	self.pitchSpring = createSpring(96, 15)
+	self.yawSpring = createSpring(76, 12)
+	self.rollSpring = createSpring(62, 10)
+
+	self.pitchKickScale = 1.00
+	self.yawKickScale = 0.82
+	self.rollKickScale = 0.72
+
+	self.maxPitchVelocity = 0.16
+	self.maxYawVelocity = 0.11
+	self.maxRollVelocity = 0.09
+
+	return self
+end
+
+function RecoilCamera:Recoil(x, y, z)
+	x = x or 0
+	y = y or 0
+	z = z or 0
+
+	local pitchImpulse = x * self.pitchKickScale
+	local yawImpulse = y * self.yawKickScale
+	local rollImpulse = z * self.rollKickScale
+
+	rollImpulse = rollImpulse + yawImpulse * 0.18
+
+	addImpulse(self.pitchSpring, pitchImpulse, self.maxPitchVelocity)
+	addImpulse(self.yawSpring, yawImpulse, self.maxYawVelocity)
+	addImpulse(self.rollSpring, rollImpulse, self.maxRollVelocity)
+end
+
+function RecoilCamera:Update(dt)
+	dt = min(dt, 0.033)
+
+	local pitch = updateSpring(self.pitchSpring, dt)
+	local yaw = updateSpring(self.yawSpring, dt)
+	local roll = updateSpring(self.rollSpring, dt)
+
+	if abs(pitch) < 0.00002 then pitch = 0 end
+	if abs(yaw) < 0.00002 then yaw = 0 end
+	if abs(roll) < 0.00002 then roll = 0 end
+
+	return CFrame.Angles(pitch, yaw, roll)
+end
+
+function RecoilCamera:Reset()
+	self.pitchSpring.position = 0
+	self.pitchSpring.velocity = 0
+
+	self.yawSpring.position = 0
+	self.yawSpring.velocity = 0
+
+	self.rollSpring.position = 0
+	self.rollSpring.velocity = 0
+end
+
+return RecoilCamera
+
+
+Почему именно так
+
+    Это намного ближе к donor-feel, чем твой текущий тестовый вариант.
+    Значения 1.00 / 0.82 / 0.72 уже были подобраны как мягкий рабочий вариант в repositories/rmukola3-wq-1/sesion3:2805.
+    Пределы скорости 0.16 / 0.11 / 0.09 не дают камере улетать при очереди.
+    Связка rollImpulse = rollImpulse + yawImpulse * 0.18 даёт живость, но не раскручивает камеру слишком сильно.
+
+
+Что не надо ставить
+
+    Не оставляй:
+
+
+self.pitchKickScale = 18.0
+self.yawKickScale = 14.0
+self.rollKickScale = 12.0
+
+
+    И не оставляй:
+
+
+self.maxPitchVelocity = 3.5
+self.maxYawVelocity = 2.8
+self.maxRollVelocity = 2.4
+
+
+    Это именно тестовые, а не donor-like числа.
+
+
+Если после замены всё ещё будет сильно
+
+    Тогда проблема уже не в RecoilCamera, а во входе в него из acs_framework v5:1429.
+    В таком случае уменьши:
+        profile.hipCameraX or 0.55
+        profile.hipCameraY or 0.46
+        ADS-вызов camX * 0.8, camY * 0.6
+    Но сначала замени сам RecoilCamera, и только потом трогай call-site.
+
+
+Что быстро проверить после вставки
+
+    В repositories/rmukola3-wq-1/acs_framework v5:1338 камера уже должна использовать cameraKickCF.
+    При одиночном выстреле камера должна:
+        чуть дёргаться вверх,
+        немного уводиться в сторону,
+        быстро возвращаться,
+        не “ломать шею”.
+    В ADS kick должен быть мягче, чем в hipfire.
+
+
+Насколько это “ровно как в оригинале”
+
+    Не 1:1, потому что оригинал donor использует другой внутренний spring path и другой surrounding framework.
+    Но это намного ближе к donor, чем твой текущий тестовый RecoilCamera.
+
+
+Confidence: High
+
+    Основано на сравнении с repositories/rmukola3-wq-1/acs_donor_for_recoil10:199, repositories/rmukola3-wq-1/acs_donor_for_recoil14:236, repositories/rmukola3-wq-1/acs_donor_for_recoil21:3219 и с рабочим тюнингом из repositories/rmukola3-wq-1/sesion3:2805.
+
+
+Если хочешь, следующим сообщением я дам тебе ещё более точный второй этап тюна:
+
+    отдельно для hipfire,
+    отдельно для ADS,
+    чтобы камера была почти donor по ощущению именно в стрельбе.
+
+не етпреь слиукшм слабо
+
+Да — сейчас у тебя уже пережато в слабую сторону.
+
+Что делать
+
+    Не возвращай тестовые 18 / 14 / 12.
+    Подними RecoilCamera умеренно, чтобы получить donor-like feel без перелома камеры.
+
+
+Поставь вот такие значения
+
+    В RecoilCamera.new() замени только эти строки:
+
+
+self.pitchSpring = createSpring(92, 14)
+self.yawSpring = createSpring(74, 11)
+self.rollSpring = createSpring(60, 9)
+
+self.pitchKickScale = 1.75
+self.yawKickScale = 1.25
+self.rollKickScale = 0.95
+
+self.maxPitchVelocity = 0.28
+self.maxYawVelocity = 0.18
+self.maxRollVelocity = 0.14
+
+
+То есть сейчас тебе нужно заменить
+
+    было:
+
+
+self.pitchSpring = createSpring(96, 15)
+self.yawSpring = createSpring(76, 12)
+self.rollSpring = createSpring(62, 10)
+
+self.pitchKickScale = 1.00
+self.yawKickScale = 0.82
+self.rollKickScale = 0.72
+
+self.maxPitchVelocity = 0.16
+self.maxYawVelocity = 0.11
+self.maxRollVelocity = 0.09
+
+
+    стало:
+
+
+self.pitchSpring = createSpring(92, 14)
+self.yawSpring = createSpring(74, 11)
+self.rollSpring = createSpring(60, 9)
+
+self.pitchKickScale = 1.75
+self.yawKickScale = 1.25
+self.rollKickScale = 0.95
+
+self.maxPitchVelocity = 0.28
+self.maxYawVelocity = 0.18
+self.maxRollVelocity = 0.14
+
+
+Ещё одну строку тоже поменяй
+
+    В RecoilCamera:Recoil(x, y, z) замени:
+
+
+rollImpulse = rollImpulse + yawImpulse * 0.18
+
+
+    на:
+
+
+rollImpulse = rollImpulse + yawImpulse * 0.28
+
+
+Почему именно так
+
+    1.00 / 0.82 / 0.72 — уже рабочие, но слишком мягкие для твоего текущего входа из acs_framework v5.
+    1.75 / 1.25 / 0.95 — это середина между “еле видно” и “ломает камеру”.
+    Чуть снизил stiffness/damping относительно мягкого варианта, чтобы kick был заметнее и не умирал слишком быстро.
+    Чуть поднял velocity caps, чтобы очередь чувствовалась.
+
+
+Если после этого всё ещё слабо
+
+    Тогда проблема уже не только в RecoilCamera, а во входных множителях в repositories/rmukola3-wq-1/acs_framework v5:1429.
+    Тогда меняй:
+
+
+camX * (profile.hipCameraX or 0.55)
+camY * (profile.hipCameraY or 0.46)
+
+
+    на:
+
+
+camX * (profile.hipCameraX or 0.72)
+camY * (profile.hipCameraY or 0.58)
+
+
+и ADS:
+
+recoilCameraState:Recoil(camX * 0.8, camY * 0.6, 0)
+
+
+    на:
+
+
+recoilCameraState:Recoil(camX * 0.95, camY * 0.72, 0)
+
+
+Но порядок такой
+
+    сначала попробуй только RecoilCamera
+    если всё ещё слабо — потом усиливай call-site в acs_framework v5
+
+
+Самый безопасный следующий шаг
+
+    Сначала вставь только это:
+
+
+self.pitchKickScale = 1.75
+self.yawKickScale = 1.25
+self.rollKickScale = 0.95
+
+self.maxPitchVelocity = 0.28
+self.maxYawVelocity = 0.18
+self.maxRollVelocity = 0.14
+
+
+    Если стало почти норм — остальные строки уже не трогай.
+
+
+Confidence: High
+
+    Это не 1:1 donor, но это хороший промежуточный тюн между твоим “слишком сильно” и “слишком слабо”.
+
+
+Если хочешь, я сейчас дам тебе 2 готовых пресета:
+
+    medium donor
+    strong donor чтобы ты просто вставил один из них.
+
+полынй готвоый код прсото дай
+
+Вот полный готовый код для RecoilCamera — просто замени весь файл целиком:
+
+local RecoilCamera = {}
+RecoilCamera.__index = RecoilCamera
+
+local abs = math.abs
+local min = math.min
+local clamp = math.clamp
+
+local function createSpring(stiffness, damping)
+	return {
+		position = 0,
+		velocity = 0,
+		stiffness = stiffness or 40,
+		damping = damping or 4,
+	}
+end
+
+local function updateSpring(spring, dt)
+	local accel = -spring.stiffness * spring.position - spring.damping * spring.velocity
+	spring.velocity = spring.velocity + accel * dt
+	spring.position = spring.position + spring.velocity * dt
+
+	if abs(spring.position) < 0.00008 and abs(spring.velocity) < 0.0009 then
+		spring.position = 0
+		spring.velocity = 0
+	end
+
+	return spring.position
+end
+
+local function addImpulse(spring, impulse, maxVelocity)
+	spring.velocity = spring.velocity + impulse
+	spring.velocity = clamp(spring.velocity, -maxVelocity, maxVelocity)
+end
+
+function RecoilCamera.new()
+	local self = setmetatable({}, RecoilCamera)
+
+	self.pitchSpring = createSpring(92, 14)
+	self.yawSpring = createSpring(74, 11)
+	self.rollSpring = createSpring(60, 9)
+
+	self.pitchKickScale = 1.75
+	self.yawKickScale = 1.25
+	self.rollKickScale = 0.95
+
+	self.maxPitchVelocity = 0.28
+	self.maxYawVelocity = 0.18
+	self.maxRollVelocity = 0.14
+
+	return self
+end
+
+function RecoilCamera:Recoil(x, y, z)
+	x = x or 0
+	y = y or 0
+	z = z or 0
+
+	local pitchImpulse = x * self.pitchKickScale
+	local yawImpulse = y * self.yawKickScale
+	local rollImpulse = z * self.rollKickScale
+
+	rollImpulse = rollImpulse + yawImpulse * 0.28
+
+	addImpulse(self.pitchSpring, pitchImpulse, self.maxPitchVelocity)
+	addImpulse(self.yawSpring, yawImpulse, self.maxYawVelocity)
+	addImpulse(self.rollSpring, rollImpulse, self.maxRollVelocity)
+end
+
+function RecoilCamera:Update(dt)
+	dt = min(dt, 0.033)
+
+	local pitch = updateSpring(self.pitchSpring, dt)
+	local yaw = updateSpring(self.yawSpring, dt)
+	local roll = updateSpring(self.rollSpring, dt)
+
+	if abs(pitch) < 0.00002 then pitch = 0 end
+	if abs(yaw) < 0.00002 then yaw = 0 end
+	if abs(roll) < 0.00002 then roll = 0 end
+
+	return CFrame.Angles(pitch, yaw, roll)
+end
+
+function RecoilCamera:Reset()
+	self.pitchSpring.position = 0
+	self.pitchSpring.velocity = 0
+
+	self.yawSpring.position = 0
+	self.yawSpring.velocity = 0
+
+	self.rollSpring.position = 0
+	self.rollSpring.velocity = 0
+end
+
+return RecoilCamera
+
+
+Если после этого всё ещё будет слабо — тогда уже надо подкрутить не сам RecoilCamera, а вызов в acs_framework v5.
+
+ок а теперь првоерь другие омдули кроме модуля камреы я их азгурижал првоерь они правлиьно опдключены или нет
+
+Да — проверил остальные модули кроме камеры.
+
+Главный вывод: у тебя не всё подключено правильно. Основная проблема сейчас не в камере, а в связке DonorFireKick + DonorRecoilSettings.
+
+Что подключено нормально
+
+    RecoilSystem подключён и используется правильно:
+        repositories/rmukola3-wq-1/acs_framework v5:51
+        repositories/rmukola3-wq-1/acs_framework v5:390
+        repositories/rmukola3-wq-1/acs_framework v5:1422
+        repositories/rmukola3-wq-1/acs_framework v5:2948
+    DonorLikeRecoilModule подключён правильно:
+        repositories/rmukola3-wq-1/acs_framework v5:54
+        repositories/rmukola3-wq-1/acs_framework v5:393
+        repositories/rmukola3-wq-1/acs_framework v5:1424
+        repositories/rmukola3-wq-1/acs_framework v5:2947
+    ShotBobble тоже подключён правильно:
+        repositories/rmukola3-wq-1/acs_framework v5:56
+        repositories/rmukola3-wq-1/acs_framework v5:395
+        repositories/rmukola3-wq-1/acs_framework v5:1434
+        repositories/rmukola3-wq-1/acs_framework v5:2951
+
+
+Что подключено неправильно
+
+    DonorFireKick и DonorRecoilSettings до сих пор не согласованы между собой.
+    В acs_framework v5 вызов всё ещё такой:
+        repositories/rmukola3-wq-1/acs_framework v5:1441
+        repositories/rmukola3-wq-1/acs_framework v5:1442
+        repositories/rmukola3-wq-1/acs_framework v5:1443
+    Там код ждёт:
+
+
+fireKickSettings.AimImpulse
+fireKickSettings.HipImpulse
+
+
+    Но в текущем DonorRecoilSettings этих полей нет:
+        repositories/rmukola3-wq-1/DonorRecoilSettings:242
+    Вместо этого там до сих пор старый блок:
+
+
+PositionKickIntensity
+RotationKickIntensity
+PosSpringFrequency
+PosSpringDamping
+RotSpringFrequency
+RotSpringDamping
+AimReductionFactor
+
+
+Почему это плохо
+
+    acs_framework v5 ждёт одну структуру настроек;
+    DonorRecoilSettings отдаёт другую структуру;
+    значит DonorFireKick либо работает нестабильно, либо может падать/вести себя не так, как ты ожидаешь.
+
+
+Отдельно по DonorFireKick
+
+    Сам модуль подключён в framework, state создаётся:
+        repositories/rmukola3-wq-1/acs_framework v5:60
+        repositories/rmukola3-wq-1/acs_framework v5:401
+    И update реально идёт в pipeline:
+        repositories/rmukola3-wq-1/acs_framework v5:2933
+        repositories/rmukola3-wq-1/acs_framework v5:2949
+    Но сам файл DonorFireKick у тебя сейчас всё ещё старый, не тот чистый вариант:
+        в нём до сих пор жёсткий require(game.ReplicatedStorage.ACS_Engine.Modules.DonorSpring) на repositories/rmukola3-wq-1/DonorFireKick:13
+        и он не выровнен с тем FireKickSettings, который нужен framework
+
+
+Лишнее / мёртвое
+
+    ShotViewKick всё ещё создаётся, но по пайплайну уже не нужен:
+        repositories/rmukola3-wq-1/acs_framework v5:63
+        repositories/rmukola3-wq-1/acs_framework v5:398
+    Это не критичный баг, но это мёртвый слой.
+
+
+Итог по модулям
+
+    Нормально: RecoilSystem, DonorLikeRecoilModule, ShotBobble
+    Неправильно / не до конца: DonorFireKick, DonorRecoilSettings
+    Лишний dead code: ShotViewKick
+
+
+Что тебе надо сделать
+
+    Обязательно заменить блок FireKickSettings в repositories/rmukola3-wq-1/DonorRecoilSettings:242
+    Обязательно заменить весь файл repositories/rmukola3-wq-1/DonorFireKick:1
+    Желательно потом убрать мёртвый ShotViewKick, но это уже вторично
+
+
+Самая важная проверка прямо сейчас
+
+    если в DonorRecoilSettings нет строк:
+
+
+HipImpulse = Vector3.new(0, -0.08, 0.05),
+AimImpulse = Vector3.new(0, -0.055, 0.035),
+
+
+то DonorFireKick у тебя всё ещё подключён неправильно.
+
+Confidence: High
+
+    Основано на прямой проверке require, state init, call path и содержимого текущих файлов.
+
+
+Если хочешь, я сейчас дам тебе одним сообщением только 2 готовые вставки:
+
+    полный DonorFireKick
+    правильный блок FireKickSettings без камеры и без лишнего текста.
+
+ок как подключить
+
+Подключить надо так, чтобы DonorFireKick не жил сам по себе, а реально встраивался в acs_framework v5.
+
+1. require вверху файла
+
+    В repositories/rmukola3-wq-1/acs_framework v5:58 у тебя должны быть такие строки:
+
+
+local DonorRecoilSettings   = require(Mods:WaitForChild("DonorRecoilSettings"))
+local DonorFireKick         = require(Mods:WaitForChild("DonorFireKick"))
+
+
+2. Создание state
+
+    В repositories/rmukola3-wq-1/acs_framework v5:400 должно быть:
+
+
+donorFireKickState = DonorFireKick.new(DonorRecoilSettings.FireKickSettings)
+
+
+3. Вызов при выстреле
+
+    Внутри Recoil() в repositories/rmukola3-wq-1/acs_framework v5:1440 вставь именно это:
+
+
+local fireKickSettings = DonorRecoilSettings.FireKickSettings
+local hipImpulse = fireKickSettings.HipImpulse or Vector3.new(0, -0.08, 0.05)
+local aimImpulse = fireKickSettings.AimImpulse or Vector3.new(0, -0.055, 0.035)
+local impulse = aimming and aimImpulse or hipImpulse
+donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z)
+
+
+4. Апдейт каждый кадр
+
+    В render/update блоке repositories/rmukola3-wq-1/acs_framework v5:2933 должно быть:
+
+
+donorFireKickCF = donorFireKickState:Update(dt, aimming and 1 or 0)
+
+
+5. Вставка в итоговый AnimPart.CFrame
+
+    В repositories/rmukola3-wq-1/acs_framework v5:2949 должно быть:
+
+
+* donorFireKickCF
+
+
+    Итоговый кусок должен выглядеть так:
+
+
+AnimPart.CFrame = cam.CFrame
+	* NearZ
+	* BipodCF
+	* maincf
+	* crouchCF
+	* strafeTiltCF
+	* lookSwayCF
+	* gunbobcf
+	* breathCF
+	* driftCF
+	* aimcf
+	* donorRecoilCF
+	* recoilcf
+	* donorFireKickCF
+	* vmKickCF
+	* shotBobbleCF
+	* secondaryCF
+	* bumpPushCF
+	* bumpCF
+
+
+6. Сброс
+
+    При reset/unset/выходе из ADS должен быть сброс:
+        repositories/rmukola3-wq-1/acs_framework v5:940
+        repositories/rmukola3-wq-1/acs_framework v5:1316
+
+
+То есть должна быть строка:
+
+if donorFireKickState then donorFireKickState:Reset() end
+
+
+7. Что обязательно должно быть в DonorRecoilSettings
+
+    В repositories/rmukola3-wq-1/DonorRecoilSettings:242 внутри FireKickSettings должны быть:
+
+
+HipImpulse = Vector3.new(0, -0.08, 0.05),
+AimImpulse = Vector3.new(0, -0.055, 0.035),
+
+
+Итог
+
+    require
+    new(...)
+    FireKick(...) в Recoil()
+    Update(...) каждый кадр
+    * donorFireKickCF в AnimPart.CFrame
+    Reset() на сбросах
+
+
+Если коротко
+
+    без шага FireKick(...) модуль не стреляет
+    без шага Update(...) модуль не двигается
+    без * donorFireKickCF модуль считается в пустоту
+
+
+Если хочешь, я следующим сообщением дам тебе ровно 3 готовых блока, которые просто вставить в acs_framework v5 без объяснений.
+
+function Recoil()
+local name = WeaponData.RecoilProfile or "Rifle556"
+local profile = GetRecoilProfile(name) or GetRecoilProfile("Rifle556")
+if not profile then return end
+
+adsSwayScale = profile.adsSwayScale or VM_Config.adsMotionScale
+
+local isHip = not aimming
+
+local runtimeProfile = profile
+if isHip then
+	runtimeProfile = table.clone(profile)
+
+	runtimeProfile.kickStrength = (profile.kickStrength or 0.0104) * 0.58
+	runtimeProfile.horizontalStrength = (profile.horizontalStrength or 0.0072) * 1.00
+	runtimeProfile.horizontalRandomness = math.max(profile.horizontalRandomness or 0.06, 0.22)
+
+	runtimeProfile.patternScale = (profile.patternScale or 0.0245) * 0.60
+	runtimeProfile.patternRandomness = math.max(profile.patternRandomness or 0.03, 0.08)
+
+	runtimeProfile.gunKickback = (profile.gunKickback or 0.0145) * 0.62
+	runtimeProfile.gunRise = (profile.gunRise or 0.0068) * 0.52
+
+	runtimeProfile.verticalMult = (profile.verticalMult or 0.94) * 0.86
+	runtimeProfile.horizontalMult = 1.0
+	runtimeProfile.leftBias = 0
+
+	runtimeProfile.springStiffness = profile.hipReturnStiffness or 88.0
+	runtimeProfile.springDamping = profile.hipReturnDamping or 27.0
+	runtimeProfile.returnSpeed = profile.hipReturnSpeed or 0.24
+	runtimeProfile.returnSmoothness = profile.hipReturnSmoothness or 0.86
+
+	if profile.pattern then
+		runtimeProfile.pattern = {}
+		for i, point in ipairs(profile.pattern) do
+			runtimeProfile.pattern[i] = {
+				x = point.x * 1.20,
+				y = point.y * 0.62,
+			}
+		end
+	end
+end
+
+if gunRecoilState.currentProfile ~= runtimeProfile then
+	gunRecoilState:SetProfile(runtimeProfile)
+end
+
+local baseMult = 1.0
+if aimming then
+	baseMult = baseMult * (profile.aimMultiplier or 0.3)
+end
+if Crouched then
+	baseMult = baseMult * (profile.crouchMultiplier or 0.65)
+end
+if BipodActive then
+	baseMult = baseMult * 0.3
+end
+if charspeed > 0.1 then
+	baseMult = baseMult * (profile.moveMultiplier or 1.2)
+end
+baseMult = baseMult * (RecoilPower or 1) * 2.35
+
+local recoilMult = baseMult
+local donorMult = baseMult
+
+if isHip then
+	recoilMult = recoilMult * (profile.hipRecoilScale or 0.62)
+	donorMult = donorMult * (profile.hipDonorRecoilScale or 0.95)
+else
+	recoilMult = recoilMult * (profile.adsRecoilCFScale or 0.58)
+	donorMult = donorMult * (profile.adsDonorRecoilScale or 0.58)
+end
+
+gunRecoilState:Kick(runtimeProfile, recoilMult)
+
+donorRecoilState:SetProfile(runtimeProfile)
+donorRecoilState:Kick(runtimeProfile, WeaponInHand, donorMult)
+
+local camX, camY = donorRecoilState:GetCameraRecoil()
+if isHip then
+	recoilCameraState:Recoil(
+		camX * (profile.hipCameraX or 0.55),
+		camY * (profile.hipCameraY or 0.46),
+		0
+	)
+	shotBobbleState:Trigger(profile.hipBobbleAmount or 0.62)
+else
+	recoilCameraState:Recoil(camX * 0.8, camY * 0.6, 0)
+	shotBobbleState:Trigger(1)
+end
+
+-- ШАГ 5 (НОВОЕ): вызов DonorFireKick вместо ShotViewKick
+local fireKickSettings = DonorRecoilSettings.FireKickSettings
+local hipImpulse = fireKickSettings.HipImpulse or Vector3.new(0, -0.08, 0.05)
+local aimImpulse = fireKickSettings.AimImpulse or Vector3.new(0, -0.055, 0.035)
+local impulse = aimming and aimImpulse or hipImpulse
+donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z)
+
+local camRecoil = gunRecoilState:GetCameraRecoil()
+local camPower = isHip and (profile.hipCamRecoilPower or 0.13) or (profile.adsCamRecoilPower or 0.22)
+cameraspring:accelerate(Vector3.new(
+	math.rad(camRecoil.Y) * camPower,
+	math.rad(camRecoil.X) * camPower,
+	math.rad(camRecoil.X * 0.04) * camPower
+	))
+
+local kick = isHip and 1.0 or 0.55
+if BipodActive then
+	kick = kick * 0.4
+end
+
+local hipMult = isHip and (WeaponData.HipRecoilMult or 1.15) or 1
+local adsMult = aimming and (WeaponData.ADSRecoilMult or 0.85) or 1
+kick = kick * hipMult * adsMult
+
+local viewKickScale
+local hitScale
+local vertScale
+local yawMin, yawMax
+local rollMin, rollMax
+local secXMin, secXMax
+local secYMin, secYMax
+
+if isHip then
+	kick = kick * (profile.hipVMKickScale or 0.30)
+	viewKickScale = profile.hipViewKickScale or 0.62
+	hitScale = 0.22
+	vertScale = 0.82
+
+	yawMin, yawMax = -1.15, 1.15
+	rollMin, rollMax = -0.80, 0.80
+
+	secXMin, secXMax = -1.05, 1.05
+	secYMin, secYMax = -0.65, 0.65
+else
+	viewKickScale = profile.adsViewKickScale or 0.42
+	hitScale = 0.24
+	vertScale = 0.90
+
+	yawMin, yawMax = -1.2, 1.2
+	rollMin, rollMax = -0.8, 1.1
+
+	secXMin, secXMax = -1.2, 1.2
+	secYMin, secYMax = -0.8, 0.8
+end
+
+local kickVM = kick * viewKickScale
+local vm = 0.52
+
+VMKickPos:accelerate(Vector3.new(
+	0,
+	0.70 * kickVM * vm * hitScale * vertScale,
+	-0.95 * kickVM * vm * hitScale
+	))
+
+VMKickRot:accelerate(Vector3.new(
+	math.rad(1.9) * kickVM * vm * hitScale * vertScale,
+	math.rad(RAND(yawMin, yawMax, 0.5)) * kickVM * vm * hitScale,
+	math.rad(RAND(rollMin, rollMax, 0.5)) * kickVM * vm * hitScale
+	))
+
+SecondarySpring:accelerate(Vector3.new(
+	math.rad(RAND(secXMin, secXMax, 0.5)) * kick * vm * hitScale,
+	math.rad(RAND(secYMin, secYMax, 0.5)) * kick * vm * hitScale,
+	0
+	))
+
+
+end
+
+Да — внутри Recoil() подключение теперь выглядит правильно.
+
+Что здесь уже подключено нормально
+
+    gunRecoilState:Kick(runtimeProfile, recoilMult) — основной recoil layer есть.
+    donorRecoilState:SetProfile(...) + donorRecoilState:Kick(...) — donor recoil layer есть.
+    recoilCameraState:Recoil(...) — camera recoil вызывается.
+    shotBobbleState:Trigger(...) — bobble вызывается.
+    donorFireKickState:FireKick(...) — firekick теперь реально вызывается и уже с safe fallback.
+    cameraspring:accelerate(...) — старый camera spring тоже остаётся активным.
+    VMKickPos, VMKickRot, SecondarySpring — дополнительные viewmodel layers тоже активны.
+
+
+Главный вывод
+
+    Этот Recoil() по проводке нормальный.
+    То есть проблема уже не здесь, если что-то ощущается не так.
+    Здесь firekick подключён правильно.
+
+
+Что обязательно ещё должно быть вне этой функции
+
+    В init должен быть:
+
+
+donorFireKickState = DonorFireKick.new(DonorRecoilSettings.FireKickSettings)
+
+
+    В update-блоке должен быть:
+
+
+donorFireKickCF = donorFireKickState:Update(dt, aimming and 1 or 0)
+
+
+    В AnimPart.CFrame должен быть слой:
+
+
+* donorFireKickCF
+
+
+    В renderCam() должно быть:
+
+
+local newCF = CFrame.Angles(cameraspring.p.x, cameraspring.p.y, cameraspring.p.z) * cameraKickCF
+
+
+Единственное слабое место
+
+    Если в DonorRecoilSettings.FireKickSettings у тебя до сих пор нет:
+
+
+HipImpulse = Vector3.new(0, -0.08, 0.05),
+AimImpulse = Vector3.new(0, -0.055, 0.035),
+
+
+то safe fallback спасает от ошибки, но settings всё равно остаётся подключён неидеально.
+
+По самому куску — что важно
+
+    Вот этот блок у тебя уже правильный:
+
+
+local fireKickSettings = DonorRecoilSettings.FireKickSettings
+local hipImpulse = fireKickSettings.HipImpulse or Vector3.new(0, -0.08, 0.05)
+local aimImpulse = fireKickSettings.AimImpulse or Vector3.new(0, -0.055, 0.035)
+local impulse = aimming and aimImpulse or hipImpulse
+donorFireKickState:FireKick(impulse.X, impulse.Y, impulse.Z)
+
+
+Итог
+
+    Recoil() подключён правильно.
+    Теперь надо проверять уже не этот блок, а:
+        DonorRecoilSettings.FireKickSettings
+        init donorFireKickState
+        update donorFireKickCF
+        AnimPart.CFrame
+
+
+Confidence: High
+
+    По этому фрагменту wiring корректный.
+    Если хочешь, следующим сообщением я могу проверить тебе полный checklist из 4 мест, чтобы ты за 30 секунд понял, всё ли вообще дособрано.
+
+ну пересотри еще раз все и скажи че скинуть тебе или что сделать мне
+
+Да — пересмотрел по всему, что ты присылал.
+
+Сейчас узкое место уже очень конкретное: мне не хватает не всей репы, а 4 коротких кусков, чтобы точно сказать, всё ли у тебя собрано до конца.
+
+Что скинуть мне
+
+    DonorRecoilSettings — только блок FireKickSettings
+    DonorFireKick — весь файл целиком
+    acs_framework v5 — init блок, где создаются:
+        donorRecoilState
+        recoilCameraState
+        shotBobbleState
+        donorFireKickState
+    acs_framework v5 — render/update блок, где есть:
+        cameraKickCF = recoilCameraState:Update(dt)
+        donorFireKickCF = donorFireKickState:Update(...)
+        итоговый AnimPart.CFrame = ...
+
+
+Если хочешь проверить сам без меня
+
+    В DonorRecoilSettings.FireKickSettings должны быть:
+
+
+HipImpulse = Vector3.new(0, -0.08, 0.05),
+AimImpulse = Vector3.new(0, -0.055, 0.035),
+
+
+    В DonorFireKick должен быть require(script.Parent:WaitForChild("DonorSpring"))
+    В acs_framework v5 должен быть:
+
+
+donorFireKickState = DonorFireKick.new(DonorRecoilSettings.FireKickSettings)
+
+
+    В update должен быть:
+
+
+donorFireKickCF = donorFireKickState:Update(dt, aimming and 1 or 0)
+
+
+    В AnimPart.CFrame должен быть слой:
+
+
+* donorFireKickCF
+
+
+    В renderCam() должно быть:
+
+
+* cameraKickCF
+
+
+Что НЕ надо скидывать
+
+    Не надо всю репу
+    Не надо donor reference files
+    Не надо весь acs_framework v5
+    Не надо логи/скрины, если нет конкретной ошибки
+
+
+Самый полезный вариант
+
+    просто отправь мне подряд:
+        FireKickSettings
+        весь DonorFireKick
+        init block
+        render/update block
+
+
+Почему именно так
+
+    По Recoil() у тебя wiring уже выглядит норм.
+    Камера у тебя уже хотя бы частично живая.
+    Значит теперь надо добить именно:
+        config alignment
+        state init
+        frame update
+        final compose
+
+
+Confidence: High
+
+    По уже присланным кускам видно, что проблема теперь не “всё сломано”, а именно в нескольких точках интеграции.
+
+
+Если хочешь, можешь прямо следующим сообщением кинуть только эти 4 куска, и я сразу скажу:
+
+    норм
+    не норм
+    замени вот эту строку на вот эту
+
+--!strict
+
+local DonorRecoilSettings = {}
+
+DonorRecoilSettings.RecoilStateMultipliers = {
+Aim = 0.35,
+Crouch = 0.75,
+Prone = 0.55,
+Move = 1.15,
+Sprint = 1.45,
+Jump = 1.35,
+FirstShot = 1.25,
+Suppressed = 0.88,
+}
+
+DonorRecoilSettings.SwaySpringFrequency = 1.8
+DonorRecoilSettings.SwaySpringDamping = 0.85
+DonorRecoilSettings.SwaySpringMass = 1.0
+
+DonorRecoilSettings.SwayMultiplier = {
+Idle = 1.0,
+Moving = 1.6,
+Sprinting = 2.2,
+Aiming = 0.25,
+Crouching = 0.7,
+}
+
+DonorRecoilSettings.RotSpringFrequency = 12.5
+DonorRecoilSettings.RotSpringDamping = 0.92
+DonorRecoilSettings.RotSpringMass = 1.0
+
+DonorRecoilSettings.BreathPosSpringFrequency = 0.8
+DonorRecoilSettings.BreathPosSpringDamping = 0.65
+DonorRecoilSettings.BreathPosSpringMass = 1.0
+
+DonorRecoilSettings.BreathRotSpringFrequency = 0.65
+DonorRecoilSettings.BreathRotSpringDamping = 0.55
+DonorRecoilSettings.BreathRotSpringMass = 1.0
+
+DonorRecoilSettings.BreathIntensity = {
+Position = 0.008,
+Rotation = 0.003,
+}
+
+DonorRecoilSettings.WalkPosSpringFrequency = 4.5
+DonorRecoilSettings.WalkPosSpringDamping = 0.78
+DonorRecoilSettings.WalkPosSpringMass = 1.0
+
+DonorRecoilSettings.WalkRotSpringFrequency = 5.2
+DonorRecoilSettings.WalkRotSpringDamping = 0.82
+DonorRecoilSettings.WalkRotSpringMass = 1.0
+
+DonorRecoilSettings.WalkBobIntensity = {
+Position = 0.025,
+Rotation = 0.012,
+}
+
+DonorRecoilSettings.AimLerpSpeed = 12.0
+DonorRecoilSettings.AimMouseSensitivity = 0.5
+DonorRecoilSettings.AimTransitionTime = 0.18
+
+DonorRecoilSettings.LongAimNoise = {
+Enabled = true,
+Intensity = 0.002,
+Frequency = 0.3,
+}
+
+DonorRecoilSettings.IdleAimThreshold = 6.0
+
+DonorRecoilSettings.ViewmodelAimFactors = {
+PositionOffset = Vector3.new(0, 0, -0.1),
+RotationOffset = Vector3.new(0, 0, 0),
+FOVChange = -15,
+}
+
+DonorRecoilSettings.BlindfireAimCFrame =
+CFrame.new(-0.1, 0.85, 0.7) * CFrame.Angles(math.rad(-2.5), 0, math.rad(65))
+
+DonorRecoilSettings.BobbleEquipTrigger = true
+DonorRecoilSettings.BobbleReloadTrigger = true
+DonorRecoilSettings.BobbleDryFireTrigger = true
+DonorRecoilSettings.BobbleChangeAimTrigger = true
+DonorRecoilSettings.BobbleChangeFiremodeTrigger = true
+
+DonorRecoilSettings.BobbleIntensity = {
+Equip = 0.6,
+Reload = 0.8,
+DryFire = 0.4,
+ChangeAim = 0.35,
+ChangeFiremode = 0.25,
+}
+
+DonorRecoilSettings.RecoilCameraTime = 0.10
+DonorRecoilSettings.RecoilCameraIntensity = 1.5
+DonorRecoilSettings.CameraKickSpringFrequency = 8.5
+DonorRecoilSettings.CameraKickSpringDamping = 0.88
+
+DonorRecoilSettings.DefaultRecoilProfile = {
+kickStrength = 0.042,
+kickRandomness = 0.15,
+
+horizontalStrength = 0.028,
+horizontalRandomness = 0.18,
+
+rollStrength = 0.016,
+
+firstShotMultiplier = 1.2,
+
+sprayIncrease = 0.055,
+sprayDecayTime = 0.35,
+
+cameraShake = 0.035,
+
+gunKickback = 0.04,
+gunRise = 0.025,
+
+usePattern = false,
+patternScale = 0.035,
+patternSpeed = 22,
+patternRandomness = 0.12,
+pattern = {},
+
+springStiffness = 78,
+springDamping = 16,
+
+returnSpeed = 0.18,
+returnSmoothness = 0.82,
+
+minPitch = -0.15,
+maxPitch = 0.55,
+maxYaw = 0.4,
+maxRoll = 0.25,
+
+aimMultiplier = 0.35,
+crouchMultiplier = 0.75,
+moveMultiplier = 1.15,
+
+
+}
+
+DonorRecoilSettings.FireKickSettings = {
+PosSpringFrequency = 14.0,
+PosSpringDamping = 0.85,
+PosSpringMass = 1.0,
+
+RotSpringFrequency = 11.0,
+RotSpringDamping = 0.82,
+RotSpringMass = 1.0,
+
+AimReductionFactor = 0.65,
+KickMultiplier = 1.0,
+
+PositionScale = Vector3.new(1.2, 1.35, 1.5),
+RotationScale = Vector3.new(0.65, 0.35, 0.18),
+
+SnapThreshold = 0.00008,
+
+HipImpulse = Vector3.new(0, -0.08, 0.05),
+AimImpulse = Vector3.new(0, -0.055, 0.035),
+
+
+}
+
+DonorRecoilSettings.ViewmodelSwaySettings = {
+BaseIntensity = 0.015,
+SprintMultiplier = 2.5,
+AimReduction = 0.2,
+}
+
+return DonorRecoilSettings
+
+второй
+
+--!strict
+
+local DonorSpring = require(script.Parent:WaitForChild("DonorSpring"))
+
+local DonorFireKick = {}
+DonorFireKick.__index = DonorFireKick
+
+local DEFAULT_CONFIG = {
+PosSpringFrequency = 14.0,
+PosSpringDamping = 0.85,
+PosSpringMass = 1.0,
+
+RotSpringFrequency = 11.0,
+RotSpringDamping = 0.82,
+RotSpringMass = 1.0,
+
+AimReductionFactor = 0.65,
+KickMultiplier = 1.0,
+
+PositionScale = Vector3.new(1.2, 1.35, 1.5),
+RotationScale = Vector3.new(0.65, 0.35, 0.18),
+
+SnapThreshold = 0.00008,
+
+
+}
+
+local function mergeConfig(config)
+local finalConfig = {}
+
+for key, value in pairs(DEFAULT_CONFIG) do
+	finalConfig[key] = value
+end
+
+if config then
+	for key, value in pairs(config) do
+		finalConfig[key] = value
+	end
+end
+
+return finalConfig
+
+
+end
+
+local function zeroIfTinyVector3(value, velocity, threshold)
+if value.Magnitude < threshold and velocity.Magnitude < threshold then
+return Vector3.new(0, 0, 0)
+end
+
+return value
+
+
+end
+
+function DonorFireKick.new(config)
+local self = setmetatable({}, DonorFireKick)
+
+self.config = mergeConfig(config)
+
+self.posSpring = DonorSpring.new(
+	self.config.PosSpringFrequency,
+	self.config.PosSpringDamping,
+	self.config.PosSpringMass,
+	Vector3.new(0, 0, 0),
+	Vector3.new(0, 0, 0)
+)
+
+self.rotSpring = DonorSpring.new(
+	self.config.RotSpringFrequency,
+	self.config.RotSpringDamping,
+	self.config.RotSpringMass,
+	Vector3.new(0, 0, 0),
+	Vector3.new(0, 0, 0)
+)
+
+self.camKickTarget = Vector3.new(0, 0, 0)
+
+return self
+
+
+end
+
+function DonorFireKick:FireKick(x, y, z)
+x = x or 0
+y = y or 0
+z = z or 0
+
+local impulse = Vector3.new(x, y, z) * self.config.KickMultiplier
+local posScale = self.config.PositionScale
+local rotScale = self.config.RotationScale
+
+self.posSpring:Shove(Vector3.new(
+	impulse.X * posScale.X,
+	impulse.Y * posScale.Y,
+	impulse.Z * posScale.Z
+	))
+
+self.rotSpring:Shove(Vector3.new(
+	-impulse.Y * rotScale.X,
+	impulse.X * rotScale.Y,
+	impulse.X * rotScale.Z
+	))
+
+self.camKickTarget = impulse
+
+
+end
+
+function DonorFireKick:Update(dt, aimFactor)
+dt = math.clamp(dt or 0, 0.0001, 0.05)
+aimFactor = math.clamp(aimFactor or 0, 0, 1)
+
+local aimScale = 1 - (aimFactor * (1 - self.config.AimReductionFactor))
+
+local pos = self.posSpring:Update(dt) * aimScale
+local rot = self.rotSpring:Update(dt) * aimScale
+
+pos = zeroIfTinyVector3(pos, self.posSpring:GetVelocity(), self.config.SnapThreshold)
+rot = zeroIfTinyVector3(rot, self.rotSpring:GetVelocity(), self.config.SnapThreshold)
+
+local camLerpAlpha = math.clamp(dt * 20, 0, 1)
+self.camKickTarget = self.camKickTarget:Lerp(Vector3.new(0, 0, 0), camLerpAlpha)
+
+if self.camKickTarget.Magnitude < self.config.SnapThreshold then
+	self.camKickTarget = Vector3.new(0, 0, 0)
+end
+
+return CFrame.new(pos.X, pos.Y, pos.Z) * CFrame.Angles(rot.X, rot.Y, rot.Z)
+
+
+end
+
+function DonorFireKick:Reset()
+self.posSpring:Reset(Vector3.new(0, 0, 0))
+self.rotSpring:Reset(Vector3.new(0, 0, 0))
+self.camKickTarget = Vector3.new(0, 0, 0)
+end
+
+function DonorFireKick:GetKickIntensity()
+local pos = self.posSpring:GetPosition()
+return pos.Magnitude
+end
+
+function DonorFireKick:GetCameraKick()
+return self.camKickTarget.X, self.camKickTarget.Y
+end
+
+function DonorFireKick:IsFinished()
+return self.posSpring:IsAtRest()
+and self.rotSpring:IsAtRest()
+and self.camKickTarget.Magnitude < self.config.SnapThreshold
+end
+
+return DonorFireKick
+
+Да — эти 2 файла теперь выглядят правильно и согласованы между собой.
+
+Что уже норм
+
+    DonorRecoilSettings.FireKickSettings теперь содержит всё нужное:
+        HipImpulse
+        AimImpulse
+        PosSpringFrequency / Damping / Mass
+        RotSpringFrequency / Damping / Mass
+        PositionScale
+        RotationScale
+        SnapThreshold
+    DonorFireKick теперь тоже ждёт ровно такую же структуру конфига.
+    DonorFireKick правильно тянет DonorSpring через:
+        require(script.Parent:WaitForChild("DonorSpring"))
+    Методы в DonorFireKick нормальные:
+        new
+        FireKick
+        Update
+        Reset
+        GetKickIntensity
+        GetCameraKick
+        IsFinished
+
+
+Вывод
+
+    Связка:
+        DonorRecoilSettings
+        DonorFireKick
+
+    сейчас по содержанию правильная.
+
+    То есть эти 2 модуля уже не узкое место.
+
+
+Что осталось проверить
+Теперь мне нужен уже не этот код, а только 2 места из acs_framework v5:
+
+    init block, где создаётся:
+
+
+donorFireKickState = DonorFireKick.new(DonorRecoilSettings.FireKickSettings)
+
+
+    render/update block, где есть:
+
+
+donorFireKickCF = donorFireKickState:Update(dt, aimming and 1 or 0)
+
+
+и где AnimPart.CFrame включает:
+
+* donorFireKickCF
+
+
+Что скинуть следующим сообщением
+
+    кусок из acs_framework v5, где создаются states
+    кусок из acs_framework v5, где обновляется donorFireKickCF и собирается AnimPart.CFrame
+
+
+Confidence: High
+
+    Эти 2 модуля между собой уже совпадают по интерфейсу и структуре данных.
+
+Ignore_Model = {cam,char,ACS_Workspace.Client,ACS_Workspace.Server}
+
+local ModStorageFolder 	= plr.PlayerGui:FindFirstChild('ModStorage') or Instance.new('Folder')
+ModStorageFolder.Parent = plr.PlayerGui
+ModStorageFolder.Name 	= 'ModStorage'
+
+function RAND(Min, Max, Accuracy)
+local Inverse = 1 / (Accuracy or 1)
+return (math.random(Min * Inverse, Max * Inverse) / Inverse)
+end
+
+SE_GUI = HUDs:WaitForChild("StatusUI"):Clone()
+SE_GUI.Parent = plr.PlayerGui
+
+BloodScreen 		= TS:Create(SE_GUI.Efeitos.Health, TweenInfo.new(1,Enum.EasingStyle.Circular,Enum.EasingDirection.InOut,-1,true), {Size =  UDim2.new(1.2,0,1.4,0)})
+BloodScreenLowHP 	= TS:Create(SE_GUI.Efeitos.LowHealth, TweenInfo.new(1,Enum.EasingStyle.Circular,Enum.EasingDirection.InOut,-1,true), {Size =  UDim2.new(1.2,0,1.4,0)})
+
+Crosshair = SE_GUI.Crosshair
+
+gunRecoilState = RecoilSystem.new()
+
+-- Создаём состояния recoil-модулей
+donorRecoilState  = DonorLikeRecoilModule.new()
+recoilCameraState = RecoilCamera.new()
+shotBobbleState   = ShotBobble.new()
+
+-- ShotViewKick создаём но НЕ используем в пайплайне
+shotViewKickState = ShotViewKick.new()
+
+-- ШАГ 3 (НОВОЕ): создаём state для DonorFireKick
+donorFireKickState = DonorFireKick.new(DonorRecoilSettings.FireKickSettings)
+
+RecoilSpring = SpringMod.new(Vector3.new())
+RecoilSpring.d = 0.18
+RecoilSpring.s = 16
+
+cameraspring = SpringMod.new(Vector3.new())
+cameraspring.d	= 0.38
+cameraspring.s	= 14
+
+SwaySpring = SpringMod.new(Vector3.new())
+SwaySpring.d = 1.0
+SwaySpring.s = 7
+
+VMKickPos = SpringMod.new(Vector3.new())
+VMKickPos.d = 0.92
+VMKickPos.s = 60
+
+VMKickRot = SpringMod.new(Vector3.new())
+VMKickRot.d = 0.96
+VMKickRot.s = 75
+
+vmKickCF = CFrame.new()
+
+adsSwayScale = VM_Config.adsMotionScale
+
+TWAY, XSWY, YSWY = 0,0,0
+
+local oldtick = tick()
+local xTilt = 0
+local yTilt = 0
+local lastPitch = 0
+local lastYaw = 0
+
+local Stance = Evt.Stance
+local Stances = 0
+local Virar = 0
+local CameraX = 0
+local CameraY = 0
+
+local Sentado 		= false
+local Swimming		= false
+local falling 		= false
+local cansado 		= false
+local Crouched 		= false
+local Proned		= false
+local Steady 		= false
+local CanLean 		= true
+local ChangeStance 	= true
+
+local Humanoid = char:WaitForChild('Humanoid')
+local Head = char:WaitForChild('Head')
+local Torso = char:WaitForChild('UpperTorso')
+local HumanoidRootPart = char:WaitForChild('HumanoidRootPart')
+local RootJoint = char.LowerTorso:WaitForChild('Root')
+local Neck = Head:WaitForChild('Neck')
+local Right_Shoulder = char.RightUpperArm:WaitForChild('RightShoulder')
+local Left_Shoulder = char.LeftUpperArm:WaitForChild('LeftShoulder')
+local Right_Hip = char.RightUpperLeg:WaitForChild('RightHip')
+local Left_Hip = char.LeftUpperLeg:WaitForChild('LeftHip')
+
+local YOffset = Neck.C0.Y
+local WaistYOffset = Neck.C0.Y
+local CFNew, CFAng = CFrame.new, CFrame.Angles
+local Asin = math.asin
+local T = 0.15
+
+User.MouseIconEnabled 	= true
+plr.CameraMode 			= Enum.CameraMode.Classic
+
+cam.CameraType = Enum.CameraType.Custom
+cam.CameraSubject = Humanoid
+
+if gameRules.TeamTags then
+local tag = Essential.TeamTag:clone()
+tag.Parent = char
+tag.Disabled = false
+end
+
+function handleAction(actionName, inputState, inputObject)
+
+if actionName == "Fire" and inputState == Enum.UserInputState.Begin and AnimDebounce then
+	Shoot()
+	if WeaponData.Type == "Grenade" then
+		CookGrenade = true
+		Grenade()
+	end
+elseif actionName == "Fire" and inputState == Enum.UserInputState.End then
+	mouse1down = false
+	CookGrenade = false
+end
+
+if actionName == "Reload" and inputState == Enum.UserInputState.Begin and AnimDebounce and not CheckingMag and not reloading then
+	if WeaponData.Jammed then
+		Jammed()
+	else
+		Reload()
+	end
+end
+
+if actionName == "Reload" and inputState == Enum.UserInputState.Begin and reloading and WeaponData.ShellInsert then
+	CancelReload = true
+end
+
+if actionName == "CycleLaser" and inputState == Enum.UserInputState.Begin and LaserAtt then
+	SetLaser()
+end
+
+if actionName == "CycleLight" and inputState == Enum.UserInputState.Begin and TorchAtt then
+	SetTorch()
+end
+
+if actionName == "CycleFiremode" and inputState == Enum.UserInputState.Begin and WeaponData and WeaponData.FireModes.ChangeFiremode then
+	Firemode()
+end
+
+if actionName == "CycleAimpart" and inputState == Enum.UserInputState.Begin then
+	SetAimpart()
+end
+
+if actionName == "ZeroUp" and inputState == Enum.UserInputState.Begin and WeaponData and WeaponData.EnableZeroing then
+	if WeaponData.CurrentZero < WeaponData.MaxZero then
+		WeaponInHand.Handle.Click:play()
+		WeaponData.CurrentZero = math.min(WeaponData.CurrentZero + WeaponData.ZeroIncrement, WeaponData.MaxZero)
+		UpdateGui()
+	end
+end
+
+if actionName == "ZeroDown" and inputState == Enum.UserInputState.Begin and WeaponData and WeaponData.EnableZeroing then
+	if WeaponData.CurrentZero > 0 then
+		WeaponInHand.Handle.Click:play()
+		WeaponData.CurrentZero = math.max(WeaponData.CurrentZero - WeaponData.ZeroIncrement, 0)
+		UpdateGui()
+	end
+end
+
+if actionName == "CheckMag" and inputState == Enum.UserInputState.Begin and not CheckingMag and not reloading and not runKeyDown and AnimDebounce then
+	CheckMagFunction()
+end
+
+if actionName == "ToggleBipod" and inputState == Enum.UserInputState.Begin and CanBipod then
+	BipodActive = not BipodActive
+	UpdateGui()
+end
+
+if actionName == "NVG" and inputState == Enum.UserInputState.Begin and not NVGdebounce then
+	if plr.Character then
+		local helmet = plr.Character:FindFirstChild("Helmet")
+		if helmet then
+			local nvg = helmet:FindFirstChild("Up")
+			if nvg then
+				NVGdebounce = true
+				delay(.8, function()
+					NVG = not NVG
+					Evt.NVG:Fire(NVG)
+					NVGdebounce = false
+				end)
+			end
+		end
+	end
+
+
+вт орой кусочекй
+
+if dist <= thresh then
+					wantBump = true
+				end
+			end
+
+			if wantBump then
+				bumpHitFrames  = math.min(bumpHitFrames + 1, BUMP_HIT_FRAMES)
+				bumpLostFrames = 0
+			else
+				bumpLostFrames = bumpLostFrames + 1
+				bumpHitFrames  = 0
+			end
+
+			if VM_BumpPrev then
+				VM_Bump = (bumpLostFrames < BUMP_LOST_FRAMES)
+			else
+				VM_Bump = (bumpHitFrames >= BUMP_HIT_FRAMES)
+			end
+
+			if VM_Bump then
+				bumpTarget = BUMP_POSE
+				if hitOk then
+					if dist < PUSH_START_DIST then
+						local t    = math.clamp((PUSH_START_DIST - dist) / PUSH_START_DIST, 0, 1)
+						local push = t * PUSH_MAX
+						pushTarget = CFrame.new(0, 0, push)
+					end
+				end
+			end
+		end
+
+		bumpCF     = lerpCF_dt(bumpCF,     bumpTarget, BUMP_SPEED, step)
+		bumpPushCF = lerpCF_dt(bumpPushCF, pushTarget, PUSH_SPEED, step)
+
+		if VM_Bump then
+			if aimming then
+				if not BumpAdsCut then
+					BumpAdsCut = true
+					aimming = false
+					ADS(false)
+				else
+					aimming = false
+				end
+			end
+		else
+			BumpAdsCut = false
+		end
+		CanFire     = not VM_Bump
+		VM_BumpPrev = VM_Bump
+	end
+
+	-- Recoil update
+	local dt = step
+	local newRecoilCF = gunRecoilState:Update(dt)
+	recoilcf = newRecoilCF
+
+	donorRecoilCF = donorRecoilState:Update(dt)
+	cameraKickCF  = recoilCameraState:Update(dt)
+	shotBobbleCF  = shotBobbleState:Update(dt, charspeed > 0.1, aimming)
+
+	-- ШАГ 6 (НОВОЕ): обновляем DonorFireKick каждый кадр
+	donorFireKickCF = donorFireKickState:Update(dt, aimming and 1 or 0)
+
+	-- ШАГ 7 (НОВОЕ): AnimPart.CFrame — donorFireKickCF вместо shotKickCF
+	AnimPart.CFrame = cam.CFrame
+		* NearZ
+		* BipodCF
+		* maincf
+		* crouchCF
+		* strafeTiltCF
+		* lookSwayCF
+		* gunbobcf
+		* breathCF
+		* driftCF
+		* aimcf
+		* donorRecoilCF
+		* recoilcf
+		* donorFireKickCF   -- НОВОЕ: заменяет shotKickCF
+		* vmKickCF
+		* shotBobbleCF
+		* secondaryCF
+		* bumpPushCF
+		* bumpCF
+
+	if not AnimData.GunModelFixed then
+		WeaponInHand:SetPrimaryPartCFrame(
+			ViewModel.PrimaryPart.CFrame * guncf
+		)
+	end
+
+	-- Walk bob
+	if running then
+		local spScale = (charspeed / 10) * ms
+		gunbobcf = lerpCF_dt(gunbobcf, CFrame.new(
+
+Да — по этим двум кускам подключение уже нормальное.
+
+Что здесь уже правильно
+
+    donorRecoilState = DonorLikeRecoilModule.new()
+    recoilCameraState = RecoilCamera.new()
+    shotBobbleState = ShotBobble.new()
+    donorFireKickState = DonorFireKick.new(DonorRecoilSettings.FireKickSettings)
+
+
+Это значит, что init всех recoil-state сделан правильно.
+
+    В update-блоке тоже всё правильно:
+        donorRecoilCF = donorRecoilState:Update(dt)
+        cameraKickCF = recoilCameraState:Update(dt)
+        shotBobbleCF = shotBobbleState:Update(dt, charspeed > 0.1, aimming)
+        donorFireKickCF = donorFireKickState:Update(dt, aimming and 1 or 0)
+
+    И главное: donorFireKickCF реально вставлен в итоговый AnimPart.CFrame.
+
+
+Главный вывод
+
+    DonorRecoilSettings — норм
+    DonorFireKick — норм
+    state init — норм
+    frame update — норм
+    AnimPart.CFrame compose — норм
+
+
+То есть основная интеграция donor firekick уже собрана правильно.
+
+Что ещё немного криво, но не критично
+
+    ShotViewKick у тебя всё ещё создаётся:
+
+
+shotViewKickState = ShotViewKick.new()
+
+
+но в пайплайне он уже не участвует.
+
+    Это не ломает систему, это просто мёртвый лишний state.
+
+
+Что теперь проверить последним
+Мне остался только один последний важный кусок:
+
+    renderCam()
+
+
+Там должно быть именно так:
+
+local lastCameraSpringCF = CFrame.new()
+function renderCam()
+	local newCF = CFrame.Angles(cameraspring.p.x, cameraspring.p.y, cameraspring.p.z) * cameraKickCF
+	local delta = lastCameraSpringCF:Inverse() * newCF
+	cam.CFrame = cam.CFrame * delta
+	lastCameraSpringCF = newCF
+end
+
+
+Если у тебя там так и стоит
+
+    тогда я скажу, что вся система подключена правильно целиком.
+
+
+Итог
+
+    По тем кускам, что ты скинул сейчас, всё подключено правильно.
+    Осталось подтвердить только renderCam().
+
+
+Скинь мне только renderCam(), и я скажу финально:
+
+    всё собрано или
+    вот ровно эту строку замени.
+
+ок тогда сделали отдачу какие ще механики миожно из donor взять вот постреи я давн огнуризл donor_for_recoil каке еще хорошие механкии над овзять для реалитичност ив мой акс
+
+Да — из donor тебе ещё есть что взять, и самые полезные вещи уже видно по загруженным donor_for_recoil.
+
+Что брать в первую очередь
+
+    Aim stamina / long-aim fatigue — это один из самых “живых” donor-механизмов:
+        stamina drain / regen видно в repositories/rmukola3-wq-1/acs_donor_for_recoil14:189
+        long aim threshold / ramp в repositories/rmukola3-wq-1/acs_donor_for_recoil14:227
+        в контроллере реально есть aimStamina, swayMultiplier, breathTime в repositories/rmukola3-wq-1/acs_donor_for_recoil10:133
+    Breath springs — очень полезно для реалистичности в ADS:
+        breathPosSpring и breathRotSpring есть в repositories/rmukola3-wq-1/acs_donor_for_recoil10:191
+        это даёт “живое” оружие даже без выстрела
+    Walk bob springs donor-style — не просто обычный bob, а отдельные pos/rot springs:
+        walkPosSpring и walkRotSpring в repositories/rmukola3-wq-1/acs_donor_for_recoil10:193
+    Look sway springs — хороший слой инерции за мышью:
+        lookSwayPosSpring и lookSwayRotSpring в repositories/rmukola3-wq-1/acs_donor_for_recoil10:197
+    Droop / low-ready fatigue layer — очень сильная donor-фишка по “реализму”:
+        droopPosSpring и droopRotSpring в repositories/rmukola3-wq-1/acs_donor_for_recoil10:195
+        это полезно, если долго целишься, бежишь или у тебя мало stamina
+    Blindfire pose / blindfire multipliers:
+        BlindfireRotMultiplier и BlindfirePosMultiplier есть в repositories/rmukola3-wq-1/acs_donor_for_recoil14:174
+        BlindfireAimCFrame есть в repositories/rmukola3-wq-1/acs_donor_for_recoil14:232
+    Stabilize mechanic — очень хорошая механика для “держу дыхание / stabilizing”:
+        StabilizeLerpSpeed в repositories/rmukola3-wq-1/acs_donor_for_recoil14:178
+        StabilizeFactorAdd в repositories/rmukola3-wq-1/acs_donor_for_recoil14:230
+
+
+Что я бы брал после recoil
+
+    Idle aim ramp — когда стоишь в ADS, sway не сразу максимальный, а нарастает:
+        IdleAimTimeThreshold и IdleAimTimeRamp в repositories/rmukola3-wq-1/acs_donor_for_recoil14:227
+    Stamina influence on sway:
+        StaminaFactor в repositories/rmukola3-wq-1/acs_donor_for_recoil14:229
+    Weapon base offset / viewmodel offset:
+        Offset = CFrame.new(-0.05, -0.075, -0.1) в repositories/rmukola3-wq-1/acs_donor_for_recoil14:233
+    Consistent bobble triggers:
+        в donor-данных есть стабильные bobble значения 0.18 в repositories/rmukola3-wq-1/acs_donor_for_recoil21:3685
+
+
+Что даст самый заметный реализм
+
+    Если выбирать топ-3, я бы взял:
+        aim stamina + long-aim fatigue
+        breath springs
+        look sway + walk spring donor-style
+
+
+Это даст:
+
+    оружие не “приклеено” к камере,
+    ADS живой,
+    при долгом удержании прицела появляется усталость,
+    движение и остановка ощущаются натуральнее.
+
+
+Что брать НЕ в первую очередь
+
+    Не лезь сейчас глубоко в:
+        cleanup / janitor части из acs_donor_for_recoil21
+        текстовые/UI правила
+        анимационные crouch/prone state packs
+    Это полезно, но не даст такой быстрый прирост feel, как sway/breath/stamina.
+
+
+Мой рекомендованный порядок
+
+    1 этап: breath + long aim stamina
+    2 этап: look sway + walk springs
+    3 этап: droop + stabilize + blindfire
+    4 этап: polishing offsets / bobble timings
+
+
+Что сделать тебе сейчас
+
+    Если хочешь максимальную пользу, следующей механикой переноси не ещё один recoil-модуль, а именно:
+        aim stamina / long aim system
+        и breath springs
+
+
+Confidence: High
+
+    Основано на прямом чтении donor spring-инициализации и donor settings.
+
+
+Если хочешь, я следующим сообщением могу сделать тебе конкретный план внедрения по шагам:
+
+    какие 2 новых маленьких модуля создать,
+    куда их подключить в acs_framework v5,
+    и какие именно donor-константы брать.
+
+aim stamina + long-aim fatigue
+breath springs
+look sway + walk spring donor-style делаем гвори что делать мне
+
+Да — это правильный следующий этап.
+
+Делать нужно в таком порядке:
+
+Порядок внедрения
+
+    1: breath springs
+    2: look sway + walk springs
+    3: aim stamina + long-aim fatigue
+
+
+Почему так:
+
+    breath и sway сразу дадут “живое оружие”;
+    stamina/fatigue уже лучше добавлять поверх готового motion pipeline.
+
+
+Что делать тебе сейчас
+
+    Не трогай пока recoil-модули, они уже более-менее собраны.
+    Делай 3 маленьких модуля, а не вшивай всё в один большой файл.
+
+
+Какие модули создать
+
+    DonorBreath
+    DonorMotionSway
+    DonorAimFatigue
+
+
+
+1. Сначала делаем DonorBreath
+Что должен делать:
+
+    возвращать CFrame для дыхания:
+        маленький positional drift
+        маленький rotational drift
+    сила должна зависеть от:
+        ADS / hip
+        movement
+        stamina later
+
+
+Что тебе нужно сделать:
+
+    создать модуль DonorBreath
+    внутри использовать spring-подход, donor-style
+    у модуля должны быть методы:
+
+
+new(settings)
+Update(dt, isAiming, isMoving, intensityScale)
+Reset()
+
+
+Что должен возвращать Update(...):
+
+posCF * rotCF
+
+
+Куда подключать:
+
+    в acs_framework v5 рядом с остальными recoil-модулями
+    state создать рядом с:
+        donorRecoilState
+        recoilCameraState
+        shotBobbleState
+        donorFireKickState
+
+
+Примерно так:
+
+local DonorBreath = require(Mods:WaitForChild("DonorBreath"))
+
+
+и state:
+
+donorBreathState = DonorBreath.new(DonorRecoilSettings)
+
+
+В render/update:
+
+breathCF = donorBreathState:Update(dt, aimming, charspeed > 0.1, 1)
+
+
+
+2. Потом делаем DonorMotionSway
+Что должен делать:
+
+    объединить:
+        look sway
+        walk spring / walk bob
+    donor-style, не как просто статический lerp
+
+
+Что тебе нужно сделать:
+
+    создать модуль DonorMotionSway
+    методы:
+
+
+new(settings)
+Update(dt, mouseDelta, moveSpeed, isAiming, isSprinting, isCrouching)
+Reset()
+
+
+Что должен возвращать:
+
+lookSwayCF, walkBobCF
+
+
+Куда подключать:
+
+    require в acs_framework v5
+    state создать один раз
+    в render/update обновлять каждый кадр
+
+
+Примерно так:
+
+local DonorMotionSway = require(Mods:WaitForChild("DonorMotionSway"))
+motionSwayState = DonorMotionSway.new(DonorRecoilSettings)
+
+
+В update:
+
+lookSwayCF, gunbobcf = motionSwayState:Update(
+	dt,
+	User:GetMouseDelta(),
+	charspeed,
+	aimming,
+	running,
+	Crouched
+)
+
+
+
+3. Потом делаем DonorAimFatigue
+Что должен делать:
+
+    иметь aimStamina
+    когда долго целишься:
+        stamina падает
+        sway и breath усиливаются
+    когда не целишься:
+        stamina восстанавливается
+
+
+Что тебе нужно сделать:
+
+    создать модуль DonorAimFatigue
+    методы:
+
+
+new(settings)
+Update(dt, isAiming, isSteady, isMoving)
+GetStaminaAlpha()
+GetFatigueScale()
+Reset()
+
+
+Что должно возвращаться:
+
+    GetStaminaAlpha() — 0..1
+    GetFatigueScale() — множитель для breath/sway
+
+
+Куда подключать:
+
+    require в acs_framework v5
+    создать state:
+
+
+local DonorAimFatigue = require(Mods:WaitForChild("DonorAimFatigue"))
+aimFatigueState = DonorAimFatigue.new(DonorRecoilSettings)
+
+
+В update:
+
+aimFatigueState:Update(dt, aimming, Steady, charspeed > 0.1)
+local fatigueScale = aimFatigueState:GetFatigueScale()
+
+
+И потом:
+
+breathCF = donorBreathState:Update(dt, aimming, charspeed > 0.1, fatigueScale)
+lookSwayCF, gunbobcf = motionSwayState:Update(
+	dt,
+	User:GetMouseDelta(),
+	charspeed,
+	aimming,
+	running,
+	Crouched
+)
+
+
+
+Какие donor-константы брать
+Из donor у тебя уже есть хорошие ориентиры:
+
+    для fatigue:
+        MaxAimStamina = 100
+        StaminaDrainRate = 5
+        StaminaRegenRate = 12
+        IdleAimTimeThreshold = 6
+        IdleAimTimeRamp = 6
+        StaminaFactor = 1.8
+
+    для breath / sway / springs:
+        breathPosSpring = Spring.new(4, 0.8, Vector3.new())
+        breathRotSpring = Spring.new(4, 0.8, Vector3.new())
+        walkPosSpring = Spring.new(5, 0.7, Vector3.new())
+        walkRotSpring = Spring.new(5, 0.6, Vector3.new())
+        lookSwayPosSpring = Spring.new(6, 0.7, Vector3.new())
+        lookSwayRotSpring = Spring.new(5, 0.65, Vector3.new())
+
+
+
+Как внедрять без ломки
+
+    не удаляй сразу старые lookSwayCF, breathCF, gunbobcf
+    сначала новый модуль должен просто подменить:
+        breathCF
+        lookSwayCF
+        gunbobcf
+    если всё работает — потом можно чистить старый код
+
+
+
+Что я советую тебе сделать прямо сейчас
+
+    Сначала делай только DonorBreath
+    Потом покажешь мне:
+        код модуля
+        require
+        state init
+        update-вызов
+    Я проверю
+    И только потом пойдём в DonorMotionSway
+    Потом в DonorAimFatigue
+
+
+
+Итог
+Тебе сейчас нужно:
+
+    создать DonorBreath
+    подключить его в acs_framework v5
+    отдавать результат в breathCF
+
+
+Confidence: High
+
+    Это самый безопасный путь: маленькими шагами, без поломки большого framework.
+
+
+Если хочешь, следующим сообщением я дам тебе готовый полный код для DonorBreath, который можно просто вставить.
+
+пуст роблкос аи сделавем в нужніех метсах нужніе модули а я подключу в акс фреймворке ну ті знашеь ход рбаоіт врпиципе
+
+Да — тогда делаем 3 готовых модуля, а ты их просто положишь в Modules и подключишь в acs_framework v5.
+
+Что делаем
+
+    DonorBreath
+    DonorMotionSway
+    DonorAimFatigue
+
+
+Куда потом подключать
+
+    breathCF ← из DonorBreath
+    lookSwayCF и gunbobcf ← из DonorMotionSway
+    fatigueScale ← из DonorAimFatigue
+
+
+1. DonorBreath
+
+    Создай файл DonorBreath
+    Вставь в него это целиком:
+
+
+--!strict
+
+local DonorSpring = require(script.Parent:WaitForChild("DonorSpring"))
+
+local DonorBreath = {}
+DonorBreath.__index = DonorBreath
+
+local sin = math.sin
+local cos = math.cos
+local pi = math.pi
+local max = math.max
+
+local DEFAULTS = {
+	BreathCycleHip = 1.45,
+	BreathCycleAim = 1.05,
+
+	HipScale = 0.35,
+	AimScale = 1.0,
+	MovePenalty = 0.7,
+
+	PosXScale = 0.35,
+	PosYScale = 1.0,
+	PosZScale = 0.15,
+
+	RotPitchScale = 1.0,
+	RotYawScale = 0.55,
+	RotRollScale = 0.8,
+}
+
+function DonorBreath.new(settings)
+	local self = setmetatable({}, DonorBreath)
+
+	self.settings = settings or {}
+	self.time = 0
+
+	self.posSpring = DonorSpring.new(
+		self.settings.BreathPosSpringFrequency or 4.0,
+		self.settings.BreathPosSpringDamping or 0.8,
+		self.settings.BreathPosSpringMass or 1.0,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.rotSpring = DonorSpring.new(
+		self.settings.BreathRotSpringFrequency or 4.0,
+		self.settings.BreathRotSpringDamping or 0.8,
+		self.settings.BreathRotSpringMass or 1.0,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	return self
+end
+
+function DonorBreath:Update(dt, isAiming, isMoving, intensityScale)
+	dt = math.clamp(dt or 0, 0.0001, 0.05)
+
+	self.time += dt * (isAiming and DEFAULTS.BreathCycleAim or DEFAULTS.BreathCycleHip)
+
+	local posIntensity = ((self.settings.BreathIntensity and self.settings.BreathIntensity.Position) or 0.008)
+	local rotIntensity = ((self.settings.BreathIntensity and self.settings.BreathIntensity.Rotation) or 0.003)
+
+	local scale = (isAiming and DEFAULTS.AimScale or DEFAULTS.HipScale) * (intensityScale or 1)
+	if isMoving then
+		scale *= DEFAULTS.MovePenalty
+	end
+
+	local t = self.time * pi * 2
+
+	local posTarget = Vector3.new(
+		sin(t) * posIntensity * DEFAULTS.PosXScale,
+		cos(t * 2) * posIntensity * DEFAULTS.PosYScale,
+		sin(t * 0.5) * posIntensity * DEFAULTS.PosZScale
+	) * scale
+
+	local rotTarget = Vector3.new(
+		cos(t * 2) * rotIntensity * DEFAULTS.RotPitchScale,
+		sin(t) * rotIntensity * DEFAULTS.RotYawScale,
+		sin(t * 0.5) * rotIntensity * DEFAULTS.RotRollScale
+	) * scale
+
+	self.posSpring:SetTarget(posTarget)
+	self.rotSpring:SetTarget(rotTarget)
+
+	local pos = self.posSpring:Update(dt)
+	local rot = self.rotSpring:Update(dt)
+
+	return CFrame.new(pos) * CFrame.Angles(rot.X, rot.Y, rot.Z)
+end
+
+function DonorBreath:Reset()
+	self.time = 0
+	self.posSpring:Reset(Vector3.new(0, 0, 0))
+	self.rotSpring:Reset(Vector3.new(0, 0, 0))
+end
+
+return DonorBreath
+
+
+2. DonorMotionSway
+
+    Создай файл DonorMotionSway
+    Вставь в него это целиком:
+
+
+--!strict
+
+local DonorSpring = require(script.Parent:WaitForChild("DonorSpring"))
+
+local DonorMotionSway = {}
+DonorMotionSway.__index = DonorMotionSway
+
+local sin = math.sin
+local cos = math.cos
+local rad = math.rad
+local clamp = math.clamp
+
+local DEFAULTS = {
+	LookPosSpringFrequency = 6.0,
+	LookPosSpringDamping = 0.7,
+	LookRotSpringFrequency = 5.0,
+	LookRotSpringDamping = 0.65,
+
+	WalkPosSpringFrequency = 5.0,
+	WalkPosSpringDamping = 0.7,
+	WalkRotSpringFrequency = 5.0,
+	WalkRotSpringDamping = 0.6,
+
+	MousePosScale = 0.00055,
+	MouseRotScale = 0.12,
+
+	HipLookScale = 1.0,
+	AimLookScale = 0.45,
+
+	CrouchScale = 0.82,
+	SprintScale = 1.22,
+
+	WalkBaseSpeed = 7.5,
+}
+
+function DonorMotionSway.new(settings)
+	local self = setmetatable({}, DonorMotionSway)
+
+	self.settings = settings or {}
+	self.walkTime = 0
+
+	self.lookPosSpring = DonorSpring.new(
+		DEFAULTS.LookPosSpringFrequency,
+		DEFAULTS.LookPosSpringDamping,
+		1.0,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.lookRotSpring = DonorSpring.new(
+		DEFAULTS.LookRotSpringFrequency,
+		DEFAULTS.LookRotSpringDamping,
+		1.0,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.walkPosSpring = DonorSpring.new(
+		DEFAULTS.WalkPosSpringFrequency,
+		DEFAULTS.WalkPosSpringDamping,
+		1.0,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.walkRotSpring = DonorSpring.new(
+		DEFAULTS.WalkRotSpringFrequency,
+		DEFAULTS.WalkRotSpringDamping,
+		1.0,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	return self
+end
+
+function DonorMotionSway:Update(dt, mouseDelta, moveSpeed, isAiming, isSprinting, isCrouching, fatigueScale)
+	dt = math.clamp(dt or 0, 0.0001, 0.05)
+	mouseDelta = mouseDelta or Vector2.new(0, 0)
+
+	local fatigue = fatigueScale or 1
+	local lookScale = (isAiming and DEFAULTS.AimLookScale or DEFAULTS.HipLookScale) * fatigue
+
+	if isCrouching then
+		lookScale *= DEFAULTS.CrouchScale
+	end
+
+	local posImpulse = Vector3.new(
+		-mouseDelta.X * DEFAULTS.MousePosScale,
+		mouseDelta.Y * DEFAULTS.MousePosScale,
+		0
+	) * lookScale
+
+	local rotImpulse = Vector3.new(
+		rad(-mouseDelta.Y * DEFAULTS.MouseRotScale),
+		rad(-mouseDelta.X * DEFAULTS.MouseRotScale * 0.85),
+		rad(-mouseDelta.X * DEFAULTS.MouseRotScale * 0.35)
+	) * lookScale
+
+	self.lookPosSpring:Shove(posImpulse)
+	self.lookRotSpring:Shove(rotImpulse)
+
+	local speedAlpha = clamp((moveSpeed or 0) / 14, 0, 1)
+	local walkPosIntensity = ((self.settings.WalkBobIntensity and self.settings.WalkBobIntensity.Position) or 0.025)
+	local walkRotIntensity = ((self.settings.WalkBobIntensity and self.settings.WalkBobIntensity.Rotation) or 0.012)
+
+	local moveScale = speedAlpha
+	if isAiming then
+		moveScale *= 0.55
+	end
+	if isSprinting then
+		moveScale *= DEFAULTS.SprintScale
+	end
+	if isCrouching then
+		moveScale *= DEFAULTS.CrouchScale
+	end
+
+	self.walkTime += dt * (DEFAULTS.WalkBaseSpeed + speedAlpha * 6.0)
+
+	local walkPosTarget = Vector3.new(
+		sin(self.walkTime) * walkPosIntensity * 0.75,
+		abs(cos(self.walkTime * 2)) * walkPosIntensity,
+		cos(self.walkTime) * walkPosIntensity * 0.35
+	) * moveScale
+
+	local walkRotTarget = Vector3.new(
+		rad(cos(self.walkTime * 2) * walkRotIntensity * 75),
+		rad(sin(self.walkTime) * walkRotIntensity * 55),
+		rad(sin(self.walkTime) * walkRotIntensity * 95)
+	) * moveScale
+
+	self.walkPosSpring:SetTarget(walkPosTarget)
+	self.walkRotSpring:SetTarget(walkRotTarget)
+
+	if speedAlpha < 0.02 then
+		self.walkPosSpring:SetTarget(Vector3.new(0, 0, 0))
+		self.walkRotSpring:SetTarget(Vector3.new(0, 0, 0))
+	end
+
+	local lookPos = self.lookPosSpring:Update(dt)
+	local lookRot = self.lookRotSpring:Update(dt)
+
+	local walkPos = self.walkPosSpring:Update(dt)
+	local walkRot = self.walkRotSpring:Update(dt)
+
+	local lookCF = CFrame.new(lookPos) * CFrame.Angles(lookRot.X, lookRot.Y, lookRot.Z)
+	local walkCF = CFrame.new(walkPos) * CFrame.Angles(walkRot.X, walkRot.Y, walkRot.Z)
+
+	return lookCF, walkCF
+end
+
+function DonorMotionSway:Reset()
+	self.walkTime = 0
+
+	self.lookPosSpring:Reset(Vector3.new(0, 0, 0))
+	self.lookRotSpring:Reset(Vector3.new(0, 0, 0))
+	self.walkPosSpring:Reset(Vector3.new(0, 0, 0))
+	self.walkRotSpring:Reset(Vector3.new(0, 0, 0))
+end
+
+return DonorMotionSway
+
+
+3. DonorAimFatigue
+
+    Создай файл DonorAimFatigue
+    Вставь в него это целиком:
+
+
+--!strict
+
+local DonorAimFatigue = {}
+DonorAimFatigue.__index = DonorAimFatigue
+
+local clamp = math.clamp
+local max = math.max
+local min = math.min
+
+local DEFAULTS = {
+	MaxAimStamina = 100,
+	StaminaDrainRate = 5,
+	StaminaRegenRate = 12,
+
+	IdleAimThreshold = 6,
+	IdleAimRamp = 6,
+
+	StaminaFactor = 1.8,
+	MoveDrainMultiplier = 1.2,
+	SteadyDrainMultiplier = 0.75,
+	SteadyReduction = 0.18,
+}
+
+function DonorAimFatigue.new(settings)
+	local self = setmetatable({}, DonorAimFatigue)
+
+	self.settings = settings or {}
+
+	self.maxAimStamina = self.settings.MaxAimStamina or DEFAULTS.MaxAimStamina
+	self.staminaDrainRate = self.settings.StaminaDrainRate or DEFAULTS.StaminaDrainRate
+	self.staminaRegenRate = self.settings.StaminaRegenRate or DEFAULTS.StaminaRegenRate
+	self.idleAimThreshold = self.settings.IdleAimThreshold or DEFAULTS.IdleAimThreshold
+	self.idleAimRamp = self.settings.IdleAimRamp or DEFAULTS.IdleAimRamp
+	self.staminaFactor = self.settings.StaminaFactor or DEFAULTS.StaminaFactor
+
+	self.currentStamina = self.maxAimStamina
+	self.idleAimTime = 0
+	self.lastFatigueScale = 1
+
+	return self
+end
+
+function DonorAimFatigue:Update(dt, isAiming, isSteady, isMoving)
+	dt = math.clamp(dt or 0, 0.0001, 0.1)
+
+	if isAiming then
+		local drain = self.staminaDrainRate
+		if isMoving then
+			drain *= DEFAULTS.MoveDrainMultiplier
+		end
+		if isSteady then
+			drain *= DEFAULTS.SteadyDrainMultiplier
+		end
+
+		self.currentStamina = max(0, self.currentStamina - drain * dt)
+
+		if not isMoving then
+			self.idleAimTime += dt
+		else
+			self.idleAimTime = 0
+		end
+	else
+		self.currentStamina = min(self.maxAimStamina, self.currentStamina + self.staminaRegenRate * dt)
+		self.idleAimTime = 0
+	end
+
+	self.lastFatigueScale = self:GetFatigueScale(isSteady)
+	return self.lastFatigueScale
+end
+
+function DonorAimFatigue:GetStaminaAlpha()
+	if self.maxAimStamina <= 0 then
+		return 1
+	end
+
+	return clamp(self.currentStamina / self.maxAimStamina, 0, 1)
+end
+
+function DonorAimFatigue:GetFatigueScale(isSteady)
+	local staminaAlpha = self:GetStaminaAlpha()
+	local staminaPenalty = (1 - staminaAlpha) * 0.65 * self.staminaFactor
+
+	local longAimAlpha = 0
+	if self.idleAimTime > self.idleAimThreshold then
+		longAimAlpha = clamp((self.idleAimTime - self.idleAimThreshold) / self.idleAimRamp, 0, 1)
+	end
+
+	local longAimPenalty = longAimAlpha * 0.55
+	local steadyReduction = isSteady and DEFAULTS.SteadyReduction or 0
+
+	return max(0.65, 1 + staminaPenalty + longAimPenalty - steadyReduction)
+end
+
+function DonorAimFatigue:Reset()
+	self.currentStamina = self.maxAimStamina
+	self.idleAimTime = 0
+	self.lastFatigueScale = 1
+end
+
+return DonorAimFatigue
+
+
+Как тебе это подключить
+
+    Вверху acs_framework v5 добавить:
+
+
+local DonorBreath      = require(Mods:WaitForChild("DonorBreath"))
+local DonorMotionSway  = require(Mods:WaitForChild("DonorMotionSway"))
+local DonorAimFatigue  = require(Mods:WaitForChild("DonorAimFatigue"))
+
+
+    В init рядом с остальными state:
+
+
+donorBreathState = DonorBreath.new(DonorRecoilSettings)
+donorMotionSwayState = DonorMotionSway.new(DonorRecoilSettings)
+donorAimFatigueState = DonorAimFatigue.new(DonorRecoilSettings)
+
+
+    В update/render:
+
+
+local fatigueScale = donorAimFatigueState:Update(dt, aimming, Steady, charspeed > 0.1)
+
+breathCF = donorBreathState:Update(dt, aimming, charspeed > 0.1, fatigueScale)
+
+lookSwayCF, gunbobcf = donorMotionSwayState:Update(
+	dt,
+	User:GetMouseDelta(),
+	charspeed,
+	aimming,
+	running,
+	Crouched,
+	fatigueScale
+)
+
+
+Что заменить
+
+    Старую генерацию breathCF
+    Старую генерацию lookSwayCF
+    Старую генерацию gunbobcf
+
+
+Что не трогать
+
+    RecoilSystem
+    DonorLikeRecoilModule
+    DonorFireKick
+    RecoilCamera
+    порядок recoil-слоёв
+
+
+Если хочешь, следующим сообщением я дам тебе точно, куда в acs_framework v5 вставить 3 require и 3 state-инициализации.
+
+давай подробнее очень как подклбчить я не могу блят ья новичок гвори что мимнег замнетиь
+
+Да. Делаем максимально тупо и пошагово, без “архитектуры”.
+
+Твоя задача: не придумывать, а просто заменить нужные куски.
+
+
+Важно сначала
+
+    DonorBreath, DonorMotionSway, DonorAimFatigue ты должен создать как отдельные ModuleScript в той же папке Modules, где лежат:
+        DonorFireKick
+        DonorRecoilSettings
+        RecoilCamera
+    DonorMotionSway исправь перед подключением:
+        в самом верху файла добавь строку:
+
+
+local abs = math.abs
+
+
+    Иначе он сломается на abs(cos(...)).
+
+
+
+Шаг 1. Добавь 3 require
+
+    Открой acs_framework v5
+    Найди вот этот кусок:
+
+
+local DonorRecoilSettings   = require(Mods:WaitForChild("DonorRecoilSettings"))
+local DonorFireKick         = require(Mods:WaitForChild("DonorFireKick"))
+
+
+    Сразу после него вставь:
+
+
+local DonorBreath           = require(Mods:WaitForChild("DonorBreath"))
+local DonorMotionSway       = require(Mods:WaitForChild("DonorMotionSway"))
+local DonorAimFatigue       = require(Mods:WaitForChild("DonorAimFatigue"))
+
+
+
+Шаг 2. Создай 3 state
+
+    Найди вот этот кусок:
+
+
+-- ШАГ 3 (НОВОЕ): создаём state для DonorFireKick
+donorFireKickState = DonorFireKick.new(DonorRecoilSettings.FireKickSettings)
+
+
+    Сразу после него вставь:
+
+
+donorBreathState = DonorBreath.new(DonorRecoilSettings)
+donorMotionSwayState = DonorMotionSway.new(DonorRecoilSettings)
+donorAimFatigueState = DonorAimFatigue.new(DonorRecoilSettings)
+
+
+
+Шаг 3. Добавь reset при выходе из ADS
+
+    Найди этот кусок:
+
+
+if not aimming then
+	if donorRecoilState  then donorRecoilState:Reset()  end
+	if recoilCameraState then recoilCameraState:Reset() end
+	if shotBobbleState   then shotBobbleState:Reset()   end
+	-- ШАГ 4 (НОВОЕ): сброс DonorFireKick при выходе из ADS
+	if donorFireKickState then donorFireKickState:Reset() end
+end
+
+
+    Замени его целиком на это:
+
+
+if not aimming then
+	if donorRecoilState then donorRecoilState:Reset() end
+	if recoilCameraState then recoilCameraState:Reset() end
+	if shotBobbleState then shotBobbleState:Reset() end
+	if donorFireKickState then donorFireKickState:Reset() end
+	if donorBreathState then donorBreathState:Reset() end
+	if donorMotionSwayState then donorMotionSwayState:Reset() end
+	if donorAimFatigueState then donorAimFatigueState:Reset() end
+end
+
+
+
+Шаг 4. Добавь reset при unset / cleanup
+
+    Найди этот кусок:
+
+
+if donorRecoilState  then donorRecoilState:Reset()  end
+if recoilCameraState then recoilCameraState:Reset() end
+if shotBobbleState   then shotBobbleState:Reset()   end
+-- ШАГ 4 (НОВОЕ): сброс DonorFireKick при unset
+if donorFireKickState then donorFireKickState:Reset() end
+
+
+    Замени его целиком на это:
+
+
+if donorRecoilState then donorRecoilState:Reset() end
+if recoilCameraState then recoilCameraState:Reset() end
+if shotBobbleState then shotBobbleState:Reset() end
+if donorFireKickState then donorFireKickState:Reset() end
+if donorBreathState then donorBreathState:Reset() end
+if donorMotionSwayState then donorMotionSwayState:Reset() end
+if donorAimFatigueState then donorAimFatigueState:Reset() end
+
+
+
+Шаг 5. Добавь fatigue update
+
+    Найди строку:
+
+
+local mouseDelta = User:GetMouseDelta()
+
+
+    Сразу после неё вставь:
+
+
+local fatigueScale = donorAimFatigueState:Update(step, aimming, Steady, charspeed > 0.1)
+
+
+
+Шаг 6. НЕ трогай старый SwaySpring кусок
+
+    Вот этот кусок оставь как есть:
+
+
+-- Sway
+local swayScale = aimming and adsSwayScale or 1
+SwaySpring:accelerate(Vector3.new((mouseDelta.x / 60) * swayScale, (mouseDelta.y / 60) * swayScale, 0))
+
+
+Его не удаляй, потому что ниже используется Sway:inverse() в maincf.
+
+
+Шаг 7. Замени старый lookSwayCF и breathCF
+
+    Найди весь кусок от:
+
+
+-- Look sway / lag spring
+
+
+    до:
+
+
+-- Long-aim drift
+
+
+То есть вот этот большой кусок:
+
+-- Look sway / lag spring
+local rotK = aimming and VM_Config.lookSwayRotADS or VM_Config.lookSwayRotHip
+local posK = aimming and VM_Config.lookSwayPosADS or VM_Config.lookSwayPosHip
+local lagMax = aimming and VM_Config.lookSwayMaxADS or VM_Config.lookSwayMaxHip
+local inputBoost = aimming and 1.12 or 1.0
+
+LagSpring.t = Vector3.new(
+	math.clamp(-mouseDelta.Y * rotK * inputBoost, -lagMax, lagMax),
+	math.clamp(-mouseDelta.X * rotK * inputBoost, -lagMax, lagMax),
+	0
+)
+
+local lp = LagSpring.p
+local lagPosX = math.clamp(-mouseDelta.X * posK * inputBoost, -0.07, 0.07)
+local lagPosY = math.clamp(-mouseDelta.Y * posK * inputBoost, -0.055, 0.055)
+
+local posScale   = ms
+local angleScale = ms
+local rollMul    = 0.08
+local forwardMul = 0.06
+
+if aimming then
+	posScale   = 0.34
+	angleScale = 0.78
+	rollMul    = 0.28
+	forwardMul = 0.42
+end
+
+local pitch   = lp.X * angleScale
+local yaw     = lp.Y * angleScale
+local roll    = -lp.Y * rollMul
+local zPush   = (math.abs(lp.Y) + math.abs(lp.X) * 0.22) * forwardMul
+
+if not aimming then
+	pitch   = math.clamp(pitch,   math.rad(-6), math.rad(6))
+	yaw     = math.clamp(yaw,     math.rad(-7), math.rad(7))
+	roll    = math.clamp(roll,    math.rad(-4), math.rad(4))
+	lagPosX = math.clamp(lagPosX, -0.045, 0.045)
+	lagPosY = math.clamp(lagPosY, -0.035, 0.035)
+	zPush   = math.clamp(zPush,   0, 0.045)
+end
+
+lookSwayCF =
+	CFrame.new(lagPosX * posScale, lagPosY * posScale, zPush)
+	* CFrame.Angles(pitch, yaw, roll)
+
+-- Breath sway
+do
+	local breathFreq = aimming and VM_Config.breathSpeedADS  or VM_Config.breathSpeedIdle
+	local breathAmp  = aimming and VM_Config.breathAmpADS    or VM_Config.breathAmpIdle
+	local bx = math.sin(now * breathFreq * math.pi * 2) * breathAmp * ms
+	local by = math.cos(now * breathFreq * math.pi * 2 * 0.5) * breathAmp * 0.6 * ms
+	breathCF = CFrame.new(bx * 0.3, by * 0.3, 0) * CFrame.Angles(by, bx * 0.5, 0)
+end
+
+
+    Удали его весь
+    Вместо него вставь:
+
+
+lookSwayCF, gunbobcf = donorMotionSwayState:Update(
+	step,
+	mouseDelta,
+	charspeed,
+	aimming,
+	running,
+	Crouched,
+	fatigueScale
+)
+
+breathCF = donorBreathState:Update(
+	step,
+	aimming,
+	charspeed > 0.1,
+	fatigueScale
+)
+
+
+
+Шаг 8. Старый Long-aim drift пока оставь
+
+    Вот этот кусок не трогай:
+
+
+-- Long-aim drift
+do
+	if aimming then
+		local elapsed   = now - adsStartTime
+		local driftFade = math.clamp((elapsed - VM_Config.driftStartSec) / 1.5, 0, 1)
+		local dx = math.sin(now * VM_Config.driftFreq * math.pi * 2 + driftPhaseX) * VM_Config.driftAmp * driftFade
+		local dy = math.cos(now * VM_Config.driftFreq * math.pi * 2 * 0.7 + driftPhaseY) * VM_Config.driftAmp * driftFade
+		driftCF = CFrame.Angles(dy, dx, 0)
+	else
+		driftCF = driftCF:Lerp(CFrame.new(), alphaFromSpeed(8, step))
+	end
+end
+
+
+
+Шаг 9. Удали старый Walk bob, иначе он перезапишет новый gunbobcf
+
+    Найди весь этот кусок:
+
+
+-- Walk bob
+if running then
+	local spScale = (charspeed / 10) * ms
+	gunbobcf = lerpCF_dt(gunbobcf, CFrame.new(
+		VM_Config.bobPosAmp * spScale * math.sin(now * 8 * VM_Config.bobFreqPos),
+		VM_Config.bobPosAmp * spScale * math.cos(now * 16 * VM_Config.bobFreqPos),
+		0
+		) * CFrame.Angles(
+			math.rad(VM_Config.bobRotAmp * spScale * math.sin(now * 16 * VM_Config.bobFreqPos)),
+			math.rad(VM_Config.bobRotAmp * spScale * math.cos(now * 8 * VM_Config.bobFreqPos)),
+			math.rad(0)
+		), 6.3, step)
+else
+	gunbobcf = lerpCF_dt(gunbobcf, CFrame.new(
+		0.005 * math.sin(now * 1.5),
+		0.005 * math.cos(now * 2.5),
+		0
+		), 6.3, step)
+end
+
+
+    Удали его полностью
+    Ничего вместо него не вставляй
+
+
+Почему:
+
+    теперь gunbobcf уже приходит из donorMotionSwayState:Update(...)
+    если оставить старый walk bob, он перетрёт новый donor walk spring
+
+
+
+Шаг 10. Ничего не меняй в итоговом compose
+
+    Этот кусок должен остаться как есть:
+
+
+AnimPart.CFrame = cam.CFrame
+	* NearZ
+	* BipodCF
+	* maincf
+	* crouchCF
+	* strafeTiltCF
+	* lookSwayCF
+	* gunbobcf
+	* breathCF
+	* driftCF
+	* aimcf
+	* donorRecoilCF
+	* recoilcf
+	* donorFireKickCF
+	* vmKickCF
+	* shotBobbleCF
+	* secondaryCF
+	* bumpPushCF
+	* bumpCF
+
+
+
+После этого у тебя должно получиться
+
+    lookSwayCF идёт из DonorMotionSway
+    gunbobcf идёт из DonorMotionSway
+    breathCF идёт из DonorBreath
+    fatigueScale идёт из DonorAimFatigue
+
+
+
+Проверка после вставки
+Проверь 5 вещей:
+
+    вверху есть:
+
+
+local DonorBreath = require(Mods:WaitForChild("DonorBreath"))
+local DonorMotionSway = require(Mods:WaitForChild("DonorMotionSway"))
+local DonorAimFatigue = require(Mods:WaitForChild("DonorAimFatigue"))
+
+
+    в init есть:
+
+
+donorBreathState = DonorBreath.new(DonorRecoilSettings)
+donorMotionSwayState = DonorMotionSway.new(DonorRecoilSettings)
+donorAimFatigueState = DonorAimFatigue.new(DonorRecoilSettings)
+
+
+    после local mouseDelta = User:GetMouseDelta() есть:
+
+
+local fatigueScale = donorAimFatigueState:Update(step, aimming, Steady, charspeed > 0.1)
+
+
+    старый lookSway / lag spring блок удалён
+    старый Walk bob блок удалён
+
+
+
+Очень важно
+
+    Если игра упадёт с ошибкой в DonorMotionSway, почти наверняка ты забыл:
+
+
+local abs = math.abs
+
+
+
+Если хочешь самый простой путь
+Сделай сейчас только Шаги 1–9, ничего больше.
+
+Потом скинь мне:
+
+    верхний блок require
+    init block
+    место после local mouseDelta = User:GetMouseDelta()
+    новый кусок вместо old look sway
+    место, где ты удалил old walk bob
+
+
+И я быстро скажу, правильно ли ты вставил.
+
+когда заменю на это ломается весь акс
+if not aimming then
+if donorRecoilState then donorRecoilState:Reset() end
+if recoilCameraState then recoilCameraState:Reset() end
+if shotBobbleState then shotBobbleState:Reset() end
+if donorFireKickState then donorFireKickState:Reset() end
+if donorBreathState then donorBreathState:Reset() end
+if donorMotionSwayState then donorMotionSwayState:Reset() end
+if donorAimFatigueState then donorAimFatigueState:Reset() end
+end
+
+Да — тут, скорее всего, ты словил не проблему логики reset, а проблему необъявленных переменных / порядка подключения.
+
+Главный вывод
+
+    Сам по себе этот блок нормальный.
+    Но если donorBreathState, donorMotionSwayState, donorAimFatigueState ещё не объявлены заранее, ACS может развалиться целиком.
+
+
+Почему ломается
+Скорее всего у тебя одна из двух причин:
+
+    ты вставил reset-блок раньше, чем реально создал:
+        donorBreathState
+        donorMotionSwayState
+        donorAimFatigueState
+
+
+или
+
+    в этом скрипте надо сначала объявить переменные, а уже потом использовать их в функциях.
+
+
+
+Что сделать правильно
+Сделай вот так по шагам.
+
+1. Сначала объяви переменные state
+
+Найди место, где у тебя создаются / объявляются recoil-state.
+
+Рядом с этим:
+
+gunRecoilState = RecoilSystem.new()
+
+donorRecoilState  = DonorLikeRecoilModule.new()
+recoilCameraState = RecoilCamera.new()
+shotBobbleState   = ShotBobble.new()
+shotViewKickState = ShotViewKick.new()
+donorFireKickState = DonorFireKick.new(DonorRecoilSettings.FireKickSettings)
+
+
+Перед этим блоком вставь:
+
+local donorBreathState
+local donorMotionSwayState
+local donorAimFatigueState
+
+
+Если хочешь вообще надёжно, можно так:
+
+local donorBreathState = nil
+local donorMotionSwayState = nil
+local donorAimFatigueState = nil
+
+
+
+2. Потом создай их
+
+Сразу после строки:
+
+donorFireKickState = DonorFireKick.new(DonorRecoilSettings.FireKickSettings)
+
+
+вставь:
+
+donorBreathState = DonorBreath.new(DonorRecoilSettings)
+donorMotionSwayState = DonorMotionSway.new(DonorRecoilSettings)
+donorAimFatigueState = DonorAimFatigue.new(DonorRecoilSettings)
+
+
+
+3. Только после этого используй reset
+
+Вот этот блок:
+
+if not aimming then
+	if donorRecoilState then donorRecoilState:Reset() end
+	if recoilCameraState then recoilCameraState:Reset() end
+	if shotBobbleState then shotBobbleState:Reset() end
+	if donorFireKickState then donorFireKickState:Reset() end
+	if donorBreathState then donorBreathState:Reset() end
+	if donorMotionSwayState then donorMotionSwayState:Reset() end
+	if donorAimFatigueState then donorAimFatigueState:Reset() end
+end
+
+
+оставляй только если Шаг 1 и Шаг 2 уже сделаны.
+
+
+Самый безопасный вариант для новичка
+Если сейчас всё ломается, делай не всё сразу, а так:
+
+Вариант A — временно откатить reset новых модулей
+
+Пока поставь вот так:
+
+if not aimming then
+	if donorRecoilState then donorRecoilState:Reset() end
+	if recoilCameraState then recoilCameraState:Reset() end
+	if shotBobbleState then shotBobbleState:Reset() end
+	if donorFireKickState then donorFireKickState:Reset() end
+end
+
+
+То есть убери пока:
+
+if donorBreathState then donorBreathState:Reset() end
+if donorMotionSwayState then donorMotionSwayState:Reset() end
+if donorAimFatigueState then donorAimFatigueState:Reset() end
+
+
+Сначала добей require/init/update.
+
+Потом уже вернёшь reset.
+
+
+Что я советую прямо сейчас
+Сделай вот это:
+
+Вставка 1 — объявление
+
+Вставь рядом с state-переменными:
+
+local donorBreathState = nil
+local donorMotionSwayState = nil
+local donorAimFatigueState = nil
+
+
+Вставка 2 — создание
+
+После donorFireKickState = ... вставь:
+
+donorBreathState = DonorBreath.new(DonorRecoilSettings)
+donorMotionSwayState = DonorMotionSway.new(DonorRecoilSettings)
+donorAimFatigueState = DonorAimFatigue.new(DonorRecoilSettings)
+
+
+Вставка 3 — reset
+
+Только после этого ставь:
+
+if donorBreathState then donorBreathState:Reset() end
+if donorMotionSwayState then donorMotionSwayState:Reset() end
+if donorAimFatigueState then donorAimFatigueState:Reset() end
+
+
+
+Если хочешь вообще без риска
+Не вставляй reset новых модулей пока вообще.
+
+Это не критично для первого запуска.
+
+
+Итог
+
+    проблема не в самом if donorBreathState then ...
+    проблема почти наверняка в том, что state ещё не объявлены / не созданы
+    сначала:
+        require
+        local ...State = nil
+        ...State = Module.new(...)
+    потом уже reset
+
+
+Если хочешь, следующим сообщением я дам тебе ровно готовый кусок init-блока целиком, чтобы ты просто вставил без сборки по частям.
+
+залил файл првоеряй
+
+Не вижу новые файлы — в репозитории их пока нет.
+
+Что проверено
+
+    В repositories/rmukola3-wq-1 нашёл только старые donor-файлы:
+        DonorFireKick
+        DonorFireKick1111132
+        DonorLikeRecoilModule
+        DonorLikeRecoilModule111
+        DonorRecoilSettings
+        DonorSpring
+
+    Файлов:
+        DonorBreath
+        DonorMotionSway
+        DonorAimFatigue
+
+    в корне репы сейчас нет.
+
+    В acs_framework v5 тоже нет ни одного hook-а на:
+        DonorBreath
+        DonorMotionSway
+        DonorAimFatigue
+        fatigueScale
+        donorBreathState
+        donorMotionSwayState
+        donorAimFatigueState
+
+
+Вывод
+
+    Либо файл не сохранился,
+    либо ты залил его под другим именем,
+    либо положил не в repositories/rmukola3-wq-1.
+
+
+Что сделать тебе
+
+    Проверь, что файлы реально созданы вот здесь:
+        repositories/rmukola3-wq-1/DonorBreath
+        repositories/rmukola3-wq-1/DonorMotionSway
+        repositories/rmukola3-wq-1/DonorAimFatigue
+    Если ты сохранил их в подпапку — скинь мне точный путь.
+    Если хочешь быстро, просто пришли:
+        ls из папки, где ты их сохранил,
+        или сами 3 файла текстом.
+
+
+Confidence: High
+
+    Основано на прямом поиске файлов и поиске подключений в acs_framework v5.
+
+прочти файлы с навзанеим ssesion sesopon и тд я оптяь удуд рестетаь чат ибо ті не видишь репу и увувидишь толкьо после рестеа чта но после ресета чата у тебюя сотертся память надо сотавить ваіжноен полсдание тебе будущеу
+
+Да. Прочитал ssesion, session 2, sesion3.
+
+Ниже оставляю короткий, но важный handoff для будущего чата — это и надо потом показать новому чату.
+
+Главное ТЗ
+
+    Цель не “сделать любой recoil”, а максимально приблизить MY ACS / acs_framework v5 к donor ACS по ощущению.
+    Править нужно поэтапно маленькими модулями, а не переписывать весь framework.
+    Большой framework пользователь встраивает вручную; задача ИИ — проверять код, давать маленькие модули и точные места подключения.
+    Самая проблемная зона была и остаётся: hipfire feel. ADS был лучше, hipfire — ватный/хаотичный.
+    Значит надо переносить не только profile numbers, а именно donor-style layers:
+        RecoilSystem
+        DonorLikeRecoilModule
+        RecoilCamera
+        DonorFireKick
+        ShotBobble
+        потом уже breath / sway / fatigue
+
+
+Что уже сделано и подтверждено
+
+    В acs_framework v5 уже подключены и реально участвуют:
+        RecoilSystem
+        DonorLikeRecoilModule
+        RecoilCamera
+        ShotBobble
+        DonorFireKick
+    Проверено, что внутри Recoil() wiring уже нормальный:
+        donorRecoilState:SetProfile(...)
+        donorRecoilState:Kick(...)
+        recoilCameraState:Recoil(...)
+        shotBobbleState:Trigger(...)
+        donorFireKickState:FireKick(...)
+    Проверено, что init/update/compose для DonorFireKick уже нормальные:
+        donorFireKickState = DonorFireKick.new(DonorRecoilSettings.FireKickSettings)
+        donorFireKickCF = donorFireKickState:Update(dt, aimming and 1 or 0)
+        * donorFireKickCF уже стоит в AnimPart.CFrame
+    Проверено, что renderCam() должен использовать:
+        CFrame.Angles(...) * cameraKickCF
+    Проверено, что связка DonorRecoilSettings + DonorFireKick уже согласована по структуре.
+
+
+Какие модули уже хорошие
+
+    DonorSpring — норм, близок к donor
+    DonorRecoilSettings — уже приведён к нужному виду
+    DonorFireKick — уже приведён к нужному виду
+    RecoilCamera — подключён и работает, но тюнился вручную
+    RecoilSystem, DonorLikeRecoilModule, ShotBobble — подключены правильно
+
+
+Что сейчас НЕ надо ломать
+
+    Не переписывать весь acs_framework v5
+    Не менять порядок слоёв в AnimPart.CFrame
+    Не убирать старый SwaySpring, если он ещё нужен для maincf * Sway:inverse()
+    Не просить ИИ “сделать всё целиком”
+    Не делать giant refactor
+
+
+Что осталось делать дальше
+Следующий этап после recoil:
+
+    DonorBreath
+    DonorMotionSway
+    DonorAimFatigue
+
+
+Это выбрано как самые полезные donor-механики для реалистичности:
+
+    breath springs
+    look sway + walk spring donor-style
+    aim stamina + long-aim fatigue
+
+
+Важная стратегия внедрения
+
+    Делать маленькими модулями
+    Сначала модуль
+    Потом точечное подключение в framework
+    Потом проверка
+    Потом следующий модуль
+
+
+Текущий статус новых модулей
+
+    Была попытка добавить:
+        DonorBreath
+        DonorMotionSway
+        DonorAimFatigue
+    Но по состоянию последней проверки этих файлов в репе не было видно
+    Значит при следующем чате надо сначала проверить, существуют ли они реально как файлы
+    Очень важный баг: в DonorMotionSway нужно не забыть:
+
+
+local abs = math.abs
+
+
+Очень важное предупреждение
+
+    Когда пытались вставить reset новых state:
+
+
+if donorBreathState then donorBreathState:Reset() end
+if donorMotionSwayState then donorMotionSwayState:Reset() end
+if donorAimFatigueState then donorAimFatigueState:Reset() end
+
+
+ACS ломался.
+
+    Вероятная причина: новые state были не объявлены / не созданы заранее.
+    Значит при следующем чате надо помнить правило:
+        сначала require
+        потом local ...State = nil
+        потом ...State = Module.new(...)
+        и только потом :Reset()
+
+
+Что новому чату надо проверить первым делом
+
+    Есть ли в репе файлы:
+
+
+    DonorBreath
+    DonorMotionSway
+    DonorAimFatigue
+
+
+    Есть ли в acs_framework v5:
+
+
+    require этих модулей
+    ...State = Module.new(...)
+    update-вызовы
+    reset-вызовы
+
+
+    Не перетирает ли старый код новые значения:
+
+
+    старый lookSwayCF
+    старый breathCF
+    старый gunbobcf
+
+
+Коротко: что сказать новому чату
+
+    recoil pipeline уже в целом собран и работает;
+    DonorFireKick, DonorRecoilSettings, RecoilCamera уже интегрированы;
+    следующий этап — DonorBreath, DonorMotionSway, DonorAimFatigue;
+    подключать их надо очень осторожно, не ломая старый Sway path и не вставляя reset до объявления state.
+
+
+Confidence: High
+
+    Основано на чтении ssesion, session 2, sesion3 и на текущей проверке acs_framework v5 и donor-модулей.
+
+
+Если хочешь, я могу ещё сделать совсем короткий handoff-блок на 10–15 строк, который ты просто вставишь в первый месседж нового чата
