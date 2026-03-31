@@ -1,0 +1,102 @@
+local ShotBobble = {}
+ShotBobble.__index = ShotBobble
+
+local random = math.random
+local sin = math.sin
+local cos = math.cos
+local pi = math.pi
+local min = math.min
+local exp = math.exp
+
+local ZERO = Vector3.new(0, 0, 0)
+local TAU = pi * 2
+
+function ShotBobble.new()
+	local self = setmetatable({}, ShotBobble)
+
+	self.intensity = 0
+	self.phase = random() * TAU
+
+	self.decayRate = 13.5
+	self.frequency = 11.5
+	self.maxIntensity = 0.42
+
+	self.posLerpSpeed = 18
+	self.rotLerpSpeed = 16
+
+	self.currentPos = ZERO
+	self.currentRot = ZERO
+
+	return self
+end
+
+function ShotBobble:Trigger(amount)
+	amount = amount or 1
+
+	self.intensity = min(self.intensity + amount * 0.26, self.maxIntensity)
+	self.phase = self.phase + (random() - 0.5) * 0.22
+end
+
+function ShotBobble:Update(dt, isMoving, isAiming)
+	dt = math.min(dt, 0.033)
+
+	self.intensity = self.intensity * exp(-self.decayRate * dt)
+	if self.intensity < 0.0015 then
+		self.intensity = 0
+	end
+
+	self.phase = self.phase + (self.frequency + self.intensity * 2.4) * dt
+
+	local amount = self.intensity
+
+	if isAiming then
+		amount = amount * 0.12
+	end
+
+	if isMoving then
+		amount = amount * 0.92
+	end
+
+	local targetPos = ZERO
+	local targetRot = ZERO
+
+	if amount > 0 then
+		local waveA = sin(self.phase)
+		local waveB = sin(self.phase * 1.35 + 0.35)
+		local waveC = cos(self.phase * 0.82 + 0.6)
+
+		targetPos = Vector3.new(
+			(waveB * 0.00055) * amount,
+			(waveA * 0.00165 + waveC * 0.00035) * amount,
+			(cos(self.phase * 1.12 + 0.9) * 0.00045) * amount
+		)
+
+		targetRot = Vector3.new(
+			(sin(self.phase * 0.92 + 0.1) * 0.00075) * amount,
+			(sin(self.phase * 1.08 + 0.25) * 0.00042) * amount,
+			(sin(self.phase * 0.74 + 0.5) * 0.00032) * amount
+		)
+	end
+
+	local posAlpha = math.min(dt * self.posLerpSpeed, 1)
+	local rotAlpha = math.min(dt * self.rotLerpSpeed, 1)
+
+	self.currentPos = self.currentPos:Lerp(targetPos, posAlpha)
+	self.currentRot = self.currentRot:Lerp(targetRot, rotAlpha)
+
+	if self.currentPos.Magnitude < 0.00003 and self.currentRot.Magnitude < 0.00003 and self.intensity == 0 then
+		self.currentPos = ZERO
+		self.currentRot = ZERO
+	end
+
+	return CFrame.new(self.currentPos.X, self.currentPos.Y, self.currentPos.Z)
+		* CFrame.Angles(self.currentRot.X, self.currentRot.Y, self.currentRot.Z)
+end
+
+function ShotBobble:Reset()
+	self.intensity = 0
+	self.currentPos = ZERO
+	self.currentRot = ZERO
+end
+
+return ShotBobble
