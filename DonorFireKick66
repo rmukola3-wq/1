@@ -1,0 +1,143 @@
+--!strict
+
+local DonorSpring = require(script.Parent:WaitForChild("DonorSpring"))
+
+local DonorFireKick = {}
+DonorFireKick.__index = DonorFireKick
+
+local DEFAULT_CONFIG = {
+	PosSpringFrequency = 14.0,
+	PosSpringDamping = 0.85,
+	PosSpringMass = 1.0,
+
+	RotSpringFrequency = 11.0,
+	RotSpringDamping = 0.82,
+	RotSpringMass = 1.0,
+
+	AimReductionFactor = 0.65,
+	KickMultiplier = 1.0,
+
+	PositionScale = Vector3.new(1.2, 1.35, 1.5),
+	RotationScale = Vector3.new(0.65, 0.35, 0.18),
+
+	SnapThreshold = 0.00008,
+}
+
+local function mergeConfig(config)
+	local finalConfig = {}
+
+	for key, value in pairs(DEFAULT_CONFIG) do
+		finalConfig[key] = value
+	end
+
+	if config then
+		for key, value in pairs(config) do
+			finalConfig[key] = value
+		end
+	end
+
+	return finalConfig
+end
+
+local function zeroIfTinyVector3(value, velocity, threshold)
+	if value.Magnitude < threshold and velocity.Magnitude < threshold then
+		return Vector3.new(0, 0, 0)
+	end
+
+	return value
+end
+
+function DonorFireKick.new(config)
+	local self = setmetatable({}, DonorFireKick)
+
+	self.config = mergeConfig(config)
+
+	self.posSpring = DonorSpring.new(
+		self.config.PosSpringFrequency,
+		self.config.PosSpringDamping,
+		self.config.PosSpringMass,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.rotSpring = DonorSpring.new(
+		self.config.RotSpringFrequency,
+		self.config.RotSpringDamping,
+		self.config.RotSpringMass,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.camKickTarget = Vector3.new(0, 0, 0)
+
+	return self
+end
+
+function DonorFireKick:FireKick(x, y, z)
+	x = x or 0
+	y = y or 0
+	z = z or 0
+
+	local impulse = Vector3.new(x, y, z) * self.config.KickMultiplier
+	local posScale = self.config.PositionScale
+	local rotScale = self.config.RotationScale
+
+	self.posSpring:Shove(Vector3.new(
+		impulse.X * posScale.X,
+		impulse.Y * posScale.Y,
+		impulse.Z * posScale.Z
+		))
+
+	self.rotSpring:Shove(Vector3.new(
+		-impulse.Y * rotScale.X,
+		impulse.X * rotScale.Y,
+		impulse.X * rotScale.Z
+		))
+
+	self.camKickTarget = impulse
+end
+
+function DonorFireKick:Update(dt, aimFactor)
+	dt = math.clamp(dt or 0, 0.0001, 0.05)
+	aimFactor = math.clamp(aimFactor or 0, 0, 1)
+
+	local aimScale = 1 - (aimFactor * (1 - self.config.AimReductionFactor))
+
+	local pos = self.posSpring:Update(dt) * aimScale
+	local rot = self.rotSpring:Update(dt) * aimScale
+
+	pos = zeroIfTinyVector3(pos, self.posSpring:GetVelocity(), self.config.SnapThreshold)
+	rot = zeroIfTinyVector3(rot, self.rotSpring:GetVelocity(), self.config.SnapThreshold)
+
+	local camLerpAlpha = math.clamp(dt * 20, 0, 1)
+	self.camKickTarget = self.camKickTarget:Lerp(Vector3.new(0, 0, 0), camLerpAlpha)
+
+	if self.camKickTarget.Magnitude < self.config.SnapThreshold then
+		self.camKickTarget = Vector3.new(0, 0, 0)
+	end
+
+	return CFrame.new(pos.X, pos.Y, pos.Z) * CFrame.Angles(rot.X, rot.Y, rot.Z)
+end
+
+function DonorFireKick:Reset()
+	self.posSpring:Reset(Vector3.new(0, 0, 0))
+	self.rotSpring:Reset(Vector3.new(0, 0, 0))
+	self.camKickTarget = Vector3.new(0, 0, 0)
+end
+
+function DonorFireKick:GetKickIntensity()
+	local pos = self.posSpring:GetPosition()
+	return pos.Magnitude
+end
+
+function DonorFireKick:GetCameraKick()
+	return self.camKickTarget.X, self.camKickTarget.Y
+end
+
+function DonorFireKick:IsFinished()
+	return self.posSpring:IsAtRest()
+		and self.rotSpring:IsAtRest()
+		and self.camKickTarget.Magnitude < self.config.SnapThreshold
+end
+
+return DonorFireKick
