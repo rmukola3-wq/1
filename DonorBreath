@@ -1,0 +1,97 @@
+--!strict
+
+local DonorSpring = require(script.Parent:WaitForChild("DonorSpring"))
+
+local DonorBreath = {}
+DonorBreath.__index = DonorBreath
+
+local sin = math.sin
+local cos = math.cos
+local pi = math.pi
+local max = math.max
+
+local DEFAULTS = {
+	BreathCycleHip = 1.45,
+	BreathCycleAim = 1.05,
+
+	HipScale = 0.35,
+	AimScale = 1.0,
+	MovePenalty = 0.7,
+
+	PosXScale = 0.35,
+	PosYScale = 1.0,
+	PosZScale = 0.15,
+
+	RotPitchScale = 1.0,
+	RotYawScale = 0.55,
+	RotRollScale = 0.8,
+}
+
+function DonorBreath.new(settings)
+	local self = setmetatable({}, DonorBreath)
+
+	self.settings = settings or {}
+	self.time = 0
+
+	self.posSpring = DonorSpring.new(
+		self.settings.BreathPosSpringFrequency or 4.0,
+		self.settings.BreathPosSpringDamping or 0.8,
+		self.settings.BreathPosSpringMass or 1.0,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.rotSpring = DonorSpring.new(
+		self.settings.BreathRotSpringFrequency or 4.0,
+		self.settings.BreathRotSpringDamping or 0.8,
+		self.settings.BreathRotSpringMass or 1.0,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	return self
+end
+
+function DonorBreath:Update(dt, isAiming, isMoving, intensityScale)
+	dt = math.clamp(dt or 0, 0.0001, 0.05)
+
+	self.time += dt * (isAiming and DEFAULTS.BreathCycleAim or DEFAULTS.BreathCycleHip)
+
+	local posIntensity = ((self.settings.BreathIntensity and self.settings.BreathIntensity.Position) or 0.008)
+	local rotIntensity = ((self.settings.BreathIntensity and self.settings.BreathIntensity.Rotation) or 0.003)
+
+	local scale = (isAiming and DEFAULTS.AimScale or DEFAULTS.HipScale) * (intensityScale or 1)
+	if isMoving then
+		scale *= DEFAULTS.MovePenalty
+	end
+
+	local t = self.time * pi * 2
+
+	local posTarget = Vector3.new(
+		sin(t) * posIntensity * DEFAULTS.PosXScale,
+		cos(t * 2) * posIntensity * DEFAULTS.PosYScale,
+		sin(t * 0.5) * posIntensity * DEFAULTS.PosZScale
+	) * scale
+
+	local rotTarget = Vector3.new(
+		cos(t * 2) * rotIntensity * DEFAULTS.RotPitchScale,
+		sin(t) * rotIntensity * DEFAULTS.RotYawScale,
+		sin(t * 0.5) * rotIntensity * DEFAULTS.RotRollScale
+	) * scale
+
+	self.posSpring:SetTarget(posTarget)
+	self.rotSpring:SetTarget(rotTarget)
+
+	local pos = self.posSpring:Update(dt)
+	local rot = self.rotSpring:Update(dt)
+
+	return CFrame.new(pos) * CFrame.Angles(rot.X, rot.Y, rot.Z)
+end
+
+function DonorBreath:Reset()
+	self.time = 0
+	self.posSpring:Reset(Vector3.new(0, 0, 0))
+	self.rotSpring:Reset(Vector3.new(0, 0, 0))
+end
+
+return DonorBreath
