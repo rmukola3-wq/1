@@ -1,0 +1,157 @@
+--!strict
+
+local DonorSpring = {}
+DonorSpring.__index = DonorSpring
+
+local abs = math.abs
+local clamp = math.clamp
+
+local DEFAULT_SNAP_DISTANCE = 0.001
+
+local function isVector3(value)
+	return typeof(value) == "Vector3"
+end
+
+local function zeroLike(value)
+	if isVector3(value) then
+		return Vector3.new(0, 0, 0)
+	end
+	return 0
+end
+
+local function magnitudeOf(value)
+	if isVector3(value) then
+		return value.Magnitude
+	end
+	return abs(value)
+end
+
+local function add(a, b)
+	return a + b
+end
+
+local function subtract(a, b)
+	return a - b
+end
+
+local function multiply(value, scalar)
+	return value * scalar
+end
+
+function DonorSpring.new(frequency, damping, mass, initialValue, targetValue)
+	local self = setmetatable({}, DonorSpring)
+
+	local sample = initialValue
+	if sample == nil then
+		sample = targetValue
+	end
+	if sample == nil then
+		sample = 0
+	end
+
+	local zero = zeroLike(sample)
+
+	self.Frequency = frequency or 6
+	self.Damping = damping or 0.75
+	self.Mass = mass or 1.1
+	self.MaxVelocity = nil
+	self.SnapDistance = DEFAULT_SNAP_DISTANCE
+
+	self.Position = initialValue ~= nil and initialValue or zero
+	self.Velocity = zero
+	self.Target = targetValue ~= nil and targetValue or zero
+
+	return self
+end
+
+function DonorSpring:SetTarget(target)
+	self.Target = target
+end
+
+function DonorSpring:SetFrequency(frequency)
+	self.Frequency = frequency
+end
+
+function DonorSpring:SetDamping(damping)
+	self.Damping = damping
+end
+
+function DonorSpring:SetMass(mass)
+	self.Mass = mass
+end
+
+function DonorSpring:SetMaxVelocity(maxVelocity)
+	self.MaxVelocity = maxVelocity
+end
+
+function DonorSpring:SetSnapDistance(snapDistance)
+	self.SnapDistance = snapDistance
+end
+
+function DonorSpring:Shove(force)
+	self.Velocity = add(self.Velocity, force)
+end
+
+function DonorSpring:Reset(value)
+	local baseValue = value
+	if baseValue == nil then
+		baseValue = zeroLike(self.Position)
+	end
+
+	self.Position = baseValue
+	self.Velocity = zeroLike(baseValue)
+	self.Target = baseValue
+end
+
+function DonorSpring:GetPosition()
+	return self.Position
+end
+
+function DonorSpring:GetVelocity()
+	return self.Velocity
+end
+
+function DonorSpring:IsAtRest()
+	local displacement = subtract(self.Position, self.Target)
+	return magnitudeOf(displacement) < self.SnapDistance
+		and magnitudeOf(self.Velocity) < self.SnapDistance
+end
+
+function DonorSpring:Update(dt)
+	dt = clamp(dt or 0, 0.0001, 0.1)
+
+	local frequency = self.Frequency
+	local damping = self.Damping
+	local mass = self.Mass
+
+	local displacement = subtract(self.Position, self.Target)
+
+	local accel = multiply(displacement, -(frequency * frequency))
+	accel = add(accel, multiply(self.Velocity, -(2 * frequency * damping)))
+	accel = multiply(accel, 1 / mass)
+
+	self.Velocity = add(self.Velocity, multiply(accel, dt))
+
+	if self.MaxVelocity ~= nil then
+		if isVector3(self.Velocity) then
+			local speed = self.Velocity.Magnitude
+			if speed > self.MaxVelocity then
+				self.Velocity = self.Velocity.Unit * self.MaxVelocity
+			end
+		else
+			self.Velocity = clamp(self.Velocity, -self.MaxVelocity, self.MaxVelocity)
+		end
+	end
+
+	self.Position = add(self.Position, multiply(self.Velocity, dt))
+
+	local newDisplacement = subtract(self.Position, self.Target)
+	if magnitudeOf(newDisplacement) < self.SnapDistance and magnitudeOf(self.Velocity) < self.SnapDistance then
+		self.Position = self.Target
+		self.Velocity = zeroLike(self.Position)
+	end
+
+	return self.Position
+end
+
+return DonorSpring
