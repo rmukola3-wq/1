@@ -1,0 +1,162 @@
+--!strict
+local abs = math.abs
+
+local DonorSpring = require(script.Parent:WaitForChild("DonorSpring"))
+
+local DonorMotionSway = {}
+DonorMotionSway.__index = DonorMotionSway
+
+local sin = math.sin
+local cos = math.cos
+local rad = math.rad
+local clamp = math.clamp
+
+local DEFAULTS = {
+	LookPosSpringFrequency = 6.0,
+	LookPosSpringDamping = 0.7,
+	LookRotSpringFrequency = 5.0,
+	LookRotSpringDamping = 0.65,
+
+	WalkPosSpringFrequency = 5.0,
+	WalkPosSpringDamping = 0.7,
+	WalkRotSpringFrequency = 5.0,
+	WalkRotSpringDamping = 0.6,
+
+	MousePosScale = 0.00055,
+	MouseRotScale = 0.12,
+
+	HipLookScale = 1.0,
+	AimLookScale = 0.45,
+
+	CrouchScale = 0.82,
+	SprintScale = 1.22,
+
+	WalkBaseSpeed = 7.5,
+}
+
+function DonorMotionSway.new(settings)
+	local self = setmetatable({}, DonorMotionSway)
+
+	self.settings = settings or {}
+	self.walkTime = 0
+
+	self.lookPosSpring = DonorSpring.new(
+		DEFAULTS.LookPosSpringFrequency,
+		DEFAULTS.LookPosSpringDamping,
+		1.0,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.lookRotSpring = DonorSpring.new(
+		DEFAULTS.LookRotSpringFrequency,
+		DEFAULTS.LookRotSpringDamping,
+		1.0,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.walkPosSpring = DonorSpring.new(
+		DEFAULTS.WalkPosSpringFrequency,
+		DEFAULTS.WalkPosSpringDamping,
+		1.0,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	self.walkRotSpring = DonorSpring.new(
+		DEFAULTS.WalkRotSpringFrequency,
+		DEFAULTS.WalkRotSpringDamping,
+		1.0,
+		Vector3.new(0, 0, 0),
+		Vector3.new(0, 0, 0)
+	)
+
+	return self
+end
+
+function DonorMotionSway:Update(dt, mouseDelta, moveSpeed, isAiming, isSprinting, isCrouching, fatigueScale)
+	dt = math.clamp(dt or 0, 0.0001, 0.05)
+	mouseDelta = mouseDelta or Vector2.new(0, 0)
+
+	local fatigue = fatigueScale or 1
+	local lookScale = (isAiming and DEFAULTS.AimLookScale or DEFAULTS.HipLookScale) * fatigue
+
+	if isCrouching then
+		lookScale *= DEFAULTS.CrouchScale
+	end
+
+	local posImpulse = Vector3.new(
+		-mouseDelta.X * DEFAULTS.MousePosScale,
+		mouseDelta.Y * DEFAULTS.MousePosScale,
+		0
+	) * lookScale
+
+	local rotImpulse = Vector3.new(
+		rad(-mouseDelta.Y * DEFAULTS.MouseRotScale),
+		rad(-mouseDelta.X * DEFAULTS.MouseRotScale * 0.85),
+		rad(-mouseDelta.X * DEFAULTS.MouseRotScale * 0.35)
+	) * lookScale
+
+	self.lookPosSpring:Shove(posImpulse)
+	self.lookRotSpring:Shove(rotImpulse)
+
+	local speedAlpha = clamp((moveSpeed or 0) / 14, 0, 1)
+	local walkPosIntensity = ((self.settings.WalkBobIntensity and self.settings.WalkBobIntensity.Position) or 0.025)
+	local walkRotIntensity = ((self.settings.WalkBobIntensity and self.settings.WalkBobIntensity.Rotation) or 0.012)
+
+	local moveScale = speedAlpha
+	if isAiming then
+		moveScale *= 0.55
+	end
+	if isSprinting then
+		moveScale *= DEFAULTS.SprintScale
+	end
+	if isCrouching then
+		moveScale *= DEFAULTS.CrouchScale
+	end
+
+	self.walkTime += dt * (DEFAULTS.WalkBaseSpeed + speedAlpha * 6.0)
+
+	local walkPosTarget = Vector3.new(
+		sin(self.walkTime) * walkPosIntensity * 0.75,
+		abs(cos(self.walkTime * 2)) * walkPosIntensity,
+		cos(self.walkTime) * walkPosIntensity * 0.35
+	) * moveScale
+
+	local walkRotTarget = Vector3.new(
+		rad(cos(self.walkTime * 2) * walkRotIntensity * 75),
+		rad(sin(self.walkTime) * walkRotIntensity * 55),
+		rad(sin(self.walkTime) * walkRotIntensity * 95)
+	) * moveScale
+
+	self.walkPosSpring:SetTarget(walkPosTarget)
+	self.walkRotSpring:SetTarget(walkRotTarget)
+
+	if speedAlpha < 0.02 then
+		self.walkPosSpring:SetTarget(Vector3.new(0, 0, 0))
+		self.walkRotSpring:SetTarget(Vector3.new(0, 0, 0))
+	end
+
+	local lookPos = self.lookPosSpring:Update(dt)
+	local lookRot = self.lookRotSpring:Update(dt)
+
+	local walkPos = self.walkPosSpring:Update(dt)
+	local walkRot = self.walkRotSpring:Update(dt)
+
+	local lookCF = CFrame.new(lookPos) * CFrame.Angles(lookRot.X, lookRot.Y, lookRot.Z)
+	local walkCF = CFrame.new(walkPos) * CFrame.Angles(walkRot.X, walkRot.Y, walkRot.Z)
+
+	return lookCF, walkCF
+end
+
+function DonorMotionSway:Reset()
+	self.walkTime = 0
+
+	self.lookPosSpring:Reset(Vector3.new(0, 0, 0))
+	self.lookRotSpring:Reset(Vector3.new(0, 0, 0))
+	self.walkPosSpring:Reset(Vector3.new(0, 0, 0))
+	self.walkRotSpring:Reset(Vector3.new(0, 0, 0))
+end
+
+return DonorMotionSway
