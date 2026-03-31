@@ -1,0 +1,94 @@
+local RecoilCamera = {}
+RecoilCamera.__index = RecoilCamera
+
+local abs = math.abs
+local min = math.min
+local clamp = math.clamp
+
+local function createSpring(stiffness, damping)
+	return {
+		position = 0,
+		velocity = 0,
+		stiffness = stiffness or 40,
+		damping = damping or 4,
+	}
+end
+
+local function updateSpring(spring, dt)
+	local accel = -spring.stiffness * spring.position - spring.damping * spring.velocity
+	spring.velocity = spring.velocity + accel * dt
+	spring.position = spring.position + spring.velocity * dt
+
+	if abs(spring.position) < 0.00008 and abs(spring.velocity) < 0.0009 then
+		spring.position = 0
+		spring.velocity = 0
+	end
+
+	return spring.position
+end
+
+local function addImpulse(spring, impulse, maxVelocity)
+	spring.velocity = spring.velocity + impulse
+	spring.velocity = clamp(spring.velocity, -maxVelocity, maxVelocity)
+end
+
+function RecoilCamera.new()
+	local self = setmetatable({}, RecoilCamera)
+
+	self.pitchSpring = createSpring(92, 14)
+	self.yawSpring = createSpring(74, 11)
+	self.rollSpring = createSpring(60, 9)
+
+	self.pitchKickScale = 1.75
+	self.yawKickScale = 1.25
+	self.rollKickScale = 0.95
+
+	self.maxPitchVelocity = 0.28
+	self.maxYawVelocity = 0.18
+	self.maxRollVelocity = 0.14
+
+	return self
+end
+
+function RecoilCamera:Recoil(x, y, z)
+	x = x or 0
+	y = y or 0
+	z = z or 0
+
+	local pitchImpulse = x * self.pitchKickScale
+	local yawImpulse = y * self.yawKickScale
+	local rollImpulse = z * self.rollKickScale
+
+	rollImpulse = rollImpulse + yawImpulse * 0.28
+
+	addImpulse(self.pitchSpring, pitchImpulse, self.maxPitchVelocity)
+	addImpulse(self.yawSpring, yawImpulse, self.maxYawVelocity)
+	addImpulse(self.rollSpring, rollImpulse, self.maxRollVelocity)
+end
+
+function RecoilCamera:Update(dt)
+	dt = min(dt, 0.033)
+
+	local pitch = updateSpring(self.pitchSpring, dt)
+	local yaw = updateSpring(self.yawSpring, dt)
+	local roll = updateSpring(self.rollSpring, dt)
+
+	if abs(pitch) < 0.00002 then pitch = 0 end
+	if abs(yaw) < 0.00002 then yaw = 0 end
+	if abs(roll) < 0.00002 then roll = 0 end
+
+	return CFrame.Angles(pitch, yaw, roll)
+end
+
+function RecoilCamera:Reset()
+	self.pitchSpring.position = 0
+	self.pitchSpring.velocity = 0
+
+	self.yawSpring.position = 0
+	self.yawSpring.velocity = 0
+
+	self.rollSpring.position = 0
+	self.rollSpring.velocity = 0
+end
+
+return RecoilCamera
