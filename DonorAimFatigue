@@ -1,0 +1,100 @@
+--!strict
+
+local DonorAimFatigue = {}
+DonorAimFatigue.__index = DonorAimFatigue
+
+local clamp = math.clamp
+local max = math.max
+local min = math.min
+
+local DEFAULTS = {
+	MaxAimStamina = 100,
+	StaminaDrainRate = 5,
+	StaminaRegenRate = 12,
+
+	IdleAimThreshold = 6,
+	IdleAimRamp = 6,
+
+	StaminaFactor = 1.8,
+	MoveDrainMultiplier = 1.2,
+	SteadyDrainMultiplier = 0.75,
+	SteadyReduction = 0.18,
+}
+
+function DonorAimFatigue.new(settings)
+	local self = setmetatable({}, DonorAimFatigue)
+
+	self.settings = settings or {}
+
+	self.maxAimStamina = self.settings.MaxAimStamina or DEFAULTS.MaxAimStamina
+	self.staminaDrainRate = self.settings.StaminaDrainRate or DEFAULTS.StaminaDrainRate
+	self.staminaRegenRate = self.settings.StaminaRegenRate or DEFAULTS.StaminaRegenRate
+	self.idleAimThreshold = self.settings.IdleAimThreshold or DEFAULTS.IdleAimThreshold
+	self.idleAimRamp = self.settings.IdleAimRamp or DEFAULTS.IdleAimRamp
+	self.staminaFactor = self.settings.StaminaFactor or DEFAULTS.StaminaFactor
+
+	self.currentStamina = self.maxAimStamina
+	self.idleAimTime = 0
+	self.lastFatigueScale = 1
+
+	return self
+end
+
+function DonorAimFatigue:Update(dt, isAiming, isSteady, isMoving)
+	dt = math.clamp(dt or 0, 0.0001, 0.1)
+
+	if isAiming then
+		local drain = self.staminaDrainRate
+		if isMoving then
+			drain *= DEFAULTS.MoveDrainMultiplier
+		end
+		if isSteady then
+			drain *= DEFAULTS.SteadyDrainMultiplier
+		end
+
+		self.currentStamina = max(0, self.currentStamina - drain * dt)
+
+		if not isMoving then
+			self.idleAimTime += dt
+		else
+			self.idleAimTime = 0
+		end
+	else
+		self.currentStamina = min(self.maxAimStamina, self.currentStamina + self.staminaRegenRate * dt)
+		self.idleAimTime = 0
+	end
+
+	self.lastFatigueScale = self:GetFatigueScale(isSteady)
+	return self.lastFatigueScale
+end
+
+function DonorAimFatigue:GetStaminaAlpha()
+	if self.maxAimStamina <= 0 then
+		return 1
+	end
+
+	return clamp(self.currentStamina / self.maxAimStamina, 0, 1)
+end
+
+function DonorAimFatigue:GetFatigueScale(isSteady)
+	local staminaAlpha = self:GetStaminaAlpha()
+	local staminaPenalty = (1 - staminaAlpha) * 0.65 * self.staminaFactor
+
+	local longAimAlpha = 0
+	if self.idleAimTime > self.idleAimThreshold then
+		longAimAlpha = clamp((self.idleAimTime - self.idleAimThreshold) / self.idleAimRamp, 0, 1)
+	end
+
+	local longAimPenalty = longAimAlpha * 0.55
+	local steadyReduction = isSteady and DEFAULTS.SteadyReduction or 0
+
+	return max(0.65, 1 + staminaPenalty + longAimPenalty - steadyReduction)
+end
+
+function DonorAimFatigue:Reset()
+	self.currentStamina = self.maxAimStamina
+	self.idleAimTime = 0
+	self.lastFatigueScale = 1
+end
+
+return DonorAimFatigue
