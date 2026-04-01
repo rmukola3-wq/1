@@ -21,7 +21,10 @@ local function lerpCF_dt(current, target, speed, dt)
 end
 
 local function lerpUDim2_dt(current, target, speed, dt)
-	return current:Lerp(target, alphaFromSpeed(speed, dt))
+	return current:Lerp(target, alphaFromSpeed(speed, dt))ф
+end
+local function lerpNum(a, b, t)
+	return a + (b - a) * t
 end
 local function recaimoff(value, minStep, multStep, adjust)
 	if math.abs(value) < 0.0001 then
@@ -119,6 +122,18 @@ local VM_Config = {
 	strafeTiltSprintScale = 1.10,
 	strafeTiltProneScale  = 0.35,
 	strafeInputAssist     = 0.40,
+	
+	
+	-- Turn tilt (наклон от поворота камеры)
+	turnTiltMaxRoll       = 4.2,
+	turnTiltMaxYaw        = 1.4,
+	turnTiltResponse      = 10.0,
+	turnTiltDeadzone      = 0.10,
+	turnTiltADSScale      = 0.50,
+	turnTiltCrouchScale   = 0.90,
+	turnTiltSprintScale   = 1.05,
+	turnTiltProneScale    = 0.35,
+	turnTiltInputScale    = 0.018,
 
 	-- Look sway (инерция за мышью)
 	lookSwayRotHip  = 0.0080,
@@ -341,11 +356,18 @@ local secondaryCF  = CFrame.new()
 local aimOffsetThing = Vector2.new()
 local adsLagVelocity = Vector2.new()
 local adsCarryCF = CFrame.new()
+local adsBlend = 0
+local ADS_BLEND_IN_SPEED = 16
+local ADS_BLEND_OUT_SPEED = 7
 local crouchBlend = 0
 local crouchCF = CFrame.new()
 local strafeTilt = 0
 local strafeTiltYaw = 0
 local strafeTiltCF = CFrame.new()
+
+local turnTilt = 0
+local turnTiltYaw = 0
+local turnTiltCF = CFrame.new()
 
 local proneBlend = 0
 local proneCF = CFrame.new()
@@ -989,16 +1011,14 @@ function ADS(aimming)
 			gunRecoilState:Reset()
 		end
 
+
 		if not aimming then
 			if donorRecoilState  then donorRecoilState:Reset()  end
 			if recoilCameraState then recoilCameraState:Reset() end
 			if shotBobbleState   then shotBobbleState:Reset()   end
-			-- ШАГ 4 (НОВОЕ): сброс DonorFireKick при выходе из ADS
 			if donorFireKickState then donorFireKickState:Reset() end
 			if donorBreathState then donorBreathState:Reset() end
-			if donorMotionSwayState then donorMotionSwayState:Reset() end
 			if donorAimFatigueState then donorAimFatigueState:Reset() end
-			aimOffsetThing = Vector2.new()
 		end
 	end
 end
@@ -2736,7 +2756,7 @@ Run.RenderStepped:Connect(function(step)
 				crouchTarget = 0
 			end
 			crouchBlend = crouchBlend + (crouchTarget - crouchBlend) * math.clamp(step * VM_Config.crouchBlendSpeed, 0, 1)
-			local crouchMul = aimming and VM_Config.crouchAdsMultiplier or 1
+			local crouchMul = lerpNum(1, VM_Config.crouchAdsMultiplier, adsBlend)
 			crouchCF =
 				CFrame.new(
 					0,
@@ -2778,6 +2798,30 @@ Run.RenderStepped:Connect(function(step)
 			strafeTiltCF = CFrame.Angles(0, strafeTiltYaw, strafeTilt)
 		end
 
+		-- Turn tilt layer
+		do
+			local turnInput = math.clamp(mouseDelta.X * VM_Config.turnTiltInputScale, -1, 1)
+
+			if math.abs(turnInput) < VM_Config.turnTiltDeadzone then
+				turnInput = 0
+			end
+
+			local tiltScale = 1
+			if aimming then tiltScale = tiltScale * VM_Config.turnTiltADSScale end
+			if Crouched then tiltScale = tiltScale * VM_Config.turnTiltCrouchScale end
+			if Proned then tiltScale = tiltScale * VM_Config.turnTiltProneScale end
+			if runKeyDown then tiltScale = tiltScale * VM_Config.turnTiltSprintScale end
+			if BipodActive then tiltScale = 0 end
+
+			local targetRoll = math.rad(-VM_Config.turnTiltMaxRoll * turnInput * tiltScale)
+			local targetYaw  = math.rad( VM_Config.turnTiltMaxYaw  * turnInput * tiltScale)
+
+			turnTilt    = turnTilt    + (targetRoll - turnTilt)    * math.clamp(step * VM_Config.turnTiltResponse, 0, 1)
+			turnTiltYaw = turnTiltYaw + (targetYaw  - turnTiltYaw) * math.clamp(step * VM_Config.turnTiltResponse, 0, 1)
+
+			turnTiltCF = CFrame.Angles(0, turnTiltYaw, turnTilt)
+		end
+
 		-- Sway
 		local swayScale = aimming and adsSwayScale or 1
 		SwaySpring:accelerate(Vector3.new((mouseDelta.x / 60) * swayScale, (mouseDelta.y / 60) * swayScale, 0))
@@ -2792,6 +2836,7 @@ Run.RenderStepped:Connect(function(step)
 			)
 		end
 
+		local donorBaseCF = CFrame.new()
 		if donorMotionSwayState then
 			local donorLookCF, donorWalkCF = donorMotionSwayState:Update(
 				step,
@@ -2802,130 +2847,89 @@ Run.RenderStepped:Connect(function(step)
 				(Crouched or Proned),
 				fatigueScale
 			)
-			lookSwayCF = donorLookCF * donorWalkCF
-		else
-			lookSwayCF = CFrame.new()
+			donorBaseCF = donorLookCF * donorWalkCF
 		end
+
+		adsBlend = adsBlend + ((aimming and 1 or 0) - adsBlend) * math.clamp(
+			step * (aimming and ADS_BLEND_IN_SPEED or ADS_BLEND_OUT_SPEED),
+			0,
+			1
+		)
+
 		do
 			local adjust = step * 60
 			local md = mouseDelta
 			local mdMag = md.Magnitude
 
-			if aimming then
-				aimOffsetThing = aimOffsetThing - (md * VM_Config.offsetSensADS)
+			local sens      = lerpNum(VM_Config.offsetSensHip,      VM_Config.offsetSensADS,      adsBlend)
+			local returnMin = lerpNum(VM_Config.offsetReturnMinHip, VM_Config.offsetReturnMinADS, adsBlend)
+			local returnMul = lerpNum(VM_Config.offsetReturnMulHip, VM_Config.offsetReturnMulADS, adsBlend)
+			local angleMax  = lerpNum(VM_Config.offsetAngleHip,     VM_Config.offsetAngleADS,     adsBlend)
 
+			local rotK   = lerpNum(LAG_ROT_HIP, LAG_ROT_ADS, adsBlend)
+			local posK   = lerpNum(LAG_POS_HIP, LAG_POS_ADS, adsBlend)
+			local lagMax = lerpNum(LAG_MAX_HIP, LAG_MAX_ADS, adsBlend)
+
+			aimOffsetThing = aimOffsetThing - (md * sens)
+
+			if adsBlend > 0.001 or mdMag < VM_Config.offsetDeadzone then
 				aimOffsetThing = aimOffsetThing + Vector2.new(
-					recaimoff(aimOffsetThing.X, VM_Config.offsetReturnMinADS, VM_Config.offsetReturnMulADS, adjust),
-					recaimoff(aimOffsetThing.Y, VM_Config.offsetReturnMinADS, VM_Config.offsetReturnMulADS, adjust)
+					recaimoff(aimOffsetThing.X, returnMin, returnMul, adjust),
+					recaimoff(aimOffsetThing.Y, returnMin, returnMul, adjust)
 				)
-
-				local adsClampAlpha = math.clamp(step * 14, 0, 1)
-				if aimOffsetThing.Magnitude > VM_Config.offsetAngleADS then
-					aimOffsetThing = aimOffsetThing:Lerp(aimOffsetThing.Unit * VM_Config.offsetAngleADS, adsClampAlpha)
-				end
-
-				local velTarget = Vector2.new(
-					math.clamp(-md.X * VM_Config.adsVelocityBuild, -VM_Config.adsCarryClamp, VM_Config.adsCarryClamp),
-					math.clamp(-md.Y * VM_Config.adsVelocityBuild, -VM_Config.adsCarryClamp, VM_Config.adsCarryClamp)
-				)
-
-				adsLagVelocity = adsLagVelocity:Lerp(
-					velTarget,
-					math.clamp(step * VM_Config.adsVelocityDamp, 0, 1)
-				)
-
-				local lagMax = LAG_MAX_ADS
-				LagSpring.t = Vector3.new(
-					math.clamp(-md.Y * LAG_ROT_ADS, -lagMax, lagMax),
-					math.clamp(-md.X * LAG_ROT_ADS, -lagMax, lagMax),
-					0
-				)
-
-				local lp = LagSpring.p
-				local lagPosX = math.clamp(-md.X * LAG_POS_ADS, -VM_Config.adsLagPosClampX, VM_Config.adsLagPosClampX)
-				local lagPosY = math.clamp(-md.Y * LAG_POS_ADS, -VM_Config.adsLagPosClampY, VM_Config.adsLagPosClampY)
-
-				local aimOffsetCF = CFrame.new(
-					aimOffsetThing.X * VM_Config.offsetPosMul,
-					aimOffsetThing.Y * -VM_Config.offsetPosMul,
-					0
-				) * CFrame.Angles(
-					math.rad(aimOffsetThing.Y * VM_Config.offsetRotMul),
-					math.rad(aimOffsetThing.X * VM_Config.offsetRotMul),
-					0
-				)
-
-				local adsLagCF = CFrame.new(lagPosX, lagPosY, 0) * CFrame.Angles(lp.X, lp.Y, 0)
-
-				adsCarryCF = CFrame.new(
-					adsLagVelocity.X * VM_Config.adsCarryPosMul,
-					adsLagVelocity.Y * -VM_Config.adsCarryPosMul,
-					0
-				) * CFrame.Angles(
-					math.rad(adsLagVelocity.Y * VM_Config.adsCarryRotMul),
-					math.rad(adsLagVelocity.X * VM_Config.adsCarryRotMul),
-					0
-				)
-
-				lookSwayCF = aimOffsetCF * adsLagCF * adsCarryCF
-
-				local lagMax = LAG_MAX_ADS
-				LagSpring.t = Vector3.new(
-					math.clamp(-md.Y * LAG_ROT_ADS, -lagMax, lagMax),
-					math.clamp(-md.X * LAG_ROT_ADS, -lagMax, lagMax),
-					0
-				)
-
-				local lp = LagSpring.p
-				local lagPosX = math.clamp(-md.X * LAG_POS_ADS, -VM_Config.adsLagPosClampX, VM_Config.adsLagPosClampX)
-				local lagPosY = math.clamp(-md.Y * LAG_POS_ADS, -VM_Config.adsLagPosClampY, VM_Config.adsLagPosClampY)
-
-				local aimOffsetCF = CFrame.new(
-					aimOffsetThing.X * VM_Config.offsetPosMul,
-					aimOffsetThing.Y * -VM_Config.offsetPosMul,
-					0
-				) * CFrame.Angles(
-					math.rad(aimOffsetThing.Y * VM_Config.offsetRotMul),
-					math.rad(aimOffsetThing.X * VM_Config.offsetRotMul),
-					0
-				)
-
-				local adsLagCF = CFrame.new(lagPosX, lagPosY, 0) * CFrame.Angles(lp.X, lp.Y, 0)
-				lookSwayCF = aimOffsetCF * adsLagCF
-			else
-				LagSpring.t = Vector3.new()
-				
-				adsLagVelocity = adsLagVelocity:Lerp(Vector2.new(), math.clamp(step * 14, 0, 1))
-				adsCarryCF = CFrame.new()
-
-				aimOffsetThing = aimOffsetThing - (md * VM_Config.offsetSensHip)
-
-				if mdMag < VM_Config.offsetDeadzone then
-					aimOffsetThing = aimOffsetThing + Vector2.new(
-						recaimoff(aimOffsetThing.X, VM_Config.offsetReturnMinHip, VM_Config.offsetReturnMulHip, adjust),
-						recaimoff(aimOffsetThing.Y, VM_Config.offsetReturnMinHip, VM_Config.offsetReturnMulHip, adjust)
-					)
-				end
-
-				local clampAlpha = math.clamp(step * 12, 0, 1)
-				if aimOffsetThing.Magnitude > VM_Config.offsetAngleHip then
-					aimOffsetThing = aimOffsetThing:Lerp(aimOffsetThing.Unit * VM_Config.offsetAngleHip, clampAlpha)
-				end
-
-				if math.abs(aimOffsetThing.X) < 0.001 and math.abs(aimOffsetThing.Y) < 0.001 then
-					lookSwayCF = CFrame.new()
-				else
-					lookSwayCF = CFrame.new(
-						aimOffsetThing.X * VM_Config.offsetPosMul,
-						aimOffsetThing.Y * -VM_Config.offsetPosMul,
-						0
-					) * CFrame.Angles(
-						math.rad(aimOffsetThing.Y * VM_Config.offsetRotMul),
-						math.rad(aimOffsetThing.X * VM_Config.offsetRotMul),
-						0
-					)
-				end
 			end
+
+			local clampAlpha = math.clamp(step * lerpNum(12, 14, adsBlend), 0, 1)
+			if aimOffsetThing.Magnitude > angleMax then
+				aimOffsetThing = aimOffsetThing:Lerp(aimOffsetThing.Unit * angleMax, clampAlpha)
+			end
+
+			local velTarget = Vector2.new(
+				math.clamp(-md.X * VM_Config.adsVelocityBuild, -VM_Config.adsCarryClamp, VM_Config.adsCarryClamp),
+				math.clamp(-md.Y * VM_Config.adsVelocityBuild, -VM_Config.adsCarryClamp, VM_Config.adsCarryClamp)
+			) * adsBlend
+
+			adsLagVelocity = adsLagVelocity:Lerp(
+				velTarget,
+				math.clamp(step * VM_Config.adsVelocityDamp, 0, 1)
+			)
+
+			LagSpring.t = Vector3.new(
+				math.clamp(-md.Y * rotK, -lagMax, lagMax),
+				math.clamp(-md.X * rotK, -lagMax, lagMax),
+				0
+			)
+
+			local lp = LagSpring.p
+			local lagPosLimitX = lerpNum(0.045, VM_Config.adsLagPosClampX, adsBlend)
+			local lagPosLimitY = lerpNum(0.035, VM_Config.adsLagPosClampY, adsBlend)
+
+			local lagPosX = math.clamp(-md.X * posK, -lagPosLimitX, lagPosLimitX)
+			local lagPosY = math.clamp(-md.Y * posK, -lagPosLimitY, lagPosLimitY)
+
+			local aimOffsetCF = CFrame.new(
+				aimOffsetThing.X * VM_Config.offsetPosMul,
+				aimOffsetThing.Y * -VM_Config.offsetPosMul,
+				0
+			) * CFrame.Angles(
+				math.rad(aimOffsetThing.Y * VM_Config.offsetRotMul),
+				math.rad(aimOffsetThing.X * VM_Config.offsetRotMul),
+				0
+			)
+
+			local lagCF = CFrame.new(lagPosX, lagPosY, 0) * CFrame.Angles(lp.X, lp.Y, 0)
+
+			adsCarryCF = CFrame.new(
+				adsLagVelocity.X * VM_Config.adsCarryPosMul,
+				adsLagVelocity.Y * -VM_Config.adsCarryPosMul,
+				0
+			) * CFrame.Angles(
+				math.rad(adsLagVelocity.Y * VM_Config.adsCarryRotMul),
+				math.rad(adsLagVelocity.X * VM_Config.adsCarryRotMul),
+				0
+			)
+
+			lookSwayCF = donorBaseCF * aimOffsetCF * lagCF * adsCarryCF
 		end
 		
 		if donorBreathState then
@@ -3112,6 +3116,7 @@ Run.RenderStepped:Connect(function(step)
 			* maincf
 			* crouchCF
 			* strafeTiltCF
+			* turnTiltCF
 			* lookSwayCF
 			* gunbobcf
 			* breathCF
