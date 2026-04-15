@@ -1,0 +1,246 @@
+--// Services
+local ts = game:GetService('TweenService')
+
+local module = {
+	
+	--// Positioning
+		RightArmPos = CFrame.new(-0.833141267, 0.312866211, -1.55439997, 0.99999994, 0, 0, 0, -4.37113883e-08, 1, 0, -1, -4.37113883e-08);
+		LeftArmPos = CFrame.new(0.826182544, 1.10301661, -2.2378211, 0.875340223, -0.16773127, 0.453481704, -0.482962906, -0.258818835, 0.836516321, -0.0229403526, -0.951251268, -0.3075625);
+		GunPos = CFrame.new(0.204508483, -0.422405183, 1.2574358, 0.99999994, 0, 0, 0, -4.37113883e-08, -1, 0, 1, -4.37113883e-08);
+		SprintPos = CFrame.new(0, 0, 0, 0.748408914, -0.36141631, 0.556113422, 0.252163291, 0.930573106, 0.265419006, -0.613430977, -0.05841057, 0.787585199);
+	
+	--// Fake Arm Positioning
+		FakeRightPos = CFrame.new(-0.947661817, 1.14884949, -1.26904488, 1, 0, 0, 0, 1.19248806e-08, 1, 0, -1, 1.19248806e-08);
+		FakeLeftPos = CFrame.new(1.05718744, 1.83566964, -1.67744327, 0.820266843, -0.0301536806, 0.571185529, -0.56725347, -0.171009913, 0.805592358, 0.0733867958, -0.984807789, -0.157378539);
+		FakeGripPos = CFrame.new(0.157520294, -0.226234198, 0.751968384, 1, 0, 0, 0, 1.19248806e-08, -1, 0, 1, 1.19248806e-08);
+		
+	--// Ready Positions
+		ReadyHighPos = CFrame.new(0.800000012, -3, 0, 1, 1.03739011e-23, 0, -3.54808257e-24, 0.342020094, -0.939692616, -9.74827843e-24, 0.939692616, 0.342020094);
+		ReadyLowPos = CFrame.new(-0.249832153, 0.301519841, 0, 0.969846249, -0.220088065, 0.104687028, 0.173648179, 0.925416529, 0.336824059, -0.171010062, -0.308488846, 0.935729682);
+		
+	--// Ammo Config
+		Ammo = 30;
+		StoredAmmo = 30;
+		MagCount = 8;
+		ExplosiveAmmo = 3;
+		
+	--// Damage Config
+		BaseDamage = 38;
+		LimbDamage = 32;
+		ArmorDamage = 15;
+		HeadDamage = 100;
+		EShieldDamage = 10;
+		
+	-- Recoil Config
+		gunRecoilMin = 25; -- How much the gun recoils backwards when not aiming
+		gunRecoilMax = 50; -- How much the gun recoils backwards when not aiming
+		
+		AimGunRecoilMin = 7.5; -- How much the gun recoils backwards when aiming
+		AimGunRecoilMax = 15; -- How much the gun recoils backwards when aiming
+		
+		KickbackMin = 6; -- Upward gun rotation when not aiming
+		KickbackMax = 8; -- Upward gun rotation when not aiming
+		
+		AimKickbackMin = 3; -- Upward gun rotation when aiming
+		AimKickbackMax = 5; -- Upward gun rotation when aiming
+		
+		SideKickMin = -3.5;
+		SideKickMax = 3.5;
+		
+		AimSideKickMin = -2.5;
+		AimSideKickMax = 2.5;
+		
+		CamShakeMin = 5;
+		CamShakeMax = 6;
+		
+		AimCanShakeMin = 3;
+		AimCamShakeMax = 4;
+	
+	--// Handling
+		Firerate = 60 / 675; -- 60 = 1 Minute, 700 = Rounds per that 60 seconds. DO NOT TOUCH THE 60!
+	
+		FireMode = 1; -- 1 = Semi, 2 = Auto, 3 = Burst, 4 = Bolt Action, 5 = Shot, 6 = Explosive (Explosive is currently disabled)
+		
+	--// Firemode Config
+		CanSelectFire = true;
+		BurstEnabled = false;
+		SemiEnabled = true;
+		AutoEnabled = true;
+		BoltAction = false;
+		ExplosiveEnabled = false;
+		
+	--// Shot & Burst Config
+		BurstNum = 3; -- How many bullets per burst
+		ShotNum = 5; -- How many bullets per shot
+		
+	--// Aim Config
+		AimZoom = 60;
+		AltAimZoom = 60;
+		AimZoomSpeed = 0.5;
+		AimSpeedMult = 10;
+		
+	--// Mouse Config
+		MouseSensitivity = 0.5; -- Number between 0.1 and 1
+		SensitivityIncrement = 0.05; -- No touchy
+		
+	-- Tracer Config
+		TracerTransparency = 0.3;
+		TracerLightEmission = 1;
+		TracerTextureLength = 1;
+		TracerLifetime = 0.12;
+		TracerFaceCamera = true;
+		TracerColor = BrickColor.new('Deep orange');
+		
+	--// Bullet Physics
+		BulletPhysics = Vector3.new(0,55,0); -- Drop fixation: Lower number = more drop
+		BulletSpeed = 2000; -- Bullet Speed
+		BulletSpread = 0; -- How much spread the bullet has
+		
+		ExploPhysics = Vector3.new(0,20,0); -- Drop for explosive rounds
+		ExploSpeed = 600; -- Speed for explosive rounds
+		
+		BulletHopUpMult = 0.005; -- Hop up mutliplier
+		
+	--// Calculations
+		TracerChance = 60;
+		
+	--// Cosmetic
+		AntiTK = true;
+		MouseSense = 0.5;
+		
+		CanAim = true;
+		CanBolt = true;
+		CanSlideLock = false;
+		CanAutoBolt = false;
+		
+		LaserAttached = true;
+		LightAttached = true;
+		TracerEnabled = true;
+		
+		SprintWalkIntensity = 0.18;
+		SprintWalkAnimSpeed = 15;
+		
+	--// Explosive Settings
+		BlastPressue = 500000;
+		BlastRadius = 10;
+		DestroyJointRadius = 10;
+		ExplosionType = Enum.ExplosionType.NoCraters; -- Might wanna leave it like this
+		
+	--// Laser Config
+		LaserColor = BrickColor.new('Lime green');
+		LaserEmission = 1;
+		LaserInfluence = 0;
+		LaserTransparency = NumberSequence.new(0.3);
+		
+	--// Extras
+		RestMode = false;
+		AttachmentsEnabled = false;
+		UIScope = false;
+		
+	--// Keybindings
+		ADSKeybind = Enum.UserInputType.MouseButton2;
+		AltADSKey = Enum.KeyCode.Z;
+		ShootKeybind = Enum.UserInputType.MouseButton1;
+		SprintKey = Enum.KeyCode.LeftShift;
+		CycleSightKey = Enum.KeyCode.T;
+		FireSelectKey = Enum.KeyCode.V;
+		ReloadKey = Enum.KeyCode.R;
+		PatrolKey = Enum.KeyCode.P;
+		LaserKey = Enum.KeyCode.L;
+		LightKey = Enum.KeyCode.K;
+		BoltKey = Enum.KeyCode.F;
+		
+	--// Animations
+		IdleAnim = function(char, speed, objs)
+			ts:Create(objs[2],TweenInfo.new(0.25),{C1 = require(script).RightArmPos}):Play() -- require(script).FakeRightPos (For fake arms) | require(script).RightArmPos (For real arms)
+			ts:Create(objs[3],TweenInfo.new(0.25),{C1 = require(script).LeftArmPos}):Play() -- require(script).FakeLeftPos (For fake arms) | require(script).LeftArmPos (For real arms)
+			wait(0.18)	
+		end;
+		
+		FireModeAnim = function(char, speed, objs)
+			ts:Create(objs[1],TweenInfo.new(0.25),{C1 = CFrame.new(0.340285569, 0, -0.0787199363, 0.962304771, 0.271973342, 0, -0.261981696, 0.926952124, -0.268561482, -0.0730415657, 0.258437991, 0.963262498)}):Play()
+			wait(0.1)
+			ts:Create(objs[2],TweenInfo.new(0.25),{C1 = CFrame.new(0.67163527, -0.310947895, -1.34432662, 0.766044378, -2.80971371e-008, 0.642787576, -0.620885074, -0.258818865, 0.739942133, 0.166365519, -0.965925872, -0.198266774)}):Play()
+			wait(0.25)
+			objs[4]:WaitForChild("Click"):Play()		
+		end;
+		
+		ReloadAnim = function(char, speed, objs)
+			ts:Create(objs[2],TweenInfo.new(0.5),{C1 = CFrame.new(-1.13045335, -0.385085344, -1.60160995, 0.996194661, -0.0871555507, -3.8096899e-09, -0.0435778052, -0.498097777, 0.866025209, -0.0754788965, -0.862729728, -0.500000358)}):Play()
+			ts:Create(objs[3],TweenInfo.new(0.5),{C1 = CFrame.new(0.306991339, 0.173449978, -2.47386241, 0.596156955, -0.666716337, 0.447309881, -0.79129082, -0.393649101, 0.4678666, -0.135851175, -0.632874191, -0.762243152)}):Play()
+			wait(0.5)		
+			
+			local MagC = objs[4]:clone()
+			MagC:FindFirstChild("Mag"):Destroy()
+			MagC.Parent = objs[10]
+			MagC.Name = "MagC"
+			local MagCW = Instance.new("Motor6D")
+			MagCW.Part0 = MagC
+			MagCW.Part1 = objs[5]
+			MagCW.Parent = MagC
+			MagCW.C1 = MagC.CFrame:toObjectSpace(objs[4].CFrame)
+			objs[4].Transparency = 1
+			
+			objs[6]:WaitForChild("MagOut"):Play()		
+			
+			ts:Create(objs[3],TweenInfo.new(0.4),{C1 = CFrame.new(-0.0507154427, -0.345223904, -3.19228816, 0.625797808, -0.752114773, 0.206640378, -0.779792726, -0.609173417, 0.144329756, 0.0173272491, -0.2514579, -0.967713058)}):Play()
+			ts:Create(objs[2],TweenInfo.new(0.13),{C1 = CFrame.new(-1.13045335, -0.385085344, -1.63183177, 0.996194661, -0.0871555507, -3.8096899e-09, -0.0435778052, -0.498097777, 0.866025209, -0.0754788965, -0.862729728, -0.500000358)}):Play()
+			wait(0.1)
+			ts:Create(objs[2],TweenInfo.new(0.4),{C1 = CFrame.new(-1.13045335, -0.385085344, -1.60160995, 0.996194661, -0.0871555507, -3.8096899e-09, -0.0435778052, -0.498097777, 0.866025209, -0.0754788965, -0.862729728, -0.500000358)}):Play()
+			ts:Create(objs[3],TweenInfo.new(0.5),{C1 = CFrame.new(-0.0507154427, -0.345223933, -3.1922884, 0.625797808, -0.752114773, 0.206640378, 0.0507019535, 0.303593874, 0.95145148, -0.778335571, -0.584939361, 0.2281221)}):Play()
+			wait(0.55)
+			ts:Create(objs[3],TweenInfo.new(0.3),{C1 = CFrame.new(-1.23319471, 0.238857567, -2.20046425, 0.360941499, -0.928539753, -0.0868042335, -0.476528496, -0.263641387, 0.838697612, -0.801649332, -0.261356145, -0.53763473)}):Play()
+			wait(0.22)
+			ts:Create(objs[3],TweenInfo.new(0.3),{C1 = CFrame.new(-0.0507154427, -0.345223904, -3.19228816, 0.625797808, -0.752114773, 0.206640378, -0.779792726, -0.609173417, 0.144329756, 0.0173272491, -0.2514579, -0.967713058)}):Play()
+			wait(0.22)
+			objs[6]:WaitForChild('MagIn'):Play()
+			ts:Create(objs[3],TweenInfo.new(0.2),{C1 = CFrame.new(0.306991339, 0.173449978, -2.47386241, 0.596156955, -0.666716337, 0.447309881, -0.79129082, -0.393649101, 0.4678666, -0.135851175, -0.632874191, -0.762243152)}):Play()
+			wait(0.16)
+			ts:Create(objs[2],TweenInfo.new(0.13),{C1 = CFrame.new(-1.13045335, -0.385085344, -1.51256108, 0.996194661, -0.0871555507, -3.8096899e-09, -0.0435778052, -0.498097777, 0.866025209, -0.0754788965, -0.862729728, -0.500000358)}):Play()
+			ts:Create(objs[3],TweenInfo.new(0.13),{C1 = CFrame.new(0.306991339, 0.173449978, -2.37906742, 0.596156955, -0.666716337, 0.447309881, -0.79129082, -0.393649101, 0.4678666, -0.135851175, -0.632874191, -0.762243152)}):Play()
+			wait(0.13)
+			MagC:Destroy()
+			objs[4].Transparency = 0
+		end;
+	
+		BoltBackAnim = function(char, speed, objs)
+			ts:Create(objs[2],TweenInfo.new(0.25),{C1 = CFrame.new(3.2014575, 1.10301661, -1.19121003, 0.320940822, 0.836516321, 0.444114089, -0.482962906, -0.258818835, 0.836516321, 0.814704716, -0.482962877, 0.320940852)}):Play()
+			wait(0.22)
+			ts:Create(objs[2],TweenInfo.new(0.3),{C1 = CFrame.new(2.63384938, -0.0903588682, -1.19711852, -0.0405084118, 0.759578288, 0.649153113, 0.0395737551, -0.647956908, 0.760648131, 0.998395205, 0.0565021634, -0.00381159782)}):Play()
+			wait(0.3)
+			objs[5]:WaitForChild("BoltBack"):Play()
+			ts:Create(objs[2],TweenInfo.new(0.25),{C1 = CFrame.new(2.28108859, -0.546037257, -1.19711852, -0.0405084118, 0.759578288, 0.649153113, 0.0395737551, -0.647956908, 0.760648131, 0.998395205, 0.0565021634, -0.00381159782)}):Play()
+			ts:Create(objs[1],TweenInfo.new(0.25),{C1 = CFrame.new(0, 0, 0.443086326, 1, 0, 0, 0, 1, 0, 0, 0, 1)}):Play()
+			ts:Create(objs[3],TweenInfo.new(0.25),{C1 = CFrame.new(-0.833141267, 0.188900679, -1.55439997, 0.99999994, 0, 0, 0, -4.37113883e-08, 1, 0, -1, -4.37113883e-08)}):Play()
+			wait(0.3)
+		end;
+		
+		BoltForwardAnim = function(char, speed, objs)
+			objs[5]:WaitForChild("BoltForward"):Play()
+			ts:Create(objs[1],TweenInfo.new(0.1),{C1 = CFrame.new()}):Play()
+			ts:Create(objs[2],TweenInfo.new(0.1),{C1 = CFrame.new(2.28108859, -0.907933652, -1.19711852, -0.0405084118, 0.759578288, 0.649153113, 0.0395737551, -0.647956908, 0.760648131, 0.998395205, 0.0565021634, -0.00381159782)}):Play()
+			ts:Create(objs[3],TweenInfo.new(0.2),{C1 = CFrame.new(-0.833141267, 0.436835587, -1.55439997, 0.99999994, 0, 0, 0, -4.37113883e-08, 1, 0, -1, -4.37113883e-08)}):Play()
+			wait(0.2)
+			ts:Create(objs[2],TweenInfo.new(0.25),{C1 = CFrame.new(3.2014575, 1.10301661, -1.19121003, 0.320940822, 0.836516321, 0.444114089, -0.482962906, -0.258818835, 0.836516321, 0.814704716, -0.482962877, 0.320940852)}):Play()
+			wait(0.22)
+		end;
+		
+		BoltingBackAnim = function(char, speed, objs)
+			ts:Create(objs[1],TweenInfo.new(0.1),{C1 = CFrame.new(0, 0, 0.443086326, 1, 0, 0, 0, 1, 0, 0, 0, 1)}):Play()
+		end;
+		
+		BoltingForwardAnim = function(char, speed, objs)
+			ts:Create(objs[1],TweenInfo.new(0.1),{C1 = CFrame.new()}):Play()
+		end;
+		
+		nadeReload = function(char, speed, objs)
+			ts:Create(objs[1], TweenInfo.new(0.6), {C1 = CFrame.new(-0.902175903, -1.15645337, -1.32277012, 0.984807789, -0.163175702, -0.0593911409, 0, -0.342020363, 0.939692557, -0.17364797, -0.925416529, -0.336824328)}):Play()
+			ts:Create(objs[2], TweenInfo.new(0.6), {C1 = CFrame.new(0.805950999, 0.654529691, -1.92835355, 0.787567914, -0.220087856, 0.575584888, -0.323594928, 0.647189975, 0.690240026, -0.524426222, -0.72986728, 0.438486755)}):Play()
+			wait(0.6)
+			ts:Create(objs[2], TweenInfo.new(0.6), {C1 = CFrame.new(0.805950999, 0.559619546, -1.73060048, 0.802135408, -0.348581612, 0.484839559, -0.597102284, -0.477574915, 0.644508123, 0.00688350201, -0.806481719, -0.59121877)}):Play()
+			wait(0.6)		
+		end;
+	
+	}
+
+return module
