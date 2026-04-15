@@ -1,0 +1,3629 @@
+
+repeat
+	wait()
+until game.Players.LocalPlayer.Character
+--// Variables
+local L_1_ = game.Players.LocalPlayer
+local L_2_ = L_1_.Character
+local L_3_ = workspace.CurrentCamera
+local L_4_ = L_1_:GetMouse()
+
+local L_5_ = game.ReplicatedStorage:WaitForChild('CarbonResource')
+local L_6_ = L_5_:WaitForChild('Events')
+local L_7_ = L_5_:WaitForChild('FX')
+local L_8_ = L_5_:WaitForChild('Models')
+local L_9_ = L_8_:WaitForChild('Client')
+local L_10_ = L_8_:WaitForChild('Server')
+local L_11_ = L_5_:WaitForChild('HUD')
+local L_12_ = L_5_:WaitForChild('Global')
+local L_13_ = L_5_:WaitForChild('Modules')
+local L_14_
+local L_15_ = nil
+
+--// Services
+local L_16_ = game:GetService('TweenService')
+local L_17_ = game:GetService('RunService').RenderStepped
+local L_18_ = game:GetService('UserInputService')
+
+--// Tables
+local L_19_ = 
+{
+	--// Body Parts
+	head = L_2_:WaitForChild('Head');
+	torso = L_2_:WaitForChild('Torso');
+	rightArm = L_2_:WaitForChild('Right Arm');
+	leftArm = L_2_:WaitForChild('Left Arm');
+	rightLeg = L_2_:WaitForChild('Right Leg');
+	leftLeg = L_2_:WaitForChild('Left Leg');
+	rootPart = L_2_:WaitForChild('HumanoidRootPart');
+	humanoid = L_2_:WaitForChild('Humanoid');
+	
+	--// Body Joints
+	neck = L_2_.Torso:WaitForChild('Neck');
+	rightShoulder = L_2_.Torso:WaitForChild('Right Shoulder');
+	leftShoulder = L_2_.Torso:WaitForChild('Left Shoulder');
+	rightHip = L_2_.Torso:WaitForChild('Right Hip');
+	leftHip = L_2_.Torso:WaitForChild('Left Hip');
+	rootJoint = L_2_.HumanoidRootPart:WaitForChild('RootJoint')
+}
+
+local L_20_ = 
+{
+	globalConfig = require(L_12_:WaitForChild('GlobalConfig'));
+	ignoreModule = require(L_13_:WaitForChild('IgnoreModule'));
+	ragdollModule = require(L_13_:WaitForChild('Ragdoll'));
+	setupModule = require(L_13_:WaitForChild('SetupModule'));
+	springModule = require(L_13_:WaitForChild('Spring'));
+	utilitiesModule = require(L_13_:WaitForChild('Utilities'));
+}
+
+local L_21_ = 
+{
+	equipEvent = L_6_:WaitForChild('Equip');
+	updateCharEvent = L_6_:WaitForChild('UpdateChar');
+	halfStepEvent = L_6_:WaitForChild('HalfStep');
+	damageEvent = L_6_:WaitForChild('DamageEvent');
+	whizEvent = L_6_:WaitForChild('WhizEvent');
+	hitEvent = L_6_:WaitForChild('HitEvent');
+	flybyEvent = L_6_:WaitForChild('flybyEvent');
+	serverFXEvent = L_6_:WaitForChild('ServerFXEvent');
+	storeDataEvent = L_6_:WaitForChild('StoreData');
+	createOwnerEvent = L_6_:WaitForChild('CreateOwner');
+	manipEvent = L_6_:WaitForChild('ManipEvent');
+	resupplyEvent = L_6_:WaitForChild('ResupplyEvent');
+	medEvent = L_6_:WaitForChild('MedEvent');
+}
+
+local L_22_ = 
+{
+	tool = nil;
+	curModel = nil;
+	curConfig = nil;
+	aimSFX = nil;
+	RA = nil;
+	RAW = nil;
+	LA = nil;
+	LAW = nil;
+	NeckCW = nil;
+	AnimBase = nil;
+	AnimBaseW = nil;
+	BasePart = nil;
+	ArmModel = nil;
+	Grip = nil;
+	GripW = nil;
+	AimPart = nil;
+	AimPart2 = nil;
+	CurAimPart = nil;
+	FirePart = nil;
+	Bolt = nil;
+	BoltW = nil;
+	Mag = nil;
+	
+	--// Hud Section
+	hud = nil;
+	mainFrame = nil;
+	mode1 = nil;
+	mode2 = nil;
+	mode3 = nil;
+	mode4 = nil;
+	mode5 = nil;
+	ammoDisplay = nil;
+	magCountDisplay = nil;
+	title = nil;
+	stanceDisplay = nil;
+	weapDisplay = nil;
+	intenseShade = nil;
+	painShade = nil;
+	
+	menuFrame = nil;
+	optionButton = nil;
+	keybindButton = nil;
+	patchButton = nil;
+	storeButton = nil;
+	menuButton = nil;
+	sensDisplay = nil;
+	
+	--// Ammo Section
+	Ammo = 30;
+	StoredAmmo = 30;
+	
+	--// Firing Mechanics
+	FireMode = 0;
+	
+	--// MISC
+	baseWalkspeed = 16;
+	aimWalkSpeed = 9;
+	StanceIndex = 0;
+	
+	Recoiling = false;
+	RecoilFront = false;
+	Seated = false;
+	HalfStep = true;
+	MouseHeld = false;
+	CanShoot = false;
+	
+	newCamOffset = CFrame.new();
+	camC0 = Vector3.new();
+	camC1 = CFrame.new();
+	
+	origSens = L_18_.MouseDeltaSensitivity;
+	baseSens = 1;
+	aimSens = 1;
+	
+	--// Modes
+	readyMode = 0;
+	curZoom = nil;
+	
+	queued = nil;
+}
+
+local L_23_ = 
+{
+	swayCF = CFrame.new();
+	Sensitivity = 0.6;
+	Delta = 0.2;
+	Multiplier = -0.3;
+	desiredXOffset = 0;
+	desiredYOffset = 0;
+	swayInputLimit = 35;
+	hipSway = 12;
+	aimSway = 5;
+	gunSway = L_20_.springModule.new(Vector3.new());
+	movinganim = CFrame.new();
+	camanim = CFrame.new();
+	walkTick = 0;
+	walkAnimIntensity = 0.08;
+	walkAnimSpeed = 12;
+	idleTick = 0;
+	idleAnimation = CFrame.new();
+	idleIntensity = 0.1;
+	idleSpeed = 2;
+	deltaX = 0;
+	deltaY = 0;
+	oc1 = nil;
+	oc0 = nil;
+}
+
+local L_24_ = {
+	
+	2211580202;
+	2211580297;
+	2211580374;
+	2211580446;
+	
+}
+
+local L_25_ = {
+	
+	2211580506;
+	2211580587;
+	2211580721;
+	2211580791;
+	
+}
+
+local L_26_ = {
+	
+	L_2_;
+	L_14_;
+	L_3_;
+		
+}
+
+local L_27_ = {
+	
+	L_2_;
+	L_14_;
+	L_3_;
+		
+}
+
+--// Springs
+local L_28_ = {}
+L_28_.recoilSpring = L_20_.springModule.new(Vector3.new())
+L_28_.recoilSpring.s = 45
+L_28_.recoilSpring.d = 0.45
+
+L_28_.recoilSpring2 = L_20_.springModule.new(Vector3.new())
+L_28_.recoilSpring2.s = 35
+L_28_.recoilSpring2.d = 0.45
+
+L_28_.cornerPeek = L_20_.springModule.new(0)
+L_28_.cornerPeek.d = 0.8
+L_28_.cornerPeek.s = 16
+L_28_.peekFactor = math.rad(10)
+L_28_.dirPeek = 0
+
+--// Declarables
+local L_29_ = false;
+local L_30_ = false;
+local L_31_ = false;
+local L_32_ = false;
+local L_33_ = false;
+local L_34_ = false;
+local L_35_ = false;
+local L_36_ = false;
+local L_37_ = false;
+local L_38_ = false;
+local L_39_ = false;
+local L_40_ = false
+local L_41_ = false
+local L_42_ = false
+local L_43_ = false
+local L_44_ = false
+local L_45_ = L_2_:WaitForChild('Humanoid').Health
+local L_46_ = false
+local L_47_ = 'Option'
+local L_48_ = false
+local L_49_ = false
+local L_50_ = false
+local L_51_ = false
+local L_52_ = true
+
+local L_53_
+local L_54_
+local L_55_
+local L_56_ = 9999
+local L_57_
+
+local L_58_ = 'None'
+
+--// Init
+L_22_.hud = L_11_:WaitForChild('WeaponHUD'):clone()
+L_22_.hud.Parent = L_1_.PlayerGui
+L_22_.mainFrame = L_22_.hud:WaitForChild('MainFrame')
+L_22_.mainFrame.Visible = false
+L_22_.mode1 = L_22_.mainFrame:WaitForChild('Mode1')
+L_22_.mode2 = L_22_.mainFrame:WaitForChild('Mode2')
+L_22_.mode3 = L_22_.mainFrame:WaitForChild('Mode3')
+L_22_.mode4 = L_22_.mainFrame:WaitForChild('Mode4')
+L_22_.mode5 = L_22_.mainFrame:WaitForChild('Mode5')
+L_22_.ammoDisplay = L_22_.mainFrame:WaitForChild('Ammo')
+L_22_.magCountDisplay = L_22_.mainFrame:WaitForChild('MagCount')
+L_22_.title = L_22_.mainFrame:WaitForChild('Title')
+L_22_.stanceDisplay = L_22_.mainFrame:WaitForChild('Stances')
+L_22_.weapDisplay = L_22_.mainFrame:WaitForChild('WeapDisplay')
+L_22_.intenseShade = L_22_.hud:WaitForChild('Intense')
+L_22_.painShade = L_22_.hud:WaitForChild('Pain')
+L_22_.sensDisplay = L_22_.mainFrame:WaitForChild('Sensitivity')
+
+L_22_.menuFrame = L_22_.hud:WaitForChild('MenuFrame')
+L_22_.optionButton = L_22_.menuFrame:WaitForChild('Buttons'):WaitForChild('OptionButton')
+L_22_.keybindButton = L_22_.menuFrame:WaitForChild('Buttons'):WaitForChild('KeybindButton')
+L_22_.patchButton = L_22_.menuFrame:WaitForChild('Buttons'):WaitForChild('PatchButton')
+L_22_.storeButton = L_22_.menuFrame:WaitForChild('Buttons'):WaitForChild('StoreButton')
+
+L_22_.menuButton = L_22_.hud:WaitForChild('MenuButton')
+
+--// Sensitivity Init
+L_52_ = L_20_.globalConfig.CanHeal
+
+local L_59_ = game.ReplicatedStorage:FindFirstChild(L_1_.UserId .. 'Sensi') or Instance.new('Folder')
+L_59_.Name = L_1_.UserId .. 'Sensi'
+L_59_.Parent = game.ReplicatedStorage
+local L_60_ = L_59_:FindFirstChild('BaseSens') or Instance.new('NumberValue')
+L_60_.Parent = L_59_
+L_60_.Name = 'BaseSens'
+local L_61_ = L_59_:FindFirstChild('AimSens') or Instance.new('NumberValue')
+L_61_.Parent = L_59_
+L_61_.Name = 'AimSens'
+
+if L_60_.Value ~= 0 then
+	L_22_.baseSens = L_60_.Value
+else
+	L_60_.Value = L_22_.baseSens
+end;
+
+if L_61_.Value ~= 0 then
+	L_22_.aimSens = L_61_.Value
+else
+	L_61_.Value = L_22_.aimSens
+end;
+
+L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('Option'):WaitForChild('BaseSens'):WaitForChild('Context').Text = L_22_.baseSens
+L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('Option'):WaitForChild('AimSens'):WaitForChild('Context').Text = L_22_.aimSens
+
+--// Functions
+function EquipModel(L_63_arg1)
+	L_30_ = true
+	L_22_.mainFrame.Visible = true	
+	L_14_ = workspace:WaitForChild('BulletModel') or Instance.new('Folder')
+	L_14_.Name = 'BulletModel'
+	L_14_.Parent = workspace
+	L_1_.CameraMaxZoomDistance = 0.5
+	L_4_.TargetFilter = workspace
+	L_18_.MouseBehavior = Enum.MouseBehavior.LockCenter
+	L_18_.MouseIconEnabled = false
+	
+	L_22_.tool = L_63_arg1
+	
+	L_22_.ArmModel = L_3_:FindFirstChild('ArmModel') or Instance.new('Model')
+	L_22_.ArmModel.Name = 'ArmModel'
+	L_22_.ArmModel.Parent = L_3_
+	
+	L_22_.BasePart = Instance.new('Part')
+	L_22_.BasePart.Name = 'BasePart'
+	L_22_.BasePart.Parent = L_22_.ArmModel
+	L_22_.BasePart.Anchored = true
+	L_22_.BasePart.CanCollide = false
+	L_22_.BasePart.Transparency = 1
+	L_22_.BasePart.Size = Vector3.new(0.1, 0.1, 0.1)
+	
+	L_22_.AnimBase = Instance.new('Part')
+	L_22_.AnimBase.Name = 'AnimBase'
+	L_22_.AnimBase.Parent = L_22_.ArmModel
+	L_22_.AnimBase.Anchored = true
+	L_22_.AnimBase.CanCollide = false
+	L_22_.AnimBase.Transparency = 1
+	L_22_.AnimBase.Size = Vector3.new(0.1, 0.1, 0.1)
+	
+	L_22_.AnimBaseW = Instance.new('Motor6D')
+	L_22_.AnimBaseW.Parent = L_22_.AnimBase
+	L_22_.AnimBaseW.Name = 'AnimBaseW'
+	L_22_.AnimBaseW.Part0 = L_22_.AnimBase
+	L_22_.AnimBaseW.Part1 = L_22_.BasePart
+	L_22_.AnimBase.Anchored = false
+	
+	L_22_.curModel = L_9_:WaitForChild(L_63_arg1.Name):clone()
+	L_22_.curModel.Parent = L_22_.ArmModel
+	L_22_.curConfig = require(L_22_.tool:WaitForChild('ConfigMods'):WaitForChild('CConfig'))
+	
+	local L_64_ = {}
+	
+	for L_77_forvar1, L_78_forvar2 in pairs(L_22_.curModel:GetChildren()) do
+		local L_79_	
+		if L_78_forvar2:IsA('BasePart') and L_78_forvar2.Name ~= 'Grip' then
+			if string.match(L_78_forvar2.Name, 'Hinge') then
+				L_79_ = string.sub(L_78_forvar2.Name, 6, string.len(L_78_forvar2.Name))
+			end
+				
+			if L_78_forvar2.Name ~= L_79_ then
+				L_20_.utilitiesModule.Weld(L_78_forvar2, L_22_.curModel:WaitForChild("Grip"))
+			end
+			
+			if L_78_forvar2.Name == L_79_ then
+				if L_22_.curModel:FindFirstChild('Hinge' .. L_79_) then
+					L_20_.utilitiesModule.Weld(L_78_forvar2, L_22_.curModel:WaitForChild('Hinge' .. L_79_))
+				else
+					L_20_.utilitiesModule.Weld(L_78_forvar2, L_22_.curModel:WaitForChild('Grip'))
+				end
+			end
+		end
+	end;
+	
+	for L_80_forvar1, L_81_forvar2 in pairs(L_22_.curModel:GetChildren()) do
+		if L_81_forvar2:IsA('BasePart') and L_81_forvar2.Name ~= 'Grip' then
+			L_81_forvar2.Anchored = false
+			L_81_forvar2.CanCollide = false
+		end
+	end;
+	
+	L_22_.RAW, L_22_.LAW, L_22_.RA, L_22_.LA, L_22_.Grip, L_22_.GripW = L_20_.setupModule(L_22_.ArmModel, L_2_, L_22_.AnimBase, L_22_.curConfig, L_22_.curModel)
+
+	L_22_.NeckCW = Instance.new('Motor6D')
+	L_22_.NeckCW.Name = 'Clone'
+	L_22_.NeckCW.Parent =  L_19_.torso
+	L_22_.NeckCW.Part0 =  L_19_.rootPart
+	L_22_.NeckCW.Part1 =  L_19_.head
+	L_22_.NeckCW.C0 = L_19_.neck.C0
+	L_22_.NeckCW.C1 = L_19_.neck.C1
+	
+	L_22_.AimPart = L_22_.curModel:WaitForChild('AimPart')
+	L_22_.AimPart2 = L_22_.curModel:FindFirstChild('AimPart2') or nil
+	L_22_.CurAimPart = L_22_.AimPart
+	L_22_.FirePart = L_22_.curModel:WaitForChild('FirePart')
+	L_22_.Bolt = L_22_.curModel:WaitForChild('Bolt');
+	L_22_.BoltW = L_22_.Bolt:WaitForChild('Bolt');
+	L_22_.Mag = L_22_.curModel:WaitForChild('Mag')
+	
+	L_22_.curZoom = L_22_.curConfig.AimZoom
+	
+	local L_65_ = L_7_:WaitForChild('EquipSound'):clone()
+	L_65_.Parent = L_1_.PlayerGui
+	L_65_:Play()
+	game.Debris:AddItem(L_65_, L_65_.TimeLength)
+	
+	L_22_.aimSFX = L_1_.PlayerGui:FindFirstChild('AimSFX') or Instance.new('Sound')
+	L_22_.aimSFX.Name = 'AimSFX'
+	L_22_.aimSFX.Parent = L_1_.PlayerGui
+	
+	local L_66_, L_67_, L_68_, L_69_, L_70_, L_71_, L_72_, L_73_, L_74_ = L_21_.storeDataEvent:InvokeServer('Retrieve', L_22_.tool.Name, L_22_.curConfig.Ammo, (L_22_.curConfig.StoredAmmo * L_22_.curConfig.MagCount), L_22_.curConfig.ExplosiveAmmo, L_22_.curConfig.FireMode, L_22_.curConfig.MouseSensitivity, 1)
+	
+	if L_66_ then
+		L_22_.Ammo = L_67_
+		L_22_.StoredAmmo = L_68_
+		--ExplosiveAmmo = explosiveAmmo
+		L_22_.FireMode = L_70_
+		L_22_.CanShoot = L_73_
+	else
+		L_22_.Ammo = L_22_.curConfig.Ammo
+		L_22_.StoredAmmo = L_22_.curConfig.StoredAmmo * L_22_.curConfig.MagCount
+		--ExplosiveAmmo = config.ExplosiveAmmo
+		L_22_.FireMode = L_22_.curConfig.FireMode
+		L_22_.CanShoot = false
+	end
+	
+	local L_75_ = L_9_:WaitForChild(L_22_.curModel.Name):clone()
+	L_75_.Parent = L_22_.weapDisplay
+	L_75_.PrimaryPart = L_75_:WaitForChild('Grip')
+	
+	for L_82_forvar1, L_83_forvar2 in pairs(L_75_:GetDescendants()) do
+		if L_83_forvar2 and L_83_forvar2:IsA('BasePart') then
+			L_83_forvar2.BrickColor = BrickColor.new('Institutional white')
+			L_83_forvar2.Material = Enum.Material.SmoothPlastic
+			
+			if L_83_forvar2:IsA('UnionOperation') then
+				L_83_forvar2.UsePartColor = true
+			end
+		end
+	end
+	
+	local L_76_ = Instance.new('Camera')
+	L_22_.weapDisplay.CurrentCamera = L_76_
+	L_76_.Parent = L_22_.weapDisplay
+	L_76_.CFrame = CFrame.new(10, 10, 10) * CFrame.Angles(10, 10, 10)
+	L_16_:Create(L_76_, TweenInfo.new(0.5), {
+		CFrame = L_75_.PrimaryPart.CFrame * CFrame.new(-2, 0, -0.4) * CFrame.Angles(0, math.rad(-90), 0)
+	}):Play()
+	--newCam.CFrame = newWeap.PrimaryPart.CFrame * CFrame.new(-2,0,-0.4) * CFrame.Angles(0,math.rad(-90),0)
+	
+	if L_50_ then
+		L_50_ = false
+		L_22_.Ammo = L_22_.curConfig.Ammo
+		L_22_.StoredAmmo = L_22_.curConfig.StoredAmmo * L_22_.curConfig.MagCount
+	end;
+	
+	UpdateAmmo()
+
+	L_21_.equipEvent:FireServer(true, L_22_.tool.Name)
+	L_30_ = false
+	L_29_ = true
+end;
+
+function UnequipModel()
+	if L_22_.ArmModel and L_22_.curConfig then
+		L_30_ = true
+		L_28_.dirPeek = 0
+		Lean()
+		L_22_.mainFrame.Visible = false
+		L_22_.weapDisplay:ClearAllChildren()
+		local L_84_ = L_7_:WaitForChild('UnequipSound'):clone()
+		L_84_.Parent = L_1_.PlayerGui
+		L_84_:Play()
+		game.Debris:AddItem(L_84_, L_84_.TimeLength)
+		L_22_.ArmModel:Destroy();
+		L_22_.curModel = nil;
+		L_22_.curConfig = nil;
+		L_22_.RA:Destroy();
+		L_22_.RAW:Destroy();
+		L_22_.LA:Destroy();
+		L_22_.LAW:Destroy();
+		L_22_.NeckCW:Destroy();
+		L_22_.AnimBase = nil;
+		L_22_.AnimBaseW = nil;
+		L_22_.BasePart:Destroy();
+		L_22_.Grip = nil;
+		L_22_.GripW:Destroy();
+		L_22_.aimSFX:Destroy()
+		
+		L_32_ = false
+		L_33_ = false
+		L_36_ = false
+		L_37_ = false
+		L_48_ = false
+		
+		L_18_.MouseBehavior = Enum.MouseBehavior.Default
+		L_18_.MouseIconEnabled = true
+		L_3_.CameraType = Enum.CameraType.Custom
+		L_1_.CameraMaxZoomDistance = game.StarterPlayer.CameraMaxZoomDistance
+		
+		if L_34_ and not L_20_.globalConfig.UniversalStances then
+			L_19_.humanoid.WalkSpeed = 16
+			L_22_.StanceIndex = 0
+			changeStance()		
+		end
+		
+		L_16_:Create(L_3_, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
+			FieldOfView = 70
+		}):Play()
+		
+		L_21_.storeDataEvent:InvokeServer('Store', L_22_.tool.Name, L_22_.Ammo, L_22_.StoredAmmo, 0, L_22_.FireMode, 0, 0, L_22_.CanShoot, L_41_) -- The Zero is explosive Mouse sense then UnaimedMouseSnse
+		L_21_.equipEvent:FireServer(false, L_22_.tool.Name, L_22_.tool:WaitForChild('ConfigMods'):WaitForChild('SConfig'))
+		L_30_ = false
+		L_29_ = false
+		L_41_ = false
+		L_18_.MouseDeltaSensitivity = L_22_.origSens
+		L_19_.humanoid.WalkSpeed = 16
+		
+		if L_53_ then
+			L_53_:Destroy()
+		end
+		
+		if L_54_ then
+			L_54_:Destroy()
+		end
+		
+		if L_55_ then
+			L_55_:Destroy()
+		end
+		
+		if L_57_ then
+			L_57_:Destroy()	
+		end
+		
+		L_51_ = false
+	end
+end;
+
+function ChangeReady()
+	if L_22_.curConfig then
+		if L_32_ then
+			Aim(false, true)
+		end
+		
+		if L_33_ then
+			Sprint(false)
+		end
+		
+		if L_38_ then
+			L_38_ = false
+		end
+		
+		if L_22_.readyMode == 0 then
+			L_35_ = false
+			L_21_.updateCharEvent:FireServer('Idle', true)
+		elseif L_22_.readyMode == 1 then
+			L_35_ = true
+			L_16_:Create(L_22_.AnimBaseW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+				C1 = L_22_.curConfig.ReadyHighPos
+			}):Play()
+			L_21_.updateCharEvent:FireServer('ReadyHigh', true)
+		elseif L_22_.readyMode == -1 then
+			L_35_ = true
+			L_16_:Create(L_22_.AnimBaseW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+				C1 = L_22_.curConfig.ReadyLowPos
+			}):Play() -- CFrame.new(0.277981758, 0.244040087, -0.174667343, 0.642787635, -0.383022219, 0.663413942, 0.133022055, 0.908677936, 0.395739198, -0.754406512, -0.166127577, 0.635037363)
+			L_21_.updateCharEvent:FireServer('ReadyLow', true)
+		end
+	end;
+end;
+
+function Aim(L_85_arg1, L_86_arg2)
+	if L_22_.curConfig then
+		if L_85_arg1 then
+			if L_33_ then
+				Sprint(false)
+			end
+			
+			if L_35_ then
+				L_22_.readyMode = 0
+				ChangeReady()
+			end
+			
+			if L_38_ then
+				L_38_ = false
+			end
+			
+			if L_86_arg2 then
+				L_21_.updateCharEvent:FireServer('Aim', true)
+			end
+			
+			L_22_.aimSFX.SoundId = 'rbxassetid://' .. L_24_[math.random(1, #L_24_)]
+			L_22_.aimSFX:Play()
+			L_16_:Create(L_3_, TweenInfo.new(L_22_.curConfig.AimZoomSpeed, Enum.EasingStyle.Quad), {
+				FieldOfView = L_22_.curZoom
+			}):Play()
+			L_32_ = true
+		else
+			L_21_.updateCharEvent:FireServer('Aim', false)
+			L_22_.aimSFX.SoundId = 'rbxassetid://' .. L_25_[math.random(1, #L_25_)]
+			L_22_.aimSFX:Play()
+			L_16_:Create(L_3_, TweenInfo.new(L_22_.curConfig.AimZoomSpeed, Enum.EasingStyle.Quad), {
+				FieldOfView = 70
+			}):Play()
+			L_32_ = false
+			L_23_.walkAnimIntensity = L_20_.globalConfig.WalkIntensity
+			L_23_.walkAnimSpeed = L_20_.globalConfig.WalkAnimSpeed
+		end
+	end;
+end;
+
+function Sprint(L_87_arg1)
+	if L_22_.curConfig then
+		if L_87_arg1 and L_31_ then
+			if L_32_ then
+				Aim(false, true)
+			end
+			
+			L_28_.dirPeek = 0
+			Lean()
+			
+			L_16_:Create(L_3_, TweenInfo.new(L_22_.curConfig.AimZoomSpeed, Enum.EasingStyle.Quad), {
+				FieldOfView = 70
+			}):Play()
+			
+			if L_35_ then
+				L_22_.readyMode = 0
+				ChangeReady()
+			end
+			
+			if L_38_ then
+				L_38_ = false
+			end
+			
+			L_21_.updateCharEvent:FireServer('Sprint', true)
+			
+			L_33_ = true
+			L_23_.walkAnimIntensity = L_22_.curConfig.SprintWalkIntensity
+			L_23_.walkAnimSpeed = L_22_.curConfig.SprintWalkAnimSpeed
+		else
+			L_21_.updateCharEvent:FireServer('Sprint', false)
+			L_33_ = false
+			L_23_.walkAnimIntensity = L_20_.globalConfig.WalkIntensity
+			L_23_.walkAnimSpeed = L_20_.globalConfig.WalkAnimSpeed
+			L_23_.idleSpeed = 2
+		end
+	end;
+end;
+
+function CalculateRecoil()
+	if L_22_.curConfig then
+		local L_88_
+		local L_89_
+		local L_90_
+		
+		if not L_32_ then
+			if not L_34_ then
+				L_88_ = math.rad(math.random(L_22_.curConfig.SideKickMin, L_22_.curConfig.SideKickMax))
+				L_89_ = math.random(L_22_.curConfig.gunRecoilMin, L_22_.curConfig.gunRecoilMax)
+				L_90_ = math.rad(math.random(L_22_.curConfig.KickbackMin, L_22_.curConfig.KickbackMax))
+			elseif L_34_ then
+				if L_22_.StanceIndex == 1 then
+					L_88_ = math.rad(math.random(L_22_.curConfig.SideKickMin / 1.5, L_22_.curConfig.SideKickMax / 1.5))
+					L_89_ = math.random(L_22_.curConfig.gunRecoilMin / 1.5, L_22_.curConfig.gunRecoilMax / 1.5)
+					L_90_ = math.rad(math.random(L_22_.curConfig.KickbackMin / 1.5, L_22_.curConfig.KickbackMax / 1.5))
+				end
+				
+				if L_22_.StanceIndex == 2 then
+					L_88_ = math.rad(math.random(L_22_.curConfig.SideKickMin / 2, L_22_.curConfig.SideKickMax / 2))
+					L_89_ = math.random(L_22_.curConfig.gunRecoilMin / 2, L_22_.curConfig.gunRecoilMax / 2)
+					L_90_ = math.rad(math.random(L_22_.curConfig.KickbackMin / 2, L_22_.curConfig.KickbackMax / 2))
+				end
+			end
+			
+			L_88_ = math.rad(math.random(L_22_.curConfig.SideKickMin, L_22_.curConfig.SideKickMax))
+			L_89_ = math.random(L_22_.curConfig.gunRecoilMin, L_22_.curConfig.gunRecoilMax)
+			L_90_ = math.rad(math.random(L_22_.curConfig.KickbackMin, L_22_.curConfig.KickbackMax))
+		else
+			if not L_34_ then
+				L_88_ = math.rad(math.random(L_22_.curConfig.AimSideKickMin, L_22_.curConfig.AimSideKickMax))
+				L_89_ = math.random(L_22_.curConfig.AimGunRecoilMin, L_22_.curConfig.AimGunRecoilMax)
+				L_90_ = math.rad(math.random(L_22_.curConfig.AimKickbackMin, L_22_.curConfig.AimKickbackMax))
+			elseif L_34_ then
+				if L_22_.StanceIndex == 1 then
+					L_88_ = math.rad(math.random(L_22_.curConfig.AimSideKickMin / 1.5, L_22_.curConfig.AimSideKickMax / 1.5))
+					L_89_ = math.random(L_22_.curConfig.AimGunRecoilMin / 1.5, L_22_.curConfig.AimGunRecoilMax / 1.5)
+					L_90_ = math.rad(math.random(L_22_.curConfig.AimKickbackMin / 1.5, L_22_.curConfig.AimKickbackMax / 1.5))
+				end
+				
+				if L_22_.StanceIndex == 2 then
+					L_88_ = math.rad(math.random(L_22_.curConfig.AimSideKickMin / 2, L_22_.curConfig.AimSideKickMax / 2))
+					L_89_ = math.random(L_22_.curConfig.AimGunRecoilMin / 2, L_22_.curConfig.AimGunRecoilMax / 2)
+					L_90_ = math.rad(math.random(L_22_.curConfig.AimKickbackMin / 2, L_22_.curConfig.AimKickbackMax / 2))
+				end
+			end
+		end
+		
+		local L_91_ = Vector3.new(L_90_, L_88_, L_89_ / 70)
+		return L_91_
+	end;
+end;
+
+function CalculateCamRecoil()
+	if L_22_.curConfig then
+		local L_92_
+		local L_93_
+		local L_94_
+		
+		if not L_32_ then
+			if not L_34_ then
+				L_92_ = math.rad(math.random(L_22_.curConfig.SideKickMin, L_22_.curConfig.SideKickMax))
+				L_93_ = L_22_.curConfig.CamShakeMin or L_22_.curConfig.CamShakeMax
+				L_94_ = math.rad(math.random(L_22_.curConfig.KickbackMin, L_22_.curConfig.KickbackMax))
+			elseif L_34_ then
+				if L_22_.StanceIndex == 1 then
+					L_92_ = math.rad(math.random(L_22_.curConfig.SideKickMin / 1.5, L_22_.curConfig.SideKickMax / 1.5))
+					L_93_ = L_22_.curConfig.CamShakeMin / 1.5 or L_22_.curConfig.CamShakeMax / 1.5
+					L_94_ = math.rad(math.random(L_22_.curConfig.KickbackMin / 1.5, L_22_.curConfig.KickbackMax / 1.5))
+				end
+				
+				if L_22_.StanceIndex == 2 then
+					L_92_ = math.rad(math.random(L_22_.curConfig.SideKickMin / 2, L_22_.curConfig.SideKickMax / 2))
+					L_93_ = L_22_.curConfig.CamShakeMin / 2 or L_22_.curConfig.CamShakeMax / 2
+					L_94_ = math.rad(math.random(L_22_.curConfig.KickbackMin / 2, L_22_.curConfig.KickbackMax / 2))
+				end
+			end
+			
+			L_92_ = math.rad(math.random(L_22_.curConfig.SideKickMin, L_22_.curConfig.SideKickMax))
+			L_93_ = L_22_.curConfig.CamShakeMin or L_22_.curConfig.CamShakeMax
+			L_94_ = math.rad(math.random(L_22_.curConfig.KickbackMin, L_22_.curConfig.KickbackMax))
+		else
+			if not L_34_ then
+				L_92_ = math.rad(math.random(L_22_.curConfig.AimSideKickMin, L_22_.curConfig.AimSideKickMax))
+				L_93_ = L_22_.curConfig.AimCanShakeMin or L_22_.curConfig.AimCamShakeMax
+				L_94_ = math.rad(math.random(L_22_.curConfig.AimKickbackMin, L_22_.curConfig.AimKickbackMax))
+			elseif L_34_ then
+				if L_22_.StanceIndex == 1 then
+					L_92_ = math.rad(math.random(L_22_.curConfig.AimSideKickMin / 1.5, L_22_.curConfig.AimSideKickMax / 1.5))
+					L_93_ = L_22_.curConfig.AimCanShakeMin / 1.5 or L_22_.curConfig.AimCamShakeMax / 1.5
+					L_94_ = math.rad(math.random(L_22_.curConfig.AimKickbackMin / 1.5, L_22_.curConfig.AimKickbackMax / 1.5))
+				end
+				
+				if L_22_.StanceIndex == 2 then
+					L_92_ = math.rad(math.random(L_22_.curConfig.AimSideKickMin / 2, L_22_.curConfig.AimSideKickMax / 2))
+					L_93_ = L_22_.curConfig.AimCanShakeMin / 2 or L_22_.curConfig.AimCamShakeMax / 2
+					L_94_ = math.rad(math.random(L_22_.curConfig.AimKickbackMin / 2, L_22_.curConfig.AimKickbackMax / 2))
+				end
+			end
+		end
+		
+		local L_95_ = Vector3.new(L_94_, L_92_, L_93_ / 70)
+		return L_95_
+	end;
+end
+
+--[[function Shoot()
+	char:WaitForChild('S' .. weaponData.curModel.Name):WaitForChild('Grip'):WaitForChild('Fire'):Play()
+	Bullet = CreateBullet(weaponData.curConfig.BulletSpread)
+	weaponData.Recoiling = true
+	local Newrecoil = CalculateRecoil()
+	local newCamRecoil = CalculateCamRecoil()
+	this.recoilSpring.t = this.recoilSpring.t + Newrecoil
+	this.recoilSpring2.t = this.recoilSpring2.t + newCamRecoil
+	if weaponData.curConfig.Firerate/2 >= 0.025 then
+		delay(0.025, function()
+			this.recoilSpring.t = this.recoilSpring.t - Newrecoil
+			this.recoilSpring2.t = this.recoilSpring2.t - newCamRecoil
+		end)
+	elseif weaponData.curConfig.Firerate/2 < 0.025 then
+		delay(weaponData.curConfig.Firerate/2, function()
+			this.recoilSpring.t = this.recoilSpring.t - Newrecoil
+			this.recoilSpring2.t = this.recoilSpring2.t - newCamRecoil
+		end)
+	end
+	
+	delay(weaponData.curConfig.Firerate/2, function()
+		weaponData.Recoiling = false
+		weaponData.RecoilFront = false
+	end)
+	
+	local h,p = spawn(function() CastRay(Bullet) end)
+end;]]--
+
+function Shoot()
+	if L_29_ and L_22_.CanShoot and not L_33_ and not L_40_ and not L_35_ and not L_38_ and not L_36_ and not L_37_ then
+		if L_22_.FireMode == 1 then
+			fireSemi()
+		elseif L_22_.FireMode == 2 then
+			fireAuto()
+		elseif L_22_.FireMode == 3 then
+			fireBurst()	
+		elseif L_22_.FireMode == 4 then
+			fireBoltAction()
+		elseif L_22_.FireMode == 5 then
+			fireShot()
+		--[[elseif firemode == 6 then
+			fireExplo()]]--
+		end
+		
+		if L_22_.Ammo > 0 then
+			L_41_ = true
+		elseif L_22_.Ammo <= 0 then
+			L_41_ = false
+		end
+	end
+end
+
+function Update()
+	if L_2_:WaitForChild('Humanoid').Health > 0 and L_29_ then
+		local L_96_ = L_28_.recoilSpring2.p
+		local L_97_ = CFrame.new(0, 0, L_96_.z / 5)
+		local L_98_ = CFrame.fromAxisAngle(Vector3.new(1, 0, 0), L_96_.x / 10)
+		local L_99_ = CFrame.fromAxisAngle(Vector3.new(0, 1, 0), L_96_.y / 10)
+		local L_100_ = CFrame.fromAxisAngle(Vector3.new(0, 0, 1), L_96_.z)
+		L_96_ = L_97_ * L_98_ * L_99_ * L_100_
+		
+		L_28_.cornerPeek.t = L_28_.peekFactor * L_28_.dirPeek
+		
+		local L_101_ = CFrame.fromAxisAngle(Vector3.new(0, 0, 1), L_28_.cornerPeek.p) -- SOLUTION TO 3RD PERSON --> CFrame.new(10,0,0) * CFrame.fromAxisAngle(Vector3.new(0,0,1), this.cornerPeek.p)
+		L_3_.CFrame = L_3_.CFrame * L_101_ * L_22_.newCamOffset * L_96_
+	end
+end;
+
+function changeStance()
+	if not L_46_ then
+		if L_22_.StanceIndex == 0 then -- Stand
+			L_34_ = false
+			L_16_:Create(L_19_.rootJoint, TweenInfo.new(0.6), {
+				C0 = CFrame.new(0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, -0)
+			}):Play()
+			L_16_:Create(L_19_.rightHip, TweenInfo.new(0.6), {
+				C0 = CFrame.new(1, -1, 0, 0, 0, 1, 0, 1, -0, -1, 0, 0)
+			}):Play()
+			L_16_:Create(L_19_.leftHip, TweenInfo.new(0.6), {
+				C0 = CFrame.new(-1, -1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0)
+			}):Play()
+			L_16_:Create(L_19_.neck, TweenInfo.new(0.6), {
+				C1 = CFrame.new(0, -0.5, 0, -1, 0, 0, 0, 0, 1, 0, 1, -0)
+			}):Play()
+	
+			L_22_.camC0 = Vector3.new()
+			L_16_:Create(L_19_.humanoid, TweenInfo.new(0.5), {
+				CameraOffset = Vector3.new(0, 0, 0)
+			}):Play()
+			
+			if L_29_ then
+				UpdateAmmo()
+			else
+				L_19_.humanoid.WalkSpeed = 16
+			end
+				
+			L_21_.updateCharEvent:FireServer('Stance', true, L_22_.StanceIndex)
+		elseif L_22_.StanceIndex == 1 and not L_22_.Seated then -- Crouch
+			L_34_ = true
+			L_16_:Create(L_19_.rootJoint, TweenInfo.new(0.6), {
+				C0 = CFrame.new(0, -1.20000005, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0)
+			}):Play()
+			L_16_:Create(L_19_.rightHip, TweenInfo.new(0.6), {
+				C0 = CFrame.new(1.00000191, -0.93054074, -0.393920898, 0, 0, 1, -0.98480773, 0.173648179, 0, -0.173648179, -0.98480773, 0)
+			}):Play()
+			L_16_:Create(L_19_.leftHip, TweenInfo.new(0.6), {
+				C0 = CFrame.new(-1, 0.165270448, -0.603042603, 0, 0, -1, -0.173648179, 0.98480773, 0, 0.98480773, 0.173648179, 0)
+			}):Play()
+			L_16_:Create(L_19_.neck, TweenInfo.new(0.6), {
+				C1 = CFrame.new(0, -0.5, 0, -1, 0, 0, 0, 0, 1, 0, 1, -0)
+			}):Play()
+	
+			L_22_.camC0 = Vector3.new(0, -1, 0)
+			L_16_:Create(L_19_.humanoid, TweenInfo.new(0.5), {
+				CameraOffset = Vector3.new(0, -1.2, 0)
+			}):Play()
+			
+			if L_29_ then
+				UpdateAmmo()
+			end
+				
+			L_21_.updateCharEvent:FireServer('Stance', true, L_22_.StanceIndex)
+		elseif L_22_.StanceIndex == 2 and not L_22_.Seated then -- Prone
+			if L_29_ and L_22_.curConfig then
+				L_28_.dirPeek = 0
+				Lean()
+			end
+			L_34_ = true
+			L_16_:Create(L_19_.rootJoint, TweenInfo.new(0.6), {
+				C0 = CFrame.new(0, -2.5999999, 0, -1, 0, 0, 0, 1, 1.19248806e-08, 0, 1.19248806e-08, -1)
+			}):Play()
+			L_16_:Create(L_19_.rightHip, TweenInfo.new(0.6), {
+				C0 = CFrame.new(1, -1, 2.98023224e-08, 0.163175702, -0.342020363, 0.925416529, 0.0593911409, 0.939692557, 0.336824328, -0.984807789, 0, 0.17364797)
+			}):Play()
+			L_16_:Create(L_19_.leftHip, TweenInfo.new(0.6), {
+				C0 = CFrame.new(-1, -1, 2.98023224e-08, 0.163175896, 0.342020363, -0.92541647, -0.0593912117, 0.939692557, 0.336824298, 0.98480773, 0, 0.173648179)
+			}):Play()
+			L_16_:Create(L_19_.neck, TweenInfo.new(0.6), {
+				C1 = CFrame.new(0, -0.785033405, -0.109157309, -0.99999994, 0, 0, 0, 1, -4.37113883e-08, 0, -4.37113883e-08, -1)
+			}):Play()
+			
+			L_22_.camC0 = Vector3.new(0, -2.5, 0)
+			L_16_:Create(L_2_:WaitForChild('Humanoid'), TweenInfo.new(0.5), {
+				CameraOffset = Vector3.new(0, -3, 0)
+			}):Play()
+			
+			if L_29_ then
+				UpdateAmmo()
+			end
+				
+			L_21_.updateCharEvent:FireServer('Stance', true, L_22_.StanceIndex)
+		end
+	end;
+end;
+
+function Lean()
+	if not L_22_.Seated then
+		if L_22_.StanceIndex ~= 2 and not L_33_ then
+			if L_28_.dirPeek == 1 then
+				if L_22_.StanceIndex == 0 then
+					L_16_:Create(L_19_.humanoid, TweenInfo.new(0.5), {
+						CameraOffset = Vector3.new(-0.5, 0, 0)
+					}):Play()
+				elseif L_22_.StanceIndex == 1 then
+					L_16_:Create(L_19_.humanoid, TweenInfo.new(0.5), {
+						CameraOffset = Vector3.new(-0.5, -1.2, 0)
+					}):Play()
+				end;
+				
+				L_16_:Create(L_19_.rootJoint, TweenInfo.new(0.6), {
+					C1 = CFrame.new(0.200000003, 0, 0, -0.98480773, 0, 0.173648179, 0.173648179, 0, 0.98480773, 0, 1, 0)
+				}):Play()
+				L_16_:Create(L_19_.rightHip, TweenInfo.new(0.6), {
+					C1 = CFrame.new(0.5, 1, 0, 0, 0, 1, 0, 1, -0, -1, 0, 0)
+				}):Play()
+				L_16_:Create(L_19_.leftHip, TweenInfo.new(0.6), {
+					C1 = CFrame.new(-0.5, 1, 0, 0, -0.173648179, -0.98480773, 0, 0.98480773, -0.173648179, 1, 0, 0)
+				}):Play()
+			elseif L_28_.dirPeek == -1 then
+				if L_22_.StanceIndex == 0 then
+					L_16_:Create(L_19_.humanoid, TweenInfo.new(0.5), {
+						CameraOffset = Vector3.new(0.5, 0, 0)
+					}):Play()
+				elseif L_22_.StanceIndex == 1 then
+					L_16_:Create(L_19_.humanoid, TweenInfo.new(0.5), {
+						CameraOffset = Vector3.new(0.5, -1.2, 0)
+					}):Play()
+				end;
+				
+				L_16_:Create(L_19_.rootJoint, TweenInfo.new(0.6), {
+					C1 = CFrame.new(-0.200000003, 0, 0, -0.98480773, 0, -0.173648179, -0.173648179, 0, 0.98480773, 0, 1, 0)
+				}):Play()
+				L_16_:Create(L_19_.rightHip, TweenInfo.new(0.6), {
+					C1 = CFrame.new(0.5, 1, 0, 0, 0.173648179, 0.98480773, 0, 0.98480773, -0.173648179, -1, 0, 0)
+				}):Play()
+				L_16_:Create(L_19_.leftHip, TweenInfo.new(0.6), {
+					C1 = CFrame.new(-0.5, 1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0)
+				}):Play()
+			elseif L_28_.dirPeek == 0 then
+				if L_22_.StanceIndex == 0 then
+					L_16_:Create(L_19_.humanoid, TweenInfo.new(0.5), {
+						CameraOffset = Vector3.new(0, 0, 0)
+					}):Play()
+				elseif L_22_.StanceIndex == 1 then
+					L_16_:Create(L_19_.humanoid, TweenInfo.new(0.5), {
+						CameraOffset = Vector3.new(0, -1.2, 0)
+					}):Play()
+				end;
+				
+				L_16_:Create(L_19_.rootJoint, TweenInfo.new(0.6), {
+					C1 = CFrame.new(0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, -0)
+				}):Play()
+				L_16_:Create(L_19_.rightHip, TweenInfo.new(0.6), {
+					C1 = CFrame.new(0.5, 1, 0, 0, 0, 1, 0, 1, -0, -1, 0, 0)
+				}):Play()
+				L_16_:Create(L_19_.leftHip, TweenInfo.new(0.6), {
+					C1 = CFrame.new(-0.5, 1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0)
+				}):Play()
+			end
+		elseif L_22_.StanceIndex == 2 then
+			L_28_.dirPeek = 0
+			L_16_:Create(L_2_:WaitForChild('Humanoid'), TweenInfo.new(0.5), {
+				CameraOffset = Vector3.new(0, -3, 0)
+			}):Play()
+			L_16_:Create(L_19_.rootJoint, TweenInfo.new(0.6), {
+				C1 = CFrame.new(0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, -0)
+			}):Play()
+			L_16_:Create(L_19_.rightHip, TweenInfo.new(0.6), {
+				C1 = CFrame.new(0.5, 1, 0, 0, 0, 1, 0, 1, -0, -1, 0, 0)
+			}):Play()
+			L_16_:Create(L_19_.leftHip, TweenInfo.new(0.6), {
+				C1 = CFrame.new(-0.5, 1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0)
+			}):Play()
+		end
+		
+		L_21_.updateCharEvent:FireServer('Lean', true, L_22_.StanceIndex, L_28_.dirPeek)
+	end
+end;
+
+function HalfStepFunc(L_102_arg1)
+	if L_22_.HalfStep then
+		L_21_.halfStepEvent:FireServer(L_102_arg1, L_29_)
+	end
+	L_22_.HalfStep = not L_22_.HalfStep
+end;
+
+function SpawnTracer(L_103_arg1, L_104_arg2, L_105_arg3, L_106_arg4)
+	local L_107_ = Instance.new('Trail', L_106_arg4)
+	L_107_.Attachment0 = L_104_arg2
+	L_107_.Attachment1 = L_105_arg3
+	L_107_.Transparency = NumberSequence.new(L_103_arg1.TracerTransparency)
+	L_107_.LightEmission = L_103_arg1.TracerLightEmission
+	L_107_.TextureLength = L_103_arg1.TracerTextureLength
+	L_107_.LightInfluence = 0
+	L_107_.Texture = 'http://www.roblox.com/asset/?id=4528011555'
+	L_107_.Lifetime = L_103_arg1.TracerLifetime
+	L_107_.FaceCamera = L_103_arg1.TracerFaceCamera
+	L_107_.Color = ColorSequence.new(L_103_arg1.TracerColor.Color)
+end;
+
+function reCast(L_108_arg1, L_109_arg2)
+	if L_22_.curConfig then
+		local L_110_ = L_108_arg1
+		local L_111_ = L_109_arg2
+		local L_112_ = CFrame.new(L_110_, L_110_ + L_111_)	
+		
+		local L_113_ = Instance.new("Part")
+		L_113_.Parent = L_14_
+		L_113_.Name = 'Bullet'
+		game.Debris:AddItem(L_113_, 10)
+		L_113_.Shape = Enum.PartType.Ball
+		L_113_.Size = Vector3.new(1, 1, 12)
+		L_113_.Name = "Bullet"
+		L_113_.TopSurface = "Smooth"
+		L_113_.BottomSurface = "Smooth"
+		L_113_.BrickColor = BrickColor.new("Bright green")
+		L_113_.Material = "Neon"
+		L_113_.CanCollide = false
+		L_113_.CFrame = L_112_
+		L_113_.Transparency = 1
+		local L_114_ = L_113_:GetMass()
+		local L_115_ = Instance.new('BodyForce', L_113_)
+		
+		--if not nadeLauncher then
+		L_115_.Force = L_22_.curConfig.BulletPhysics
+		L_113_.Velocity = L_111_ * L_22_.curConfig.BulletSpeed
+		--else
+		--	Bf.Force = config.ExploPhysics
+		--	Bullet.Velocity = Direction * config.ExploSpeed
+		--end
+		
+		local L_116_ = Instance.new('Attachment', L_113_)
+		L_116_.Position = Vector3.new(0.1, 0, 0)
+		local L_117_ = Instance.new('Attachment', L_113_)
+		L_117_.Position = Vector3.new(-0.1, 0, 0)
+			
+		local L_118_ = TracerCalculation()
+		
+		if L_22_.curConfig.TracerEnabled == true and L_118_ then
+			if L_20_.globalConfig.NightTimeTracers then
+				if game.Lighting.ClockTime > L_20_.globalConfig.MinTime or game.Lighting.ClockTime < L_20_.globalConfig.MaxTime then
+					SpawnTracer(L_22_.curConfig, L_116_, L_117_, L_113_)
+				end
+			else
+				SpawnTracer(L_22_.curConfig, L_116_, L_117_, L_113_)
+			end
+		end
+		
+		--if globalConfig.ReplicatedBullets then
+			--whizEvent:FireServer(BulletCF,config.TracerEnabled,result,config.BulletPhysics,config.BulletSpeed,Direction,config.TracerColor)
+		--end
+		
+		return L_113_
+	end;
+end;
+
+function CreateBullet(L_119_arg1, L_120_arg2, L_121_arg3)
+	if L_22_.curConfig then
+		local L_122_
+		
+		if not L_120_arg2 then
+			L_122_ = L_22_.FirePart.Position
+		else
+			L_122_ = L_120_arg2
+		end
+		 
+		local L_123_
+		
+		if not L_121_arg3 then
+			L_123_ = L_22_.FirePart.CFrame.lookVector + (L_22_.FirePart.CFrame.upVector * L_22_.curConfig.BulletHopUpMult)
+		else
+			L_123_ = L_121_arg3
+		end
+		
+		local L_124_ = CFrame.Angles(math.rad(math.random(-L_119_arg1, L_119_arg1)), math.rad(math.random(-L_119_arg1, L_119_arg1)), math.rad(math.random(-L_119_arg1, L_119_arg1)))
+		L_123_ = L_124_ * L_123_	
+		local L_125_ = CFrame.new(L_122_, L_122_ + L_123_)	
+		
+		local L_126_ = Instance.new("Part")
+		L_126_.Parent = L_14_
+		L_126_.Name = 'Bullet'
+		game.Debris:AddItem(L_126_, 10)
+		L_126_.Shape = Enum.PartType.Ball
+		L_126_.Size = Vector3.new(1, 1, 12)
+		L_126_.Name = "Bullet"
+		L_126_.TopSurface = "Smooth"
+		L_126_.BottomSurface = "Smooth"
+		L_126_.BrickColor = BrickColor.new("Bright green")
+		L_126_.Material = "Neon"
+		L_126_.CanCollide = false
+		--Bullet.CFrame = FirePart.CFrame + (Grip.CFrame.p - Grip.CFrame.p)
+		L_126_.CFrame = L_125_
+	
+		L_126_.Transparency = 1
+		local L_127_ = L_126_:GetMass()
+		local L_128_ = Instance.new('BodyForce', L_126_)
+		
+		--if not nadeLauncher then
+		L_128_.Force = L_22_.curConfig.BulletPhysics
+		L_126_.Velocity = L_123_ * L_22_.curConfig.BulletSpeed
+		--else
+		--	Bf.Force = config.ExploPhysics
+		--	Bullet.Velocity = Direction * config.ExploSpeed
+		--end
+		
+		local L_129_ = Instance.new('Attachment', L_126_)
+		L_129_.Position = Vector3.new(0.1, 0, 0)
+		local L_130_ = Instance.new('Attachment', L_126_)
+		L_130_.Position = Vector3.new(-0.1, 0, 0)
+			
+		local L_131_ = TracerCalculation()
+		
+		if L_22_.curConfig.TracerEnabled == true and L_131_ then
+			if L_20_.globalConfig.NightTimeTracers then
+				if game.Lighting.ClockTime > L_20_.globalConfig.MinTime or game.Lighting.ClockTime < L_20_.globalConfig.MaxTime then
+					SpawnTracer(L_22_.curConfig, L_129_, L_130_, L_126_)
+				end
+			else
+				SpawnTracer(L_22_.curConfig, L_129_, L_130_, L_126_)
+			end
+		end
+		
+		CreateShell()
+		
+		--delay(0.2, function()
+			--Bullet.Transparency = 0
+		--end)
+		
+		if L_20_.globalConfig.ReplicatedBullets then
+			L_21_.whizEvent:FireServer(L_125_, L_22_.curConfig.TracerEnabled, L_131_, L_22_.curConfig.BulletPhysics, L_22_.curConfig.BulletSpeed, L_123_, L_22_.curConfig.TracerColor)
+		end
+		
+		return L_126_
+	end;
+end;
+	
+function CreateExternalBullet(L_132_arg1, L_133_arg2, L_134_arg3, L_135_arg4, L_136_arg5, L_137_arg6, L_138_arg7)
+	local L_139_ = L_132_arg1
+	
+	local L_140_ = Instance.new("Part")
+	L_140_.Parent = L_14_
+	L_140_.Name = 'Bullet'
+	game.Debris:AddItem(L_140_, 10)
+	L_140_.Shape = Enum.PartType.Ball
+	L_140_.Size = Vector3.new(1, 1, 12)
+	L_140_.Name = "Bullet"
+	L_140_.TopSurface = "Smooth"
+	L_140_.BottomSurface = "Smooth"
+	L_140_.BrickColor = BrickColor.new("Bright green")
+	L_140_.Material = "Neon"
+	L_140_.CanCollide = false
+	--Bullet.CFrame = FirePart.CFrame + (Grip.CFrame.p - Grip.CFrame.p)
+	L_140_.CFrame = L_139_
+	
+	game.Debris:AddItem(L_140_, 4)
+
+	L_140_.Transparency = 1
+	local L_141_ = L_140_:GetMass()
+	local L_142_ = Instance.new('BodyForce', L_140_)
+	
+	L_142_.Force = L_135_arg4
+	L_140_.Velocity = L_137_arg6 * L_136_arg5
+	
+	local L_143_ = Instance.new('Attachment', L_140_)
+	L_143_.Position = Vector3.new(0.1, 0, 0)
+	local L_144_ = Instance.new('Attachment', L_140_)
+	L_144_.Position = Vector3.new(-0.1, 0, 0)
+	
+	if L_133_arg2 and L_134_arg3 then
+		local L_145_ = Instance.new('Trail', L_140_)
+		L_145_.Attachment0 = L_143_
+		L_145_.Attachment1 = L_144_
+		L_145_.Transparency = NumberSequence.new(0.3)
+		L_145_.LightEmission = 1
+		L_145_.TextureLength = 1
+		L_145_.LightInfluence = 0
+		L_145_.Texture = 'http://www.roblox.com/asset/?id=4528011555'
+		L_145_.Lifetime = 0.1
+		L_145_.FaceCamera = true
+		L_145_.Color = ColorSequence.new(BrickColor.new('Deep orange').Color)
+	end
+	
+	return L_140_
+end;
+
+function HandleDamage(L_146_arg1, L_147_arg2, L_148_arg3, L_149_arg4, L_150_arg5, L_151_arg6)
+	if L_22_.curConfig then
+		L_21_.createOwnerEvent:FireServer(L_148_arg3)
+		if (L_146_arg1.Name == 'Head' or L_146_arg1:FindFirstAncestorWhichIsA('Accessory')) then
+			if L_146_arg1.Name == 'Head' then
+				L_21_.damageEvent:FireServer(L_148_arg3, L_22_.curConfig.HeadDamage)
+			elseif L_146_arg1:FindFirstAncestorWhichIsA('Accessory') then
+				local L_153_ = L_146_arg1:FindFirstAncestorWhichIsA('Accessory')
+				if L_153_:WaitForChild('Handle'):WaitForChild('AccessoryWeld').Part1.Name == 'Head' then
+					L_21_.damageEvent:FireServer(L_148_arg3, L_22_.curConfig.HeadDamage)
+				elseif L_153_:WaitForChild('Handle'):WaitForChild('AccessoryWeld').Part1.Name == 'Torso' then
+					L_21_.damageEvent:FireServer(L_148_arg3, L_22_.curConfig.BaseDamage)
+				end
+			end;
+		elseif L_146_arg1.Name == 'Torso' or L_146_arg1.Name == 'HumanoidRootPart' then
+			L_21_.damageEvent:FireServer(L_148_arg3, L_22_.curConfig.BaseDamage)
+		elseif (L_146_arg1.Name == 'Right Arm' or L_146_arg1.Name == 'Left Arm' or L_146_arg1.Name == 'Left Leg' or L_146_arg1.Name == 'Right Leg') then
+			L_21_.damageEvent:FireServer(L_148_arg3, L_22_.curConfig.LimbDamage)
+		elseif L_146_arg1.Name == 'Armor' then
+			L_21_.damageEvent:FireServer(L_148_arg3, L_22_.curConfig.ArmorDamage)
+		else
+			L_21_.damageEvent:FireServer(L_148_arg3, L_22_.curConfig.BaseDamage)
+		end;
+		
+		local L_152_ = L_7_:WaitForChild('BodyHit'):clone()
+		L_152_.Parent = L_1_.PlayerGui
+		L_152_:Play()
+		game:GetService("Debris"):addItem(L_152_, L_152_.TimeLength)
+		
+		L_21_.hitEvent:FireServer(L_147_arg2, L_149_arg4, L_150_arg5, L_151_arg6, "Human", L_146_arg1)
+	end;
+end;
+
+function CastRay(L_154_arg1, L_155_arg2, L_156_arg3)
+	if L_22_.curConfig then
+		local L_157_, L_158_, L_159_
+		local L_160_
+		
+		if not L_155_arg2 then
+			L_160_ = L_22_.AimPart.Position
+		else
+			L_160_ = L_156_arg3
+		end
+		
+		local L_161_ = L_154_arg1.Position
+		local L_162_ = 0
+		local L_163_ = false;
+		
+		while true do
+			L_17_:Wait()
+			L_161_ = L_154_arg1.Position;
+			L_162_ = L_162_ + (L_161_ - L_160_).magnitude
+			L_157_, L_158_, L_159_ = workspace:FindPartOnRayWithIgnoreList(Ray.new(L_160_, (L_161_ - L_160_)), L_26_);
+			local L_164_ = Vector3.new(0, 1, 0):Cross(L_159_)
+			local L_165_ = math.asin(L_164_.magnitude)
+			
+			for L_166_forvar1, L_167_forvar2 in pairs(game.Players:GetChildren()) do
+				if L_167_forvar2:IsA('Player') and L_167_forvar2 ~= L_1_ and L_167_forvar2.Character and L_167_forvar2.Character:FindFirstChild('Head') and (L_167_forvar2.Character.Head.Position - L_158_).magnitude <= 25 and not L_163_ then
+					L_21_.flybyEvent:FireServer(L_167_forvar2)
+					L_163_ = true
+				end
+			end
+			
+			for L_168_forvar1, L_169_forvar2 in pairs(L_26_) do
+				if L_169_forvar2 and #L_26_ > 3 and L_169_forvar2 == L_155_arg2 then
+					table.remove(L_26_, L_168_forvar1)
+				end
+			end
+			
+			if L_162_ > 10000 then
+				L_154_arg1:Destroy()
+				break
+			end;
+			
+			if L_157_ then
+				if (L_157_.Transparency >= 1 or L_157_.CanCollide == false) and L_157_.Name ~= 'Right Arm' and L_157_.Name ~= 'Left Arm' and L_157_.Name ~= 'Right Leg' and L_157_.Name ~= 'Left Leg' and L_157_.Name ~= 'Torso' and L_157_.Name ~= 'HumanoidRootPart' and L_157_.Name ~= 'Armor' then
+					table.insert(L_26_, L_157_)
+					local L_170_, L_171_ = spawn(function()
+						CastRay(L_154_arg1, L_157_, L_158_)
+					end)
+					break;
+				else
+					if L_157_ then
+						L_21_.serverFXEvent:FireServer(L_158_)
+						local L_172_, L_173_ = L_20_.utilitiesModule.CheckForHumanoid(L_157_)
+						
+						if L_172_ then
+							if L_22_.curConfig.AntiTK then
+								if game.Players:GetPlayerFromCharacter(L_173_.Parent) and game.Players:GetPlayerFromCharacter(L_173_.Parent).Team ~= L_1_.Team then
+									HandleDamage(L_157_, L_158_, L_173_, L_164_, L_165_, L_159_)
+								end
+								
+								if L_173_.Name == 'Target' then
+									HandleDamage(L_157_, L_158_, L_173_, L_164_, L_165_, L_159_)
+								end
+							else
+								HandleDamage(L_157_, L_158_, L_173_, L_164_, L_165_, L_159_)
+							end;
+						else
+							L_21_.createOwnerEvent:FireServer(L_157_)
+							L_21_.hitEvent:FireServer(L_158_, L_164_, L_165_, L_159_, "Part", L_157_)
+						end;
+					end;
+				end;
+				
+				break;	
+			end;
+			L_160_ = L_161_
+		end
+		return L_157_, L_158_
+	end;
+end;
+
+function TracerCalculation()
+	if L_22_.curConfig then
+		local L_174_
+		if (math.random(1, 100) <= L_22_.curConfig.TracerChance) then	
+			L_174_ = true
+		else
+			L_174_ = false
+		end
+		return L_174_
+	end;
+end;
+
+function CreateShell()
+	local L_175_ = L_7_:WaitForChild('Shell'):clone()
+	L_175_.Anchored = false
+	
+	if L_175_:FindFirstChild('Shell') then
+		L_175_.Shell:Destroy()
+	end
+	
+	L_175_.CFrame =  L_22_.curModel.Chamber.CFrame
+	L_175_.Velocity = L_22_.curModel.Chamber.CFrame.lookVector * 30 + Vector3.new(0, 4, 0)
+	L_175_.RotVelocity = Vector3.new(math.random(-180, 180), math.random(-180, 180), math.random(-180, 180))
+	L_175_.Parent = L_14_
+	L_175_.CanCollide = false
+	game:GetService("Debris"):addItem(L_175_, 1)
+	
+	delay(0.5, function()
+		if L_7_:FindFirstChild('ShellCasing') then
+			local L_176_ = L_7_.ShellCasing:clone()
+			L_176_.Parent = L_1_.PlayerGui
+			L_176_:Play()
+			game:GetService('Debris'):AddItem(L_176_, L_176_.TimeLength)
+		end
+	end)
+end;
+
+function fireSemi()
+	if L_22_.curConfig then
+		if L_29_ then
+			L_22_.CanShoot = false
+			Recoiling = true
+			local L_177_ = CalculateRecoil()
+			local L_178_ = CalculateCamRecoil()
+			L_28_.recoilSpring.t = L_28_.recoilSpring.t + L_177_
+			L_28_.recoilSpring2.t = L_28_.recoilSpring2.t + L_178_
+			if L_22_.curConfig.Firerate / 2 >= 0.025 then
+				delay(0.025, function()
+					L_28_.recoilSpring.t = L_28_.recoilSpring.t - L_177_
+					L_28_.recoilSpring2.t = L_28_.recoilSpring2.t - L_178_
+				end)
+			elseif L_22_.curConfig.Firerate / 2 < 0.025 then
+				delay(L_22_.curConfig.Firerate / 2, function()
+					L_28_.recoilSpring.t = L_28_.recoilSpring.t - L_177_
+					L_28_.recoilSpring2.t = L_28_.recoilSpring2.t - L_178_
+				end)
+			end
+			
+			L_21_.updateCharEvent:FireServer('Shoot', true, L_22_.curConfig.Firerate / 2)
+			Shooting = true
+			
+			L_2_:WaitForChild('S'.. L_22_.curModel.Name):WaitForChild('Grip'):WaitForChild('Fire'):Play()	
+			
+			L_15_ = CreateBullet(L_22_.curConfig.BulletSpread)
+			L_22_.Ammo = L_22_.Ammo - 1
+			RecoilFront = true
+			local L_179_, L_180_ = spawn(function()
+				CastRay(L_15_)
+			end)
+			
+			for L_181_forvar1, L_182_forvar2 in pairs(L_22_.FirePart:GetChildren()) do
+				if L_182_forvar2.Name:sub(1, 7) == "FlashFX" then
+					L_182_forvar2.Enabled = true
+				end
+			end
+		
+			delay(1 / 30, function()
+				for L_183_forvar1, L_184_forvar2 in pairs(L_22_.FirePart:GetChildren()) do
+					if L_184_forvar2.Name:sub(1, 7) == "FlashFX" then
+						L_184_forvar2.Enabled = false
+					end
+				end
+			end)
+			
+			if L_22_.curConfig.CanBolt == true then
+				BoltingBackAnim()
+				delay(L_22_.curConfig.Firerate / 2, function()
+					if L_22_.curConfig.CanSlideLock == false then
+						BoltingForwardAnim()
+					elseif L_22_.curConfig.CanSlideLock == true then
+						if L_22_.Ammo > 0 then
+							BoltingForwardAnim()
+						end
+					end
+				end)
+			end
+			
+			delay(L_22_.curConfig.Firerate / 2, function()
+				Recoiling = false
+				RecoilFront = false
+			end)		
+			
+			wait(L_22_.curConfig.Firerate)
+			Shooting = false
+			L_22_.CanShoot = true
+		end
+		
+		UpdateAmmo()
+	end;
+end;
+
+--[[function fireExplo()
+	if Equipped then
+		weaponData.CanShoot = false
+		Recoiling = true
+		local Newrecoil = CalculateRecoil()
+		local newCamRecoil = CalculateCamRecoil()
+		this.recoilSpring.t = this.recoilSpring.t + Newrecoil
+		this.recoilSpring2.t = this.recoilSpring2.t + newCamRecoil
+		if weaponData.curConfig.Firerate/2 >= 0.025 then
+			delay(0.025, function()
+				this.recoilSpring.t = this.recoilSpring.t - Newrecoil
+				this.recoilSpring2.t = this.recoilSpring2.t - newCamRecoil
+			end)
+		elseif weaponData.curConfig.Firerate/2 < 0.025 then
+			delay(weaponData.curConfig.Firerate/2, function()
+				this.recoilSpring.t = this.recoilSpring.t - Newrecoil
+				this.recoilSpring2.t = this.recoilSpring2.t - newCamRecoil
+			end)
+		end
+		--animateEvent:FireServer('Shoot',true,tool,nil,nil,weaponData.curConfig.Firerate/2)
+		Shooting = true
+		
+		char:WaitForChild('S'.. weaponData.curModel.Name):WaitForChild('Grip'):WaitForChild('Fire2'):Play()	
+		
+		Bullet = CreateBullet(weaponData.curConfig.BulletSpread)
+		ExplosiveAmmo = ExplosiveAmmo - 1
+		--UpdateAmmo()
+		RecoilFront = true
+		local h,p = spawn(function() CastRay(Bullet) end)
+		
+		delay(weaponData.curConfig.Firerate/2, function()
+			Recoiling = false
+			RecoilFront = false
+		end)		
+			
+		weaponData.CanShoot = false
+		Shooting = false
+	end
+end;]]--
+
+function fireShot()
+	if L_22_.curConfig then
+		if L_29_ then
+			L_22_.CanShoot = false
+			Recoiling = true
+			local L_185_ = CalculateRecoil()
+			local L_186_ = CalculateCamRecoil()
+			L_28_.recoilSpring.t = L_28_.recoilSpring.t + L_185_
+			L_28_.recoilSpring2.t = L_28_.recoilSpring2.t + L_186_
+			if L_22_.curConfig.Firerate / 2 >= 0.025 then
+				delay(0.025, function()
+					L_28_.recoilSpring.t = L_28_.recoilSpring.t - L_185_
+					L_28_.recoilSpring2.t = L_28_.recoilSpring2.t - L_186_
+				end)
+			elseif L_22_.curConfig.Firerate / 2 < 0.025 then
+				delay(L_22_.curConfig.Firerate / 2, function()
+					L_28_.recoilSpring.t = L_28_.recoilSpring.t - L_185_
+					L_28_.recoilSpring2.t = L_28_.recoilSpring2.t - L_186_
+				end)
+			end
+			
+			L_21_.updateCharEvent:FireServer('Shoot', true, L_22_.curConfig.Firerate / 2)
+			Shooting = true
+			RecoilFront = true
+			
+			L_2_:WaitForChild('S'.. L_22_.curModel.Name):WaitForChild('Grip'):WaitForChild('Fire'):Play()		
+	
+			for L_187_forvar1 = 1, L_22_.curConfig.ShotNum do
+				spawn(function()
+					L_15_ = CreateBullet(L_22_.curConfig.BulletSpread)
+				end)
+				local L_188_, L_189_ = spawn(function()
+					CastRay(L_15_)
+				end)
+			end
+							
+			for L_190_forvar1, L_191_forvar2 in pairs(L_22_.FirePart:GetChildren()) do
+				if L_191_forvar2.Name:sub(1, 7) == "FlashFX" then
+					L_191_forvar2.Enabled = true
+				end
+			end
+		
+			delay(1 / 30, function()
+				for L_192_forvar1, L_193_forvar2 in pairs(L_22_.FirePart:GetChildren()) do
+					if L_193_forvar2.Name:sub(1, 7) == "FlashFX" then
+						L_193_forvar2.Enabled = false
+					end
+				end
+			end)
+			
+			if L_22_.curConfig.CanBolt == true then
+				BoltingBackAnim()
+				delay(L_22_.curConfig.Firerate / 2, function()
+					if L_22_.curConfig.CanSlideLock == false then
+						BoltingForwardAnim()
+					elseif L_22_.curConfig.CanSlideLock == true then
+						if L_22_.Ammo > 0 then
+							BoltingForwardAnim()
+						end
+					end
+				end)
+			end
+			
+			delay(L_22_.curConfig.Firerate / 2, function()
+				Recoiling = false
+				RecoilFront = false
+			end)
+			L_22_.Ammo = L_22_.Ammo - 1
+			wait(L_22_.curConfig.Firerate)
+			
+			Actioning = true
+			BoltBackAnim()
+			BoltForwardAnim()
+			IdleAnim()
+			Actioning = false
+			
+			Shooting = false
+			L_22_.CanShoot = true
+			UpdateAmmo()
+		end
+		UpdateAmmo()
+	end;
+end;
+
+function fireBoltAction()
+	if L_22_.curConfig then
+		if L_29_ then
+			L_22_.CanShoot = false
+			Recoiling = true
+			local L_194_ = CalculateRecoil()
+			local L_195_ = CalculateCamRecoil()
+			L_28_.recoilSpring.t = L_28_.recoilSpring.t + L_194_
+			L_28_.recoilSpring2.t = L_28_.recoilSpring2.t + L_195_
+			if L_22_.curConfig.Firerate / 2 >= 0.025 then
+				delay(0.025, function()
+					L_28_.recoilSpring.t = L_28_.recoilSpring.t - L_194_
+					L_28_.recoilSpring2.t = L_28_.recoilSpring2.t - L_195_
+				end)
+			elseif L_22_.curConfig.Firerate / 2 < 0.025 then
+				delay(L_22_.curConfig.Firerate / 2, function()
+					L_28_.recoilSpring.t = L_28_.recoilSpring.t - L_194_
+					L_28_.recoilSpring2.t = L_28_.recoilSpring2.t - L_195_
+				end)
+			end
+			
+			L_21_.updateCharEvent:FireServer('Shoot', true, L_22_.curConfig.Firerate / 2)
+			Shooting = true
+			--CheckReverb()
+			
+			L_2_:WaitForChild('S'.. L_22_.curModel.Name):WaitForChild('Grip'):WaitForChild('Fire'):Play()	
+	
+			L_15_ = CreateBullet(L_22_.curConfig.BulletSpread)
+			L_22_.Ammo = L_22_.Ammo - 1
+			RecoilFront = true
+			local L_196_, L_197_ = spawn(function()
+				CastRay(L_15_)
+			end)
+							
+			for L_198_forvar1, L_199_forvar2 in pairs(L_22_.FirePart:GetChildren()) do
+				if L_199_forvar2.Name:sub(1, 7) == "FlashFX" then
+					L_199_forvar2.Enabled = true
+				end
+			end
+		
+			delay(1 / 30, function()
+				for L_200_forvar1, L_201_forvar2 in pairs(L_22_.FirePart:GetChildren()) do
+					if L_201_forvar2.Name:sub(1, 7) == "FlashFX" then
+						L_201_forvar2.Enabled = false
+					end
+				end
+			end)
+			
+			if L_22_.curConfig.CanBolt == true then
+				BoltingBackAnim()
+				delay(L_22_.curConfig.Firerate / 2, function()
+					if L_22_.curConfig.CanSlideLock == false then
+						BoltingForwardAnim()
+					elseif L_22_.curConfig.CanSlideLock == true then
+						if L_22_.Ammo > 0 then
+							BoltingForwardAnim()
+						end
+					end
+				end)
+			end
+			
+			delay(L_22_.curConfig.Firerate / 2, function()
+				Recoiling = false
+				RecoilFront = false
+			end)
+			wait(L_22_.curConfig.Firerate)
+			
+			Actioning = true
+			BoltBackAnim()
+			BoltForwardAnim()
+			IdleAnim()
+			Actioning = false	
+			
+			Shooting = false
+			L_22_.CanShoot = true
+			UpdateAmmo()
+		end
+		
+		UpdateAmmo()
+	end;
+end;
+
+function fireAuto()
+	if L_22_.curConfig then
+		while not Shooting and L_22_.Ammo > 0 and L_22_.MouseHeld and L_22_.CanShoot and L_29_ do -- and not nadeLauncher do
+			L_22_.CanShoot = false
+			Recoiling = true
+			local L_202_ = CalculateRecoil()
+			local L_203_ = CalculateCamRecoil()
+			L_28_.recoilSpring.t = L_28_.recoilSpring.t + L_202_
+			L_28_.recoilSpring2.t = L_28_.recoilSpring2.t + L_203_
+			if L_22_.curConfig.Firerate / 2 >= 0.025 then
+				delay(0.025, function()
+					L_28_.recoilSpring.t = L_28_.recoilSpring.t - L_202_
+					L_28_.recoilSpring2.t = L_28_.recoilSpring2.t - L_203_
+				end)
+			elseif L_22_.curConfig.Firerate / 2 < 0.025 then
+				delay(L_22_.curConfig.Firerate / 2, function()
+					L_28_.recoilSpring.t = L_28_.recoilSpring.t - L_202_
+					L_28_.recoilSpring2.t = L_28_.recoilSpring2.t - L_203_
+				end)
+			end
+			
+			L_21_.updateCharEvent:FireServer('Shoot', true, L_22_.curConfig.Firerate / 2)
+	
+			L_2_:WaitForChild('S'.. L_22_.curModel.Name):WaitForChild('Grip'):WaitForChild('Fire'):Play()	
+	
+			L_22_.Ammo = L_22_.Ammo - 1
+			Shooting = true
+			RecoilFront = true
+			L_15_ = CreateBullet(L_22_.curConfig.BulletSpread)
+			local L_204_, L_205_ = spawn(function()
+				CastRay(L_15_)
+			end)
+						
+			for L_206_forvar1, L_207_forvar2 in pairs(L_22_.FirePart:GetChildren()) do
+				if L_207_forvar2.Name:sub(1, 7) == "FlashFX" then
+					L_207_forvar2.Enabled = true
+				end
+			end
+		
+			delay(1 / 30, function()
+				for L_208_forvar1, L_209_forvar2 in pairs(L_22_.FirePart:GetChildren()) do
+					if L_209_forvar2.Name:sub(1, 7) == "FlashFX" then
+						L_209_forvar2.Enabled = false
+					end
+				end
+			end)
+			
+			if L_22_.curConfig.CanBolt == true then
+				BoltingBackAnim()
+				delay(L_22_.curConfig.Firerate / 2, function()
+					if L_22_.curConfig.CanSlideLock == false then
+						BoltingForwardAnim()
+					elseif L_22_.curConfig.CanSlideLock == true then
+						if L_22_.Ammo > 0 then
+							BoltingForwardAnim()
+						end
+					end
+				end)
+			end
+			
+			
+			delay(L_22_.curConfig.Firerate / 2, function()
+				Recoiling = false
+				RecoilFront = false
+			end)
+			wait(L_22_.curConfig.Firerate)
+			Shooting = false
+			L_22_.CanShoot = true
+			UpdateAmmo()
+		end
+		
+		UpdateAmmo()
+	end;
+end;
+
+function fireBurst()
+	if L_22_.curConfig then
+		if not Shooting and L_22_.Ammo > 0 and L_22_.MouseHeld and L_29_ then
+			for L_210_forvar1 = 1, L_22_.curConfig.BurstNum do
+				if L_22_.Ammo > 0 and L_22_.MouseHeld then
+					L_22_.CanShoot = false
+					Recoiling = true
+					local L_211_ = CalculateRecoil()
+					local L_212_ = CalculateCamRecoil()
+					L_28_.recoilSpring.t = L_28_.recoilSpring.t + L_211_
+					L_28_.recoilSpring2.t = L_28_.recoilSpring2.t + L_212_
+					if L_22_.curConfig.Firerate / 2 >= 0.025 then
+						delay(0.025, function()
+							L_28_.recoilSpring.t = L_28_.recoilSpring.t - L_211_
+							L_28_.recoilSpring2.t = L_28_.recoilSpring2.t - L_212_
+						end)
+					elseif L_22_.curConfig.Firerate / 2 < 0.025 then
+						delay(L_22_.curConfig.Firerate / 2, function()
+							L_28_.recoilSpring.t = L_28_.recoilSpring.t - L_211_
+							L_28_.recoilSpring2.t = L_28_.recoilSpring2.t - L_212_
+						end)
+					end
+				
+					L_21_.updateCharEvent:FireServer('Shoot', true, L_22_.curConfig.Firerate / 2)
+				
+					L_2_:WaitForChild('S'.. L_22_.curModel.Name):WaitForChild('Grip'):WaitForChild('Fire'):Play()	
+	
+					L_15_ = CreateBullet(L_22_.curConfig.BulletSpread)
+					local L_213_, L_214_ = spawn(function()
+						CastRay(L_15_)
+					end)
+						
+					for L_215_forvar1, L_216_forvar2 in pairs(L_22_.FirePart:GetChildren()) do
+						if L_216_forvar2.Name:sub(1, 7) == "FlashFX" then
+							L_216_forvar2.Enabled = true
+						end
+					end
+			
+					delay(1 / 30, function()
+						for L_217_forvar1, L_218_forvar2 in pairs(L_22_.FirePart:GetChildren()) do
+							if L_218_forvar2.Name:sub(1, 7) == "FlashFX" then
+								L_218_forvar2.Enabled = false
+							end
+						end
+					end)
+				
+					if L_22_.curConfig.CanBolt == true then
+						BoltingBackAnim()
+						delay(L_22_.curConfig.Firerate / 2, function()
+							if L_22_.curConfig.CanSlideLock == false then
+								BoltingForwardAnim()
+							elseif L_22_.curConfig.CanSlideLock == true then
+								if L_22_.Ammo > 0 then
+									BoltingForwardAnim()
+								end
+							end
+						end)
+					end
+				
+					L_22_.Ammo = L_22_.Ammo - 1
+					RecoilFront = true
+					delay(L_22_.curConfig.Firerate / 2, function()
+						Recoiling = false
+						RecoilFront = false
+					end)
+					wait(L_22_.curConfig.Firerate)
+				end
+				Shooting = true
+			end
+			Shooting = false
+			L_22_.CanShoot = true
+			UpdateAmmo()
+		end
+		
+		UpdateAmmo()
+	end;
+end;
+
+function UpdateAmmo()
+	if L_22_.curConfig then
+		L_22_.ammoDisplay.Text = L_22_.Ammo
+		L_22_.title.Text = L_22_.curModel.Name
+		L_22_.magCountDisplay.Text = math.ceil(L_22_.StoredAmmo / L_22_.curConfig.StoredAmmo)
+		
+		if L_22_.StanceIndex == 0 then
+			L_22_.stanceDisplay.Image = 'rbxassetid://' .. 1868007495
+			L_22_.stanceDisplay.Position = UDim2.new(1, -102, 0, 0)
+		elseif L_22_.StanceIndex == 1 then
+			L_22_.stanceDisplay.Image = 'rbxassetid://' .. 1868007947
+			L_22_.stanceDisplay.Position = UDim2.new(1, -102, 0, 10)
+		elseif L_22_.StanceIndex == 2 then
+			L_22_.stanceDisplay.Image = 'rbxassetid://' .. 1868008584
+			L_22_.stanceDisplay.Position = UDim2.new(1, -102, 0, 23)
+		end
+		
+		if L_22_.FireMode == 1 then
+			L_22_.mode1.BackgroundTransparency = 0
+			L_22_.mode2.BackgroundTransparency = 0.7
+			L_22_.mode3.BackgroundTransparency = 0.7
+			L_22_.mode4.BackgroundTransparency = 0.7
+			L_22_.mode5.BackgroundTransparency = 0.7
+		elseif L_22_.FireMode == 2 then
+			L_22_.mode1.BackgroundTransparency = 0
+			L_22_.mode2.BackgroundTransparency = 0
+			L_22_.mode3.BackgroundTransparency = 0
+			L_22_.mode4.BackgroundTransparency = 0
+			L_22_.mode5.BackgroundTransparency = 0
+		elseif L_22_.FireMode == 3 then
+			L_22_.mode1.BackgroundTransparency = 0
+			L_22_.mode2.BackgroundTransparency = 0
+			L_22_.mode3.BackgroundTransparency = 0
+			L_22_.mode4.BackgroundTransparency = 0.7
+			L_22_.mode5.BackgroundTransparency = 0.7
+		elseif L_22_.FireMode == 4 then
+			L_22_.mode1.BackgroundTransparency = 0
+			L_22_.mode2.BackgroundTransparency = 0
+			L_22_.mode3.BackgroundTransparency = 0
+			L_22_.mode4.BackgroundTransparency = 0
+			L_22_.mode5.BackgroundTransparency = 0.7
+		elseif L_22_.FireMode == 5 then
+			L_22_.mode1.BackgroundTransparency = 0
+			L_22_.mode2.BackgroundTransparency = 0.7
+			L_22_.mode3.BackgroundTransparency = 0
+			L_22_.mode4.BackgroundTransparency = 0.7
+			L_22_.mode5.BackgroundTransparency = 0.7
+		elseif L_22_.FireMode == 6 then
+			L_22_.mode1.BackgroundTransparency = 0
+			L_22_.mode2.BackgroundTransparency = 0.7
+			L_22_.mode3.BackgroundTransparency = 0
+			L_22_.mode4.BackgroundTransparency = 0
+			L_22_.mode5.BackgroundTransparency = 0.7
+		end
+		
+		if L_22_.CanShoot then
+			for L_219_forvar1, L_220_forvar2 in pairs(L_22_.mainFrame:GetChildren()) do
+				if L_220_forvar2 and L_220_forvar2.Name:sub(1, 4) == 'Mode' then
+					L_220_forvar2.BackgroundColor3 = BrickColor.new('Institutional white').Color
+				end;
+			end;
+		else
+			for L_221_forvar1, L_222_forvar2 in pairs(L_22_.mainFrame:GetChildren()) do
+				if L_222_forvar2 and L_222_forvar2.Name:sub(1, 4) == 'Mode' then
+					if L_222_forvar2.BackgroundTransparency == 0 then
+						L_222_forvar2.BackgroundColor3 = BrickColor.new('Dusty Rose').Color
+					else
+						L_222_forvar2.BackgroundColor3 = BrickColor.new('Institutional white').Color
+					end;
+				end;
+			end;
+		end;
+	end;
+end;
+
+function OtherLaser(L_223_arg1, L_224_arg2, L_225_arg3, L_226_arg4)
+	if L_225_arg3 then
+		if L_226_arg4:FindFirstChild('LaserLight') then
+			local L_227_ = L_226_arg4.LaserLight:FindFirstChild('Attch0') or Instance.new('Attachment')
+			L_227_.Parent = L_226_arg4.LaserLight
+			L_227_.Name = 'Attch0'
+			
+			local L_228_ = L_226_arg4.LaserLight:FindFirstChild('Attch1') or Instance.new('Attachment')
+			L_228_.Parent = L_226_arg4.LaserLight
+			L_228_.Name = 'Attch1'
+			
+			local L_229_ = L_3_:FindFirstChild(L_223_arg1.Name .. 'Sphere') or Instance.new('Part')
+			L_229_.Name = L_223_arg1.Name .. 'Sphere'
+			L_229_.Shape = 'Ball'
+			L_229_.Size = Vector3.new(0.1, 0.1, 0.1)
+			L_229_.Parent = L_3_
+			L_229_.CanCollide = false
+			L_229_.BrickColor = BrickColor.new('Really red')
+			L_229_.Material = Enum.Material.Neon
+			
+			local L_230_ = L_226_arg4.LaserLight:FindFirstChild('Beam') or Instance.new('Beam')
+			L_230_.Name = 'Beam'
+			L_230_.Parent = L_226_arg4.LaserLight
+			L_230_.Attachment0 = L_227_
+			L_230_.Attachment1 = L_228_
+			L_230_.Color = ColorSequence.new(BrickColor.new('Really red').Color)
+			L_230_.LightEmission = 1
+			L_230_.LightInfluence = 0
+			L_230_.Transparency = NumberSequence.new(0.3)
+			L_230_.FaceCamera = true
+			L_230_.Width0 = 0.01
+			L_230_.Width1 = 0.01
+			
+			local L_231_ = Ray.new(L_226_arg4.LaserLight.Position, L_226_arg4.Grip.CFrame.lookVector * 9999)
+			local L_232_, L_233_, L_234_ = workspace:FindPartOnRayWithIgnoreList(L_231_, L_27_)
+			local L_235_ = L_223_arg1.Character.CarbonValues:WaitForChild('CurLength').Value
+			
+			if L_232_ then
+				L_235_ = (L_226_arg4.LaserLight.Position - L_233_).magnitude
+			else
+				L_235_ = 9999
+			end
+			
+			L_228_.CFrame = CFrame.new(0, 0, -L_235_)
+			L_229_.CFrame = L_228_.WorldCFrame
+			
+			if L_232_ and (L_232_ and L_232_.Transparency >= 1 or L_232_.CanCollide == false) then
+				table.insert(L_27_, L_232_)
+			end;
+		end;
+	else
+		if L_3_:FindFirstChild(L_223_arg1.Name .. 'Sphere') then
+			L_3_[L_223_arg1.Name .. 'Sphere']:Destroy()
+		end;
+		
+		if L_223_arg1.Character.CarbonValues.SModel.Value and L_226_arg4:FindFirstChild('LaserLight') and L_226_arg4:WaitForChild('LaserLight'):FindFirstChild('Attch0') and L_226_arg4:WaitForChild('LaserLight'):FindFirstChild('Attch1') and L_226_arg4:WaitForChild('LaserLight'):FindFirstChild('Beam') then
+			L_226_arg4.LaserLight:WaitForChild('Attch0'):Destroy()
+			L_226_arg4.LaserLight:WaitForChild('Attch1'):Destroy()
+			L_226_arg4.LaserLight:WaitForChild('Beam'):Destroy()
+		end
+	end;
+end;
+
+--// Player Connctions
+L_2_.ChildAdded:connect(function(L_236_arg1)
+	if L_236_arg1:IsA('Tool') and L_236_arg1:FindFirstChild('Authenticate') and L_19_.humanoid.Health > 0 and require(L_236_arg1.Authenticate).Type == 'Gun' then
+		local L_237_ = true
+		if L_19_.humanoid.Sit and L_2_.Humanoid.SeatPart.Name == 'DriverSeat' then
+			L_237_ = false;
+		end
+		
+		if L_237_ then
+			L_22_.queued = L_236_arg1
+			if not L_29_ then
+				L_4_.TargetFilter = workspace
+				EquipModel(L_236_arg1)
+			elseif L_29_ then
+				L_4_.TargetFilter = nil
+				UnequipModel()
+				L_4_.TargetFilter = workspace
+				EquipModel(L_22_.queued)
+			end;
+		end;
+	end
+end)
+
+L_2_.ChildRemoved:connect(function(L_238_arg1)
+	if L_238_arg1 == L_22_.tool then
+		if L_29_ then
+			if L_57_ then
+				L_57_:Destroy()
+			end
+			
+			L_4_.TargetFilter = nil
+			UnequipModel()
+		end
+	end
+end)
+
+L_19_.humanoid.Died:connect(function()
+	L_46_ = true
+	L_4_.TargetFilter = nil
+	UnequipModel()
+	L_21_.storeDataEvent:InvokeServer('Erase')
+end)
+
+L_19_.humanoid.Changed:connect(function()
+	if L_19_.humanoid.Health < L_45_ and L_19_.humanoid.Health ~= L_19_.humanoid.MaxHealth then
+		L_16_:Create(L_22_.intenseShade, TweenInfo.new(0.1), {
+			ImageColor3 = BrickColor.new('Institutional white').Color
+		}):Play()
+		
+		delay(0.8, function()
+			L_16_:Create(L_22_.intenseShade, TweenInfo.new(0.3), {
+				ImageColor3 = BrickColor.new('Really black').Color
+			}):Play()
+		end)
+	end;
+	
+	L_45_ = L_19_.humanoid.Health
+end)
+
+--// Keyboard Input Connections
+L_18_.InputBegan:connect(function(L_239_arg1, L_240_arg2)
+	if not L_240_arg2 and L_29_ and L_19_.humanoid.Health > 0 and L_22_.curConfig then	
+		if L_239_arg1.UserInputType == L_22_.curConfig.ShootKeybind and L_29_ and not L_30_ and not L_51_ then
+			L_22_.MouseHeld = true
+			
+			if L_22_.Ammo > 0 then
+				Shoot()
+			end;
+			
+			if L_22_.Ammo <= 0 or not L_22_.CanShoot then
+				L_22_.Grip:WaitForChild('Click'):Play()
+			end;
+		end;
+			
+		if L_239_arg1.UserInputType == L_22_.curConfig.ADSKeybind and L_29_ and not L_30_ and not L_51_ then
+			Aim(true, true)
+		end;
+	
+		if L_239_arg1.KeyCode == L_22_.curConfig.AltADSKey and L_29_ and not L_30_ and not L_51_ then
+			Aim(true, true)
+		end;
+		
+		if L_239_arg1.KeyCode == L_22_.curConfig.SprintKey and L_29_ and not L_30_ and not L_34_ and L_31_ and not L_51_ then
+			Sprint(true)
+		end;
+		
+		if L_239_arg1.KeyCode == Enum.KeyCode.LeftControl and L_29_ and not L_30_ and not L_51_ then
+			L_22_.sensDisplay.Visible = true
+		end;
+		
+		if L_239_arg1.KeyCode == Enum.KeyCode.B and L_29_ and not L_30_ and not L_51_ and L_52_ then
+			L_51_ = true
+			L_52_ = false
+			local L_241_ = L_7_:WaitForChild('Syringe'):clone()
+			L_241_.Parent = L_22_.LA
+			
+			L_16_:Create(L_22_.LAW, TweenInfo.new(0.4), {
+				C1 = CFrame.new(0.554482341, -1.31048226, -2.38849282, -0.154961348, -0.339524895, 0.927744389, -0.987918973, 0.0549189299, -0.144913793, -0.00174888968, -0.938992321, -0.343933403)
+			}):Play()
+			wait(0.4)
+			
+			for L_243_forvar1, L_244_forvar2 in pairs(L_241_:GetChildren()) do
+				if L_244_forvar2 and L_244_forvar2:IsA('BasePart') then
+					if L_244_forvar2.Name ~= 'Glass' then
+						L_20_.utilitiesModule.Weld(L_244_forvar2, L_241_:WaitForChild('Glass'))
+					elseif L_244_forvar2.Name == 'Glass' then
+						L_20_.utilitiesModule.Weld(L_244_forvar2, L_22_.LA, nil, CFrame.new(0.5, -1.20000005, 0.199999988, 1.19248806e-08, 0, 1, 0, 1, 0, -1, 0, 1.19248806e-08))
+					end
+				end
+			end;
+			
+			for L_245_forvar1, L_246_forvar2 in pairs(L_241_:GetChildren()) do
+				if L_246_forvar2 and L_246_forvar2:IsA('BasePart') then
+					L_246_forvar2.Anchored = false
+				end
+			end;
+			
+			L_16_:Create(L_22_.LAW, TweenInfo.new(0.4), {
+				C1 = CFrame.new(2.65448236, -1.21048236, 1.91150701, 0.0297531113, 0.786976993, 0.616264343, -0.930818856, -0.202869564, 0.304006517, 0.364267558, -0.582675636, 0.726497054)
+			}):Play()
+			wait(0.24)
+			local L_242_ = L_7_:WaitForChild('SyringeIn'):Clone()
+			L_242_.Parent = L_1_.PlayerGui
+			L_242_:Play()
+			game.Debris:AddItem(L_242_, L_242_.TimeLength)
+			L_16_:Create(L_22_.LAW, TweenInfo.new(0.28), {
+				C1 = CFrame.new(2.65448236, -1.21048236, 0.815154314, 0.0297531113, 0.786976993, 0.616264343, -0.930818856, -0.202869564, 0.304006517, 0.364267558, -0.582675636, 0.726497054)
+			}):Play()
+			
+			L_22_.painShade.Visible = true
+			L_16_:Create(L_22_.painShade, TweenInfo.new(0.1), {
+				ImageTransparency = 0
+			}):Play()
+			delay(0.7, function()
+				L_16_:Create(L_22_.painShade, TweenInfo.new(3), {
+					ImageTransparency = 1
+				}):Play()
+			end)
+			
+			wait(0.35)
+			L_16_:Create(L_241_:WaitForChild('Push'):WaitForChild('Push'), TweenInfo.new(0.3), {
+				C1 = CFrame.new(-0.65829581, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1)
+			}):Play()
+			L_16_:Create(L_241_:WaitForChild('Liquid'):WaitForChild('Liquid'), TweenInfo.new(0.3), {
+				C1 = CFrame.new(-0.64000386, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1)
+			}):Play()			
+			wait(0.5)
+			L_21_.medEvent:FireServer(true)
+			L_241_:WaitForChild('Liquid').Transparency = 1
+			IdleAnim()
+			L_241_:Destroy()
+			L_51_ = false
+		end;
+		
+		if L_239_arg1.KeyCode == L_22_.curConfig.LaserKey and not L_51_ and L_29_ and L_22_.curModel and L_22_.curModel:FindFirstChild('LaserLight') and L_22_.curConfig.LaserAttached then
+			L_48_ = not L_48_
+			
+			L_21_.manipEvent:FireServer(L_48_, 'Laser')
+			
+			L_57_ = Instance.new('Part')
+			L_57_.Shape = 'Ball'
+			L_57_.Size = Vector3.new(0.1, 0.1, 0.1)
+			L_57_.Parent = L_3_
+			L_57_.CanCollide = false
+			L_57_.BrickColor = L_22_.curConfig.LaserColor
+			L_57_.Material = Enum.Material.Neon
+			
+			if L_48_ then
+				L_53_ = Instance.new('Attachment')
+				L_53_.Parent = L_22_.curModel.LaserLight
+				
+				L_54_ = Instance.new('Attachment')
+				L_54_.Parent = L_22_.curModel.LaserLight
+				
+				L_55_ = Instance.new('Beam')
+				L_55_.Parent = L_22_.curModel.LaserLight
+				L_55_.Attachment0 = L_53_
+				L_55_.Attachment1 = L_54_
+				L_55_.Color = ColorSequence.new(L_22_.curConfig.LaserColor.Color)
+				L_55_.LightEmission = L_22_.curConfig.LaserEmission
+				L_55_.LightInfluence = L_22_.curConfig.LaserInfluence
+				L_55_.Transparency = L_22_.curConfig.LaserTransparency
+				L_55_.FaceCamera = true
+				L_55_.Width0 = 0.01
+				L_55_.Width1 = 0.01
+			else
+				L_53_:Destroy()
+				L_54_:Destroy()
+				L_55_:Destroy()
+				L_57_:Destroy()
+			end
+		end;
+		
+		if L_239_arg1.KeyCode == L_22_.curConfig.LightKey and not L_51_ and L_22_.curConfig.LightAttached and L_22_.curModel:FindFirstChild('FlashLight') then
+			L_49_ = not L_49_
+			
+			for L_247_forvar1, L_248_forvar2 in pairs(L_22_.curModel:WaitForChild('FlashLight'):GetChildren()) do
+				if L_248_forvar2 and L_248_forvar2.Name == 'Enable' then
+					L_248_forvar2.Enabled = L_49_
+				end
+			end
+			
+			if L_20_.globalConfig.ReplicatedFlashlight then
+				L_21_.manipEvent:FireServer(L_49_, 'FlashLight')			
+			end
+		end;
+		
+		if L_239_arg1.KeyCode == L_22_.curConfig.BoltKey and not L_36_ and L_29_ and not L_30_ then
+			L_36_ = true
+			L_37_ = not L_37_
+			
+			if L_37_ then
+				BoltBackAnim()
+				
+				if L_41_ and L_22_.Ammo > 0 then
+					CreateShell()
+				end
+				
+				L_36_ = false
+			else
+				if L_22_.Ammo > 0 then
+					L_22_.CanShoot = true
+					L_42_ = true
+					
+					if L_41_ then
+						L_22_.Ammo = L_22_.Ammo - 1
+					end
+					
+					L_41_ = true
+				end
+				
+				BoltForwardAnim()
+				IdleAnim()
+				L_36_ = false
+			end
+			
+			UpdateAmmo()
+		end;
+		
+		if L_239_arg1.KeyCode == L_22_.curConfig.PatrolKey and not L_51_ and L_22_.curConfig then
+			L_38_ = not L_38_
+			
+			if L_38_ then
+				if L_32_ then
+					Aim(false, true)
+				end
+				
+				if L_33_ then
+					Sprint(false)
+				end
+				
+				if L_35_ then
+					L_22_.readyMode = 0
+					ChangeReady()
+				end
+				
+				L_16_:Create(L_22_.AnimBaseW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = CFrame.new(0.277981758, 0.244040087, -0.174667343, 0.642787635, -0.383022219, 0.663413942, 0.133022055, 0.908677936, 0.395739198, -0.754406512, -0.166127577, 0.635037363)
+				}):Play()
+				L_21_.updateCharEvent:FireServer('Patrol', true)
+			else 
+				L_21_.updateCharEvent:FireServer('Patrol', false)
+			end
+		end;
+		
+		if L_239_arg1.KeyCode == L_22_.curConfig.CycleSightKey and not L_51_ then
+			if L_22_.curModel:FindFirstChild('AimPart2') then
+				L_39_ = not L_39_
+				
+				if L_39_ then
+					L_22_.CurAimPart = L_22_.curModel:FindFirstChild('AimPart2')
+					L_22_.AimPart2 = L_22_.curModel:FindFirstChild('AimPart2')
+					L_22_.curZoom = L_22_.curConfig.AltAimZoom
+				else
+					L_22_.CurAimPart = L_22_.AimPart
+					L_22_.curZoom = L_22_.curConfig.AimZoom
+				end
+			
+				if L_32_ then
+					Aim(true, false)
+				end
+			end
+		end;
+		
+		if L_239_arg1.KeyCode == Enum.KeyCode.Q and L_22_.StanceIndex ~= 2 and not L_22_.Seated then
+			if L_20_.globalConfig.ToggleableLeaning then
+				if L_28_.dirPeek ~= 1 then
+					L_28_.dirPeek = 1
+				else
+					L_28_.dirPeek = 0
+				end
+			else
+				L_28_.dirPeek = 1
+			end
+			Lean()
+		end;
+		
+		if L_239_arg1.KeyCode == Enum.KeyCode.E and L_22_.StanceIndex ~= 2 and not L_22_.Seated then
+			if L_20_.globalConfig.ToggleableLeaning then
+				if L_28_.dirPeek ~= -1 then
+					L_28_.dirPeek = -1
+				else
+					L_28_.dirPeek = 0
+				end
+			else
+				L_28_.dirPeek = -1
+			end
+			Lean()
+		end;
+		
+		if L_239_arg1.KeyCode == L_22_.curConfig.ReloadKey and not L_51_ and L_29_ and not L_40_ and not Shooting and not L_33_ and L_22_.Ammo < L_22_.curConfig.Ammo then		
+			--if not nadeLauncher then
+			local L_249_ = L_3_.FieldOfView
+				
+			if L_3_.FieldOfView ~= 70 then
+				L_16_:Create(L_3_, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					FieldOfView = 70
+				}):Play()
+			end;
+				
+			L_42_ = L_22_.CanShoot
+			L_22_.CanShoot = false
+				
+			if L_22_.Ammo > 0 then
+				L_41_ = true
+				L_42_ = true
+			else
+				L_41_ = false
+				L_42_ = false
+			end;
+						
+			if L_22_.StoredAmmo > 0 and L_22_.Ammo < L_22_.curConfig.Ammo then
+				Shooting = false
+				L_40_ = true					
+				ReloadAnim()
+					
+				if L_22_.curConfig.CanAutoBolt then
+					if L_22_.Ammo <= 0 then
+						if not L_22_.curConfig.CanSlideLock then
+							BoltBackAnim()
+							BoltForwardAnim()
+						end
+					elseif L_22_.Ammo > 0 then
+						if not L_22_.curConfig.CanSlideLock then
+							if L_22_.BoltW.C1 ~= (CFrame.new() or CFrame.new(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1)) then
+								BoltBackAnim()
+								BoltForwardAnim()
+							end
+						end
+					end
+				end;
+					
+				IdleAnim()
+					
+				if L_22_.Ammo <= 0 then
+					if (L_22_.StoredAmmo - (L_22_.curConfig.Ammo - L_22_.Ammo)) < 0 then
+						L_22_.Ammo = L_22_.Ammo + L_22_.StoredAmmo
+						L_22_.StoredAmmo = 0
+					else
+						L_22_.StoredAmmo = L_22_.StoredAmmo - (L_22_.curConfig.Ammo - L_22_.Ammo)
+						L_22_.Ammo = L_22_.curConfig.Ammo
+					end
+				elseif L_22_.Ammo > 0 then
+					if (L_22_.StoredAmmo - (L_22_.curConfig.Ammo - L_22_.Ammo)) < 0 then
+						L_22_.Ammo = L_22_.Ammo + L_22_.StoredAmmo + 1
+						L_22_.StoredAmmo = 0
+					else
+						L_22_.StoredAmmo = L_22_.StoredAmmo - (L_22_.curConfig.Ammo - L_22_.Ammo)
+						L_22_.Ammo = L_22_.curConfig.Ammo + 1
+					end
+				end
+	
+				L_40_ = false
+					
+				if L_22_.curConfig.CanAutoBolt or L_41_ or L_22_.curConfig.CanSlideLock then
+					L_22_.CanShoot = true
+					L_42_ = true
+				end;
+			end;
+			--[[elseif nadeLauncher then
+				if ExplosiveAmmo > 0 then
+					Shooting = false
+					Reloading = true
+					nadeReload()
+					IdleAnim()
+					Reloading = false
+					CanShoot = true]]--
+				--end
+			--end;
+			UpdateAmmo()
+			
+			if L_249_ ~= 70 and L_32_ then
+				L_16_:Create(L_3_, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					FieldOfView = L_249_
+				}):Play()
+			end;
+		end;
+		
+		if L_29_ and L_239_arg1.KeyCode == L_22_.curConfig.FireSelectKey and not L_51_ and not L_44_ and not Shooting and L_22_.curConfig.CanSelectFire then
+			L_44_ = true
+			if L_22_.FireMode == 1 then
+				if Shooting then
+					Shooting = false
+				end
+				if L_22_.curConfig.AutoEnabled then
+					L_22_.FireMode = 2
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.AutoEnabled and L_22_.curConfig.BurstEnabled then
+					L_22_.FireMode = 3
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.AutoEnabled and not L_22_.curConfig.BurstEnabled and L_22_.curConfig.BoltAction then
+					L_22_.FireMode = 4
+					--nadeLauncher = false
+					L_22_.FireMode = L_42_
+				elseif not L_22_.curConfig.AutoEnabled and not L_22_.curConfig.BurstEnabled and not L_22_.curConfig.BoltAction and L_22_.curConfig.ExplosiveEnabled then
+					L_22_.FireMode = 6
+					--nadeLauncher = true
+					L_42_ = L_22_.CanShoot
+					L_22_.CanShoot = L_43_
+				elseif not L_22_.curConfig.AutoEnabled and not L_22_.curConfig.BurstEnabled and not L_22_.curConfig.BoltAction and not L_22_.curConfig.ExplosiveEnabled then
+					L_22_.FireMode = 1
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				end
+			elseif L_22_.FireMode == 2 then
+				if Shooting then
+					Shooting = false
+				end
+				if L_22_.curConfig.BurstEnabled then
+					L_22_.FireMode = 3
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.BurstEnabled and L_22_.curConfig.BoltAction then
+					L_22_.FireMode = 4
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.BurstEnabled and not L_22_.curConfig.BoltAction and L_22_.curConfig.ExplosiveEnabled then
+					L_22_.FireMode = 6
+					--nadeLauncher = true
+					L_42_ = L_22_.CanShoot
+					L_22_.CanShoot = L_43_
+				elseif not L_22_.curConfig.BurstEnabled and not L_22_.curConfig.BoltAction and not L_22_.curConfig.ExplosiveEnabled and L_22_.curConfig.SemiEnabled then
+					L_22_.FireMode = 1
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.BurstEnabled and not L_22_.curConfig.BoltAction and not L_22_.curConfig.SemiEnabled then
+					L_22_.FireMode = 2
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				end
+			elseif L_22_.FireMode == 3 then
+				if Shooting then
+					Shooting = false
+				end
+				if L_22_.curConfig.BoltAction then
+					L_22_.FireMode = 4
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.BoltAction and L_22_.curConfig.ExplosiveEnabled then
+					L_22_.FireMode = 6
+					--nadeLauncher = true
+					L_42_ = L_22_.CanShoot
+					L_22_.CanShoot = L_43_
+				elseif not L_22_.curConfig.BoltAction and not L_22_.curConfig.ExplosiveEnabled and L_22_.curConfig.SemiEnabled then
+					L_22_.FireMode = 1
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.BoltAction and not L_22_.curConfig.SemiEnabled and L_22_.curConfig.AutoEnabled then
+					L_22_.FireMode = 2
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.BoltAction and not L_22_.curConfig.SemiEnabled and not L_22_.curConfig.AutoEnabled then
+					L_22_.FireMode = 3
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				end
+			elseif L_22_.FireMode == 4 then
+				if Shooting then
+					Shooting = false
+				end
+				if L_22_.curConfig.ExplosiveEnabled then
+					L_22_.FireMode = 6
+					L_42_ = L_22_.CanShoot
+					L_22_.CanShoot = L_43_
+					--nadeLauncher = true
+				elseif not L_22_.curConfig.ExplosiveEnabled and L_22_.curConfig.SemiEnabled then
+					L_22_.FireMode = 1
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and L_22_.curConfig.AutoEnabled then
+					L_22_.FireMode = 2
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and not L_22_.curConfig.AutoEnabled and L_22_.curConfig.BurstEnabled then
+					L_22_.FireMode = 3
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and not L_22_.curConfig.AutoEnabled and not L_22_.curConfig.BurstEnabled then
+					L_22_.FireMode = 4
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				end
+			elseif L_22_.FireMode == 6 then
+				if Shooting then
+					Shooting = false
+				end
+				L_43_ = L_22_.CanShoot
+				if L_22_.curConfig.SemiEnabled then
+					L_22_.FireMode = 1
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and L_22_.curConfig.AutoEnabled then
+					L_22_.FireMode = 2
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and not L_22_.curConfig.AutoEnabled and L_22_.curConfig.BurstEnabled then
+					L_22_.FireMode = 3
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and not L_22_.curConfig.AutoEnabled and not L_22_.curConfig.BurstEnabled and L_22_.curConfig.BoltAction then
+					L_22_.FireMode = 4
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and not L_22_.curConfig.AutoEnabled and not L_22_.curConfig.BurstEnabled and not L_22_.curConfig.BoltAction then
+					L_22_.FireMode = 6
+					--nadeLauncher = true
+					L_42_ = L_22_.CanShoot
+					L_22_.CanShoot = L_43_
+				end
+			end
+			
+			UpdateAmmo()
+			FireModeAnim()
+			IdleAnim()
+			L_44_ = false
+		end;
+	end;
+end)
+
+L_18_.InputBegan:connect(function(L_250_arg1, L_251_arg2)
+	if not L_251_arg2 then
+		if L_29_ or L_20_.globalConfig.UniversalStances and not L_38_ and not L_22_.Seated then
+			if L_250_arg1.KeyCode == Enum.KeyCode.C and not L_22_.Seated then
+				L_33_ = false
+				if L_22_.StanceIndex == 0 then
+					L_22_.StanceIndex = 1
+					changeStance()
+				elseif L_22_.StanceIndex == 1 then
+					L_22_.StanceIndex = 2
+					changeStance()
+				elseif L_22_.StanceIndex == 2 then
+					L_22_.StanceIndex = 1
+					changeStance()
+				end
+			end;
+				
+			if L_250_arg1.KeyCode == Enum.KeyCode.X and not L_22_.Seated then				
+				L_33_ = false
+				if L_22_.StanceIndex == 0 then
+					L_22_.StanceIndex = 1
+					changeStance()
+				elseif L_22_.StanceIndex == 1 then
+					L_22_.StanceIndex = 0
+					changeStance()
+				elseif L_22_.StanceIndex == 2 then
+					L_22_.StanceIndex = 1
+					changeStance()
+				end
+			end;
+		end
+	end
+end)
+
+L_18_.InputBegan:connect(function(L_252_arg1, L_253_arg2)
+	if not L_253_arg2 then
+		if L_29_ or L_20_.globalConfig.UniversalStances and not L_38_ and not L_22_.Seated then
+			if L_252_arg1.KeyCode == Enum.KeyCode.ButtonB and not L_22_.Seated then
+				L_33_ = false
+				if L_22_.StanceIndex == 0 then
+					L_22_.StanceIndex = 1
+					changeStance()
+				elseif L_22_.StanceIndex == 1 then
+					L_22_.StanceIndex = 2
+					changeStance()
+				elseif L_22_.StanceIndex == 2 then
+					L_22_.StanceIndex = 1
+					changeStance()
+				end
+				
+				delay(0.3, function()
+					if L_18_:IsGamepadButtonDown(Enum.UserInputType.Gamepad1, Enum.KeyCode.ButtonB) then
+						L_33_ = false
+						L_22_.StanceIndex = 0
+						changeStance()
+					end
+				end)
+			end;
+		end
+	end
+end)
+
+L_18_.InputEnded:connect(function(L_254_arg1, L_255_arg2)
+	if not L_255_arg2 and L_29_ and L_22_.curConfig then
+		if L_254_arg1.UserInputType == L_22_.curConfig.ShootKeybind then
+			L_22_.MouseHeld = false
+		end;
+		
+		if L_254_arg1.UserInputType == L_22_.curConfig.ADSKeybind and not L_33_ then
+			Aim(false, true)
+		end;
+		
+		if L_254_arg1.KeyCode == L_22_.curConfig.AltADSKey and not L_33_ then
+			Aim(false, true)
+		end;
+		
+		if L_254_arg1.KeyCode == L_22_.curConfig.SprintKey and L_29_ and not L_30_ and not L_34_ and not L_32_ and not L_38_ and not L_35_ then
+			Sprint(false)
+		end;
+		
+		if L_254_arg1.KeyCode == Enum.KeyCode.Q and L_22_.StanceIndex ~= 2 and not L_22_.Seated and not L_20_.globalConfig.ToggleableLeaning then
+			L_28_.dirPeek = 0
+			Lean()
+		end;
+		
+		if L_254_arg1.KeyCode == Enum.KeyCode.E and L_22_.StanceIndex ~= 2 and not L_22_.Seated and not L_20_.globalConfig.ToggleableLeaning then
+			L_28_.dirPeek = 0
+			Lean()
+		end;
+		
+		if L_254_arg1.KeyCode == Enum.KeyCode.LeftControl and L_29_ and not L_30_ then
+			L_22_.sensDisplay.Visible = false
+		end;
+	end
+end)
+
+L_18_.InputChanged:connect(function(L_256_arg1, L_257_arg2)
+	if not L_257_arg2 and L_29_ then
+		if L_256_arg1.UserInputType == Enum.UserInputType.MouseWheel then
+			if L_18_:IsKeyDown(Enum.KeyCode.LeftControl) then
+				if L_32_ then
+					if L_256_arg1.Position.Z == 1 then
+						L_22_.aimSens = L_22_.aimSens + 0.1
+						if L_22_.aimSens > 1 then
+							L_22_.aimSens = 1
+						end
+					elseif L_256_arg1.Position.Z == -1 then
+						L_22_.aimSens = L_22_.aimSens - 0.1
+						if L_22_.aimSens < 0.1 then
+							L_22_.aimSens = 0.1
+						end
+					end
+				else
+					if L_256_arg1.Position.Z == 1 then
+						L_22_.baseSens = L_22_.baseSens + 0.1
+						if L_22_.baseSens > 1 then
+							L_22_.baseSens = 1
+						end
+					elseif L_256_arg1.Position.Z == -1 then
+						L_22_.baseSens = L_22_.baseSens - 0.1
+						if L_22_.baseSens < 0.1 then
+							L_22_.baseSens = 0.1
+						end
+					end
+				end
+			else
+				if L_256_arg1.Position.Z == 1 then
+					L_22_.readyMode = L_22_.readyMode + 1
+					if L_22_.readyMode > 1 then
+						L_22_.readyMode = 1
+					end
+				elseif L_256_arg1.Position.Z == -1 then
+					L_22_.readyMode = L_22_.readyMode - 1
+					if L_22_.readyMode < -1 then
+						L_22_.readyMode = -1
+					end
+				end
+				
+				ChangeReady()
+			end;
+		end;
+	end;
+	
+	if L_256_arg1.UserInputType == Enum.UserInputType.MouseMovement then
+		L_23_.desiredXOffset = math.min(math.max(L_256_arg1.Delta.x, -L_23_.swayInputLimit), L_23_.swayInputLimit)
+		L_23_.desiredYOffset = math.min(math.max(L_256_arg1.Delta.y, -L_23_.swayInputLimit), L_23_.swayInputLimit)
+	end;
+end)
+
+--// Console Input Connections
+L_18_.InputBegan:connect(function(L_258_arg1, L_259_arg2)
+	if not L_259_arg2 and L_29_ then				
+		if L_258_arg1.KeyCode == Enum.KeyCode.ButtonL2 and L_29_ and not L_30_ and not L_51_ then
+			Aim(true, true)
+		end;
+		
+		if L_258_arg1.KeyCode == Enum.KeyCode.ButtonL3 and L_29_ and not L_30_ and L_31_ and not L_34_ and not L_51_ then
+			Sprint(true)
+		end;
+		
+		if L_258_arg1.KeyCode == Enum.KeyCode.ButtonR2 and L_29_ and not L_30_ and not L_51_ then
+			L_22_.MouseHeld = true
+			
+			if L_22_.Ammo > 0 then
+				Shoot()
+			end;
+			
+			if L_22_.Ammo <= 0 or not L_22_.CanShoot then
+				L_22_.Grip:WaitForChild('Click'):Play()
+			end;
+		end;
+		
+		if L_258_arg1.KeyCode == Enum.KeyCode.ButtonX and L_29_ and not L_30_ and not L_40_ and not Shooting and not L_33_ and L_22_.Ammo < L_22_.curConfig.Ammo then
+			local L_260_ = L_3_.FieldOfView
+				
+			if L_3_.FieldOfView ~= 70 then
+				L_16_:Create(L_3_, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					FieldOfView = 70
+				}):Play()
+			end;
+				
+			L_42_ = L_22_.CanShoot
+			L_22_.CanShoot = false
+				
+			if L_22_.Ammo > 0 then
+				L_41_ = true
+				L_42_ = true
+			else
+				L_41_ = false
+				L_42_ = false
+			end;
+						
+			if L_22_.StoredAmmo > 0 and L_22_.Ammo < L_22_.curConfig.Ammo then
+				Shooting = false
+				L_40_ = true					
+				ReloadAnim()
+					
+				if L_22_.curConfig.CanAutoBolt then
+					if L_22_.Ammo <= 0 then
+						if not L_22_.curConfig.CanSlideLock then
+							BoltBackAnim()
+							BoltForwardAnim()
+						end
+					elseif L_22_.Ammo > 0 then
+						if not L_22_.curConfig.CanSlideLock then
+							if L_22_.BoltW.C1 ~= (CFrame.new() or CFrame.new(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1)) then
+								BoltBackAnim()
+								BoltForwardAnim()
+							end
+						end
+					end
+				end;
+					
+				IdleAnim()
+					
+				if L_22_.Ammo <= 0 then
+					if (L_22_.StoredAmmo - (L_22_.curConfig.Ammo - L_22_.Ammo)) < 0 then
+						L_22_.Ammo = L_22_.Ammo + L_22_.StoredAmmo
+						L_22_.StoredAmmo = 0
+					else
+						L_22_.StoredAmmo = L_22_.StoredAmmo - (L_22_.curConfig.Ammo - L_22_.Ammo)
+						L_22_.Ammo = L_22_.curConfig.Ammo
+					end
+				elseif L_22_.Ammo > 0 then
+					if (L_22_.StoredAmmo - (L_22_.curConfig.Ammo - L_22_.Ammo)) < 0 then
+						L_22_.Ammo = L_22_.Ammo + L_22_.StoredAmmo + 1
+						L_22_.StoredAmmo = 0
+					else
+						L_22_.StoredAmmo = L_22_.StoredAmmo - (L_22_.curConfig.Ammo - L_22_.Ammo)
+						L_22_.Ammo = L_22_.curConfig.Ammo + 1
+					end
+				end
+	
+				L_40_ = false
+					
+				if L_22_.curConfig.CanAutoBolt or L_41_ then
+					L_22_.CanShoot = true
+					L_42_ = true
+				end;
+			end;
+			--[[elseif nadeLauncher then
+				if ExplosiveAmmo > 0 then
+					Shooting = false
+					Reloading = true
+					nadeReload()
+					IdleAnim()
+					Reloading = false
+					CanShoot = true]]--
+				--end
+			--end;
+			UpdateAmmo()
+			
+			if L_260_ ~= 70 and L_32_ then
+				L_16_:Create(L_3_, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					FieldOfView = L_260_
+				}):Play()
+			end;
+		end;
+	
+		if L_258_arg1.KeyCode == Enum.KeyCode.ButtonY and L_29_ and not L_30_ and not L_36_ then
+			L_36_ = true
+			L_37_ = not L_37_
+			
+			if L_37_ then
+				BoltBackAnim()
+				
+				if L_41_ and L_22_.Ammo > 0 then
+					CreateShell()
+				end
+				
+				L_36_ = false
+			else
+				if L_22_.Ammo > 0 then
+					L_22_.CanShoot = true
+					L_42_ = true
+					
+					if L_41_ then
+						L_22_.Ammo = L_22_.Ammo - 1
+					end
+					
+					L_41_ = true
+				end
+				
+				BoltForwardAnim()
+				IdleAnim()
+				L_36_ = false
+			end
+			
+			UpdateAmmo()
+		end;
+		
+		if L_258_arg1.KeyCode == Enum.KeyCode.DPadDown and L_29_ and not L_30_ and not L_44_ and not Shooting and L_22_.curConfig.CanSelectFire then
+			L_44_ = true
+			if L_22_.FireMode == 1 then
+				if Shooting then
+					Shooting = false
+				end
+				if L_22_.curConfig.AutoEnabled then
+					L_22_.FireMode = 2
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.AutoEnabled and L_22_.curConfig.BurstEnabled then
+					L_22_.FireMode = 3
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.AutoEnabled and not L_22_.curConfig.BurstEnabled and L_22_.curConfig.BoltAction then
+					L_22_.FireMode = 4
+					--nadeLauncher = false
+					L_22_.FireMode = L_42_
+				elseif not L_22_.curConfig.AutoEnabled and not L_22_.curConfig.BurstEnabled and not L_22_.curConfig.BoltAction and L_22_.curConfig.ExplosiveEnabled then
+					L_22_.FireMode = 6
+					--nadeLauncher = true
+					L_42_ = L_22_.CanShoot
+					L_22_.CanShoot = L_43_
+				elseif not L_22_.curConfig.AutoEnabled and not L_22_.curConfig.BurstEnabled and not L_22_.curConfig.BoltAction and not L_22_.curConfig.ExplosiveEnabled then
+					L_22_.FireMode = 1
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				end
+			elseif L_22_.FireMode == 2 then
+				if Shooting then
+					Shooting = false
+				end
+				if L_22_.curConfig.BurstEnabled then
+					L_22_.FireMode = 3
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.BurstEnabled and L_22_.curConfig.BoltAction then
+					L_22_.FireMode = 4
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.BurstEnabled and not L_22_.curConfig.BoltAction and L_22_.curConfig.ExplosiveEnabled then
+					L_22_.FireMode = 6
+					--nadeLauncher = true
+					L_42_ = L_22_.CanShoot
+					L_22_.CanShoot = L_43_
+				elseif not L_22_.curConfig.BurstEnabled and not L_22_.curConfig.BoltAction and not L_22_.curConfig.ExplosiveEnabled and L_22_.curConfig.SemiEnabled then
+					L_22_.FireMode = 1
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.BurstEnabled and not L_22_.curConfig.BoltAction and not L_22_.curConfig.SemiEnabled then
+					L_22_.FireMode = 2
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				end
+			elseif L_22_.FireMode == 3 then
+				if Shooting then
+					Shooting = false
+				end
+				if L_22_.curConfig.BoltAction then
+					L_22_.FireMode = 4
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.BoltAction and L_22_.curConfig.ExplosiveEnabled then
+					L_22_.FireMode = 6
+					--nadeLauncher = true
+					L_42_ = L_22_.CanShoot
+					L_22_.CanShoot = L_43_
+				elseif not L_22_.curConfig.BoltAction and not L_22_.curConfig.ExplosiveEnabled and L_22_.curConfig.SemiEnabled then
+					L_22_.FireMode = 1
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.BoltAction and not L_22_.curConfig.SemiEnabled and L_22_.curConfig.AutoEnabled then
+					L_22_.FireMode = 2
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.BoltAction and not L_22_.curConfig.SemiEnabled and not L_22_.curConfig.AutoEnabled then
+					L_22_.FireMode = 3
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				end
+			elseif L_22_.FireMode == 4 then
+				if Shooting then
+					Shooting = false
+				end
+				if L_22_.curConfig.ExplosiveEnabled then
+					L_22_.FireMode = 6
+					L_42_ = L_22_.CanShoot
+					L_22_.CanShoot = L_43_
+					--nadeLauncher = true
+				elseif not L_22_.curConfig.ExplosiveEnabled and L_22_.curConfig.SemiEnabled then
+					L_22_.FireMode = 1
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and L_22_.curConfig.AutoEnabled then
+					L_22_.FireMode = 2
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and not L_22_.curConfig.AutoEnabled and L_22_.curConfig.BurstEnabled then
+					L_22_.FireMode = 3
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and not L_22_.curConfig.AutoEnabled and not L_22_.curConfig.BurstEnabled then
+					L_22_.FireMode = 4
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				end
+			elseif L_22_.FireMode == 6 then
+				if Shooting then
+					Shooting = false
+				end
+				L_43_ = L_22_.CanShoot
+				if L_22_.curConfig.SemiEnabled then
+					L_22_.FireMode = 1
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and L_22_.curConfig.AutoEnabled then
+					L_22_.FireMode = 2
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and not L_22_.curConfig.AutoEnabled and L_22_.curConfig.BurstEnabled then
+					L_22_.FireMode = 3
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and not L_22_.curConfig.AutoEnabled and not L_22_.curConfig.BurstEnabled and L_22_.curConfig.BoltAction then
+					L_22_.FireMode = 4
+					--nadeLauncher = false
+					L_22_.CanShoot = L_42_
+				elseif not L_22_.curConfig.SemiEnabled and not L_22_.curConfig.AutoEnabled and not L_22_.curConfig.BurstEnabled and not L_22_.curConfig.BoltAction then
+					L_22_.FireMode = 6
+					--nadeLauncher = true
+					L_42_ = L_22_.CanShoot
+					L_22_.CanShoot = L_43_
+				end
+			end
+			
+			UpdateAmmo()
+			FireModeAnim()
+			IdleAnim()
+			L_44_ = false
+		end;
+		
+		if L_258_arg1.KeyCode == Enum.KeyCode.DPadUp then
+			if L_22_.curModel:FindFirstChild('AimPart2') then
+				L_39_ = not L_39_
+				
+				if L_39_ then
+					L_22_.CurAimPart = L_22_.curModel:FindFirstChild('AimPart2')
+					L_22_.AimPart2 = L_22_.curModel:FindFirstChild('AimPart2')
+					L_22_.curZoom = L_22_.curConfig.AltAimZoom
+				else
+					L_22_.CurAimPart = L_22_.AimPart
+					L_22_.curZoom = L_22_.curConfig.AimZoom
+				end
+			
+				if L_32_ then
+					Aim(true, false)
+				end
+			end
+		end;
+	end;
+end)
+
+L_18_.InputEnded:connect(function(L_261_arg1, L_262_arg2)
+	if not L_262_arg2 and L_29_ then
+		if L_261_arg1.KeyCode == Enum.KeyCode.ButtonL2 and not L_33_ then
+			Aim(false, true)
+		end;
+		
+		if L_261_arg1.KeyCode == Enum.KeyCode.ButtonL3 and L_29_ and not L_30_ and not L_32_ and not L_38_ and not L_35_ then
+			Sprint(false)
+		end;
+		
+		if L_261_arg1.KeyCode == Enum.KeyCode.ButtonR2 and L_29_ and not L_30_ then
+			L_22_.MouseHeld = false
+		end;
+	end
+end)
+
+--// Rendering Processes
+L_19_.humanoid.Running:connect(function(L_263_arg1)
+	if L_19_.humanoid.FloorMaterial ~= Enum.Material.Air then
+		if L_263_arg1 > 1 then
+			L_31_ = true
+		else
+			if L_33_ then
+				Sprint(false)
+			end
+			L_31_ = false
+		end
+	end
+end)
+
+--// Sway Init
+L_23_.gunSway.s = 15
+L_23_.gunSway.d = 0.4
+
+--// Renders
+L_17_:Connect(function(L_264_arg1)
+	if L_29_ and L_22_.AnimBaseW then
+		L_23_.deltaX, L_23_.deltaY = L_23_.deltaX or 0, L_23_.deltaY or 0
+		if L_23_.oc0 == nil or L_23_.oc1 == nil then
+			L_23_.oc0 = L_22_.AnimBaseW.C0
+			L_23_.oc1 = L_22_.AnimBaseW.C1
+		end
+		
+		local L_265_ = (math.cos(L_23_.walkTick * L_23_.walkAnimSpeed / 2) * L_23_.walkAnimIntensity)
+		local L_266_ = (math.cos(L_23_.walkTick * L_23_.walkAnimSpeed) * L_23_.walkAnimIntensity)
+		local L_267_ = CFrame.new(L_265_, L_266_, 0.02) * CFrame.Angles((math.sin(L_23_.walkTick * L_23_.walkAnimSpeed) * L_23_.walkAnimIntensity), (math.sin(L_23_.walkTick * L_23_.walkAnimSpeed / 2) * L_23_.walkAnimIntensity), 0)
+				
+		
+		local L_268_ = (math.sin(L_23_.idleTick * L_23_.idleSpeed / 2) * L_23_.idleIntensity)
+		local L_269_ = (math.cos(L_23_.idleTick * L_23_.idleSpeed) * L_23_.idleIntensity)
+		local L_270_ = CFrame.new(L_268_, L_269_, 0.02)
+		
+		if L_31_ and L_19_.humanoid.FloorMaterial ~= Enum.Material.Air then
+			L_23_.walkTick = L_23_.walkTick + .017
+			L_23_.movinganim = L_267_
+		else
+			L_23_.walkTick = 0
+			L_23_.movinganim = CFrame.new()
+		end
+		
+		L_23_.gunSway.t = Vector3.new(L_23_.desiredXOffset, L_23_.desiredYOffset, 0)
+		local L_271_ = L_23_.gunSway.p
+		local L_272_ = L_271_.X / L_23_.swayInputLimit * (L_32_ and L_23_.aimSway or L_23_.hipSway)
+		local L_273_ = L_271_.Y / L_23_.swayInputLimit * (L_32_ and L_23_.aimSway or L_23_.hipSway)
+		if L_32_ then
+			L_23_.swayCF = CFrame.new(math.rad(-L_272_), math.rad(L_273_), 0) * CFrame.Angles(0, 0, math.rad(-L_272_)) --CFrame.new(swayX/60,-swayY/60,0) --* CFrame.Angles(math.rad(swayY), math.rad(swayX), math.rad(-swayX))
+			L_23_.idleTick = 0
+			L_23_.idleAnimation = CFrame.new()
+		else
+			L_23_.swayCF = CFrame.new(math.rad(-L_272_), math.rad(L_273_), 0) * CFrame.Angles(0, 0, math.rad(-L_272_))
+			L_23_.idleTick = L_23_.idleTick + 0.003			
+			L_23_.idleAnimation = L_270_
+		end
+		
+		local L_274_ = L_28_.recoilSpring.p
+		local L_275_ = CFrame.new(0, 0, L_274_.z)
+		local L_276_ = CFrame.fromAxisAngle(Vector3.new(1, 0, 0), L_274_.x / 7)
+		local L_277_ = CFrame.fromAxisAngle(Vector3.new(0, 1, 0), L_274_.y / 10)
+		L_274_ = L_275_ * L_276_ * L_277_
+		
+		L_22_.newCamOffset = L_22_.newCamOffset:Lerp(L_22_.camC1, L_264_arg1 * 5)
+		
+		L_22_.BasePart.CFrame = L_3_.CFrame * L_274_		
+		L_22_.AnimBaseW.C0 = L_22_.AnimBaseW.C0:lerp(L_23_.oc0 * L_23_.movinganim * L_23_.idleAnimation, L_264_arg1 * 5)
+		
+		if L_32_ then
+			L_18_.MouseDeltaSensitivity = L_22_.aimSens
+			L_22_.sensDisplay.Text = L_22_.aimSens
+		else
+			L_18_.MouseDeltaSensitivity = L_22_.baseSens
+			L_22_.sensDisplay.Text = L_22_.baseSens
+		end;
+		
+		if not L_32_ and not L_33_ and not L_35_ and not L_38_ then
+			L_22_.AnimBaseW.C1 = L_22_.AnimBaseW.C1:lerp(CFrame.new() * L_23_.swayCF, L_264_arg1)
+		end;
+		
+		if L_22_.StanceIndex == 0 and not L_33_ then
+			if not L_32_ then
+				L_2_:WaitForChild('Humanoid').WalkSpeed = L_22_.baseWalkspeed
+			else
+				L_2_:WaitForChild('Humanoid').WalkSpeed = L_22_.aimWalkSpeed
+			end
+		end;
+		
+		if L_32_ and not L_33_ and not L_35_ and not L_38_ then --and not Patrolling then
+			if not L_34_ then
+				L_23_.walkAnimIntensity = L_20_.globalConfig.AimWalkIntensity
+				L_23_.walkAnimSpeed = L_20_.globalConfig.AimWalkAnimSpeed
+			end
+			L_23_.idleSpeed = 0
+			L_22_.AnimBaseW.C1 = L_22_.AnimBaseW.C1:lerp(L_23_.oc0 * L_23_.swayCF * L_22_.CurAimPart.CFrame:toObjectSpace(L_22_.AnimBase.CFrame), L_264_arg1 * L_22_.curConfig.AimSpeedMult)
+		end;
+		
+		if L_33_ and not L_34_ and L_31_ then
+			L_23_.walkAnimIntensity = L_22_.curConfig.SprintWalkIntensity
+			L_23_.walkAnimSpeed = L_22_.curConfig.SprintWalkAnimSpeed
+			L_19_.humanoid.WalkSpeed = 21
+			L_22_.AnimBaseW.C1 = L_22_.AnimBaseW.C1:lerp(L_23_.swayCF * L_22_.curConfig.SprintPos, L_264_arg1 * 5)
+		end;
+		
+		if not L_32_ and not L_33_ and not L_35_ and not L_38_ then
+			L_23_.walkAnimIntensity = L_20_.globalConfig.WalkIntensity
+			L_23_.walkAnimSpeed = L_20_.globalConfig.WalkAnimSpeed
+			L_23_.idleSpeed = 2
+			L_22_.AnimBaseW.C1 = L_22_.AnimBaseW.C1:lerp(CFrame.new() * L_23_.swayCF, L_264_arg1 * 7)
+		end;
+		
+		for L_278_forvar1, L_279_forvar2 in pairs(L_22_.curModel:GetChildren()) do
+			if L_279_forvar2 and string.match(L_279_forvar2.Name, 'ProjectorSight') then
+				local L_280_ = L_279_forvar2.SurfaceGui
+				L_280_.Adornee = L_279_forvar2
+				
+				local L_281_ = L_280_.ClippingFrame.Reticle
+				--rs:connect(function()
+				local L_282_ = L_279_forvar2.CFrame:pointToObjectSpace(L_3_.CFrame.Position) / L_279_forvar2.Size
+				L_281_.Position = UDim2.new(.5 + L_282_.x, 0, .5 - L_282_.y, 0)	
+				--end)
+			end
+		end;
+	end;
+	
+	if L_34_ then
+		if L_22_.StanceIndex == 0 then
+			L_23_.walkAnimIntensity = 0.08
+			L_23_.walkAnimSpeed = 12
+		elseif L_22_.StanceIndex == 1 then
+			if L_19_.humanoid.Jump then
+				L_19_.humanoid.Jump = false
+			end
+			
+			L_19_.humanoid.WalkSpeed = 6
+			L_23_.walkAnimIntensity = 0.005
+			L_23_.walkAnimSpeed = 6
+		elseif L_22_.StanceIndex == 2 then
+			if L_19_.humanoid.Jump then
+				L_19_.humanoid.Jump = false
+			end
+			
+			L_19_.humanoid.WalkSpeed = 3
+			L_23_.walkAnimIntensity = 0.003
+			L_23_.walkAnimSpeed = 3			
+		end
+	end;
+	
+	HalfStepFunc(-math.asin((L_4_.Hit.p - L_4_.Origin.p).unit.y))
+	
+	for L_283_forvar1, L_284_forvar2 in pairs(game.Players:GetChildren()) do
+		if L_284_forvar2 and L_284_forvar2:IsA('Player') and L_284_forvar2 ~= L_1_ and L_284_forvar2.Character and L_284_forvar2.Character:WaitForChild('CarbonValues'):FindFirstChild('yRot') and L_284_forvar2.Character:WaitForChild('CarbonValues').yRot.Value and L_284_forvar2.Character:WaitForChild('CarbonValues'):FindFirstChild('zRot') and L_284_forvar2.Character:WaitForChild('CarbonValues').zRot.Value and L_284_forvar2.Character:FindFirstChild('Torso') and L_284_forvar2.Character.Torso:FindFirstChild('Neck') and (L_284_forvar2.Character:WaitForChild('HumanoidRootPart').Position - L_19_.rootPart.Position).magnitude <= L_20_.globalConfig.RenderDist then
+			local L_285_ = L_284_forvar2.Character:WaitForChild('Torso'):WaitForChild('Neck')
+			local L_286_ =  L_284_forvar2.Character:WaitForChild("HumanoidRootPart").CFrame * CFrame.new(0, 1.5, 0) * CFrame.new(L_284_forvar2.Character:WaitForChild("Humanoid").CameraOffset)
+			L_285_.C0 = L_285_.C0:lerp(L_284_forvar2.Character:WaitForChild("HumanoidRootPart").CFrame:toObjectSpace(L_286_) * L_284_forvar2.Character:WaitForChild('CarbonValues'):WaitForChild('neckCF').Value, 0.2)
+			L_285_.C1 = L_285_.C1:lerp(L_284_forvar2.Character:WaitForChild('CarbonValues').yRot.Value * L_284_forvar2.Character:WaitForChild('CarbonValues').zRot.Value, 0.2)
+		end
+	end;
+	
+	if L_48_ then
+		local L_287_ = Ray.new(L_22_.curModel.LaserLight.Position, L_22_.curModel.Grip.CFrame.lookVector * 9999)
+		local L_288_, L_289_, L_290_ = workspace:FindPartOnRayWithIgnoreList(L_287_, L_27_)
+		
+		L_54_.CFrame = CFrame.new(0, 0, -L_56_)
+		L_57_.CFrame = L_54_.WorldCFrame
+		
+		if L_288_ and (L_288_ and L_288_.Transparency >= 1 or L_288_.CanCollide == false) then
+			table.insert(L_27_, L_288_)
+		end;
+		
+		if L_288_ then
+			L_56_ = (L_22_.curModel.LaserLight.Position - L_289_).magnitude
+		else
+			L_56_ = 9999
+		end
+	end;
+	
+	if L_20_.globalConfig.ReplicatedLaser then
+		for L_291_forvar1, L_292_forvar2 in pairs(game.Players:GetChildren()) do
+			if L_292_forvar2 and L_292_forvar2:IsA('Player') and L_292_forvar2 ~= L_1_ and L_292_forvar2.Character and L_292_forvar2.Character.CarbonValues:FindFirstChild('Equipped') and L_292_forvar2.Character.CarbonValues.Equipped.Value then
+				OtherLaser(L_292_forvar2, L_292_forvar2.Character.CarbonValues.SModel.Value.Name, L_292_forvar2.Character.CarbonValues.LaserActive.Value, L_292_forvar2.Character.CarbonValues.SModel.Value)
+			end
+		end;
+	end;
+end)
+
+game:GetService("RunService"):BindToRenderStep("Camera Update", 200, Update)
+
+--// Misc Connections
+L_4_.Idle:connect(function() --Reset the sway to 0 when the mouse is still
+	L_23_.desiredXOffset = 0
+	L_23_.desiredYOffset = 0
+end)
+
+--// Event Connections
+L_21_.updateCharEvent.OnClientEvent:connect(function(L_293_arg1, L_294_arg2, L_295_arg3, L_296_arg4, L_297_arg5, L_298_arg6)
+	if L_293_arg1 ~= L_1_ and L_293_arg1.Character and L_293_arg1.Character:FindFirstChild('BasePart') and (L_293_arg1.Character:WaitForChild('HumanoidRootPart').Position - L_19_.rootPart.Position).magnitude <= L_20_.globalConfig.RenderDist then
+		local L_299_
+		
+		if L_296_arg4 ~= nil then
+			L_299_ = require(L_296_arg4)
+		else
+			L_299_ = nil
+		end
+		
+		if L_294_arg2 == 'Aim' then
+			if L_295_arg3 then
+				L_16_:Create(L_293_arg1.Character.BasePart.RAW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.RightAimPos
+				}):Play()
+				L_16_:Create(L_293_arg1.Character.BasePart.LAW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.LeftAimPos
+				}):Play()
+			else
+				L_16_:Create(L_293_arg1.Character.BasePart.RAW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.RightArmPos
+				}):Play()
+				L_16_:Create(L_293_arg1.Character.BasePart.LAW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.LeftArmPos
+				}):Play()
+			end
+		end;
+		
+		if L_294_arg2 == 'Sprint' then
+			if L_295_arg3 then
+				L_16_:Create(L_293_arg1.Character.BasePart.RAW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.RightSprintPos
+				}):Play()
+				L_16_:Create(L_293_arg1.Character.BasePart.LAW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.LeftSprintPos
+				}):Play()
+			else
+				L_16_:Create(L_293_arg1.Character.BasePart.RAW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.RightArmPos
+				}):Play()
+				L_16_:Create(L_293_arg1.Character.BasePart.LAW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.LeftArmPos
+				}):Play()
+			end
+		end;
+		
+		if L_294_arg2 == 'Shoot' then
+			if L_295_arg3 then
+				if L_293_arg1.Character:FindFirstChild('BasePart') and L_293_arg1.Character.BasePart:FindFirstChild('BasePartW') then
+					L_16_:Create(L_293_arg1.Character:WaitForChild('BasePart'):WaitForChild('BasePartW'), TweenInfo.new(L_297_arg5), {
+						C1 = L_299_.ShootPos
+					}):Play()
+				end
+				
+				wait(L_297_arg5 * 2)
+				
+				if L_293_arg1.Character:FindFirstChild('BasePart') and L_293_arg1.Character.BasePart:FindFirstChild('BasePartW') then
+					L_16_:Create(L_293_arg1.Character:WaitForChild('BasePart'):WaitForChild('BasePartW'), TweenInfo.new(0.2), {
+						C1 = CFrame.new()
+					}):Play()
+				end
+			end
+		end;
+		
+		if L_294_arg2 == 'ReadyHigh' then
+			if L_295_arg3 then
+				L_16_:Create(L_293_arg1.Character.BasePart.BasePartW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.ReadyHighPos
+				}):Play()
+			end
+		end;
+		
+		if L_294_arg2 == 'ReadyLow' then
+			if L_295_arg3 then
+				L_16_:Create(L_293_arg1.Character.BasePart.BasePartW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.ReadyLowPos
+				}):Play()
+			end
+		end;
+		
+		if L_294_arg2 == 'Idle' then
+			if L_295_arg3 then
+				L_16_:Create(L_293_arg1.Character.BasePart.RAW, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
+					C1 = L_299_.RightArmPos
+				}):Play()
+				L_16_:Create(L_293_arg1.Character.BasePart.LAW, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
+					C1 = L_299_.LeftArmPos
+				}):Play()
+				L_16_:Create(L_293_arg1.Character.BasePart.BasePartW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = CFrame.new()
+				}):Play()
+			end
+		end;
+		
+		if L_294_arg2 == 'Patrol' then
+			if L_295_arg3 then
+				L_16_:Create(L_293_arg1.Character.BasePart.RAW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.RightPatrolPos
+				}):Play()
+				L_16_:Create(L_293_arg1.Character.BasePart.LAW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.LeftPatrolPos
+				}):Play()
+			else
+				L_16_:Create(L_293_arg1.Character.BasePart.RAW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.RightArmPos
+				}):Play()
+				L_16_:Create(L_293_arg1.Character.BasePart.LAW, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
+					C1 = L_299_.LeftArmPos
+				}):Play()
+			end
+		end;
+	end
+	
+	if L_294_arg2 == 'Stance' and L_293_arg1 ~= L_1_ and L_293_arg1.Character and L_293_arg1.Character:FindFirstChild('Humanoid') and L_293_arg1.Character.Humanoid.Health > 0 then
+		if L_297_arg5 == 0 then
+			L_16_:Create(L_293_arg1.Character:WaitForChild('HumanoidRootPart'):WaitForChild('RootJoint'), TweenInfo.new(0.6), {
+				C0 = CFrame.new(0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, -0)
+			}):Play()
+			L_16_:Create(L_293_arg1.Character:WaitForChild('Torso'):WaitForChild('Right Hip'), TweenInfo.new(0.6), {
+				C0 = CFrame.new(1, -1, 0, 0, 0, 1, 0, 1, -0, -1, 0, 0)
+			}):Play()
+			L_16_:Create(L_293_arg1.Character:WaitForChild('Torso'):WaitForChild('Left Hip'), TweenInfo.new(0.6), {
+				C0 = CFrame.new(-1, -1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0)
+			}):Play()
+		elseif L_297_arg5 == 1 then
+			L_16_:Create(L_293_arg1.Character:WaitForChild('HumanoidRootPart'):WaitForChild('RootJoint'), TweenInfo.new(0.6), {
+				C0 = CFrame.new(0, -1.20000005, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0)
+			}):Play()
+			L_16_:Create(L_293_arg1.Character:WaitForChild('Torso'):WaitForChild('Right Hip'), TweenInfo.new(0.6), {
+				C0 = CFrame.new(1.00000191, -0.93054074, -0.393920898, 0, 0, 1, -0.98480773, 0.173648179, 0, -0.173648179, -0.98480773, 0)
+			}):Play()
+			L_16_:Create(L_293_arg1.Character:WaitForChild('Torso'):WaitForChild('Left Hip'), TweenInfo.new(0.6), {
+				C0 = CFrame.new(-1, 0.165270448, -0.603042603, 0, 0, -1, -0.173648179, 0.98480773, 0, 0.98480773, 0.173648179, 0)
+			}):Play()
+		elseif L_297_arg5 == 2 then
+			L_16_:Create(L_293_arg1.Character:WaitForChild('HumanoidRootPart'):WaitForChild('RootJoint'), TweenInfo.new(0.6), {
+				C0 = CFrame.new(0, -2.5999999, 0, -1, 0, 0, 0, 1, 1.19248806e-08, 0, 1.19248806e-08, -1)
+			}):Play()
+			L_16_:Create(L_293_arg1.Character:WaitForChild('Torso'):WaitForChild('Right Hip'), TweenInfo.new(0.6), {
+				C0 = CFrame.new(1, -1, 2.98023224e-08, 0.163175702, -0.342020363, 0.925416529, 0.0593911409, 0.939692557, 0.336824328, -0.984807789, 0, 0.17364797)
+			}):Play()
+			L_16_:Create(L_293_arg1.Character:WaitForChild('Torso'):WaitForChild('Left Hip'), TweenInfo.new(0.6), {
+				C0 = CFrame.new(-1, -1, 2.98023224e-08, 0.163175896, 0.342020363, -0.92541647, -0.0593912117, 0.939692557, 0.336824298, 0.98480773, 0, 0.173648179)
+			}):Play()
+		end
+	end;
+	
+	if L_294_arg2 == 'Lean' and L_293_arg1 ~= L_1_ and L_293_arg1.Character and L_293_arg1.Character:FindFirstChild('Humanoid') and L_293_arg1.Character.Humanoid.Health > 0 then
+		if L_298_arg6 == 1 then
+			L_16_:Create(L_293_arg1.Character:WaitForChild('HumanoidRootPart'):WaitForChild('RootJoint'), TweenInfo.new(0.6), {
+				C1 = CFrame.new(0.200000003, 0, 0, -0.98480773, 0, 0.173648179, 0.173648179, 0, 0.98480773, 0, 1, 0)
+			}):Play()
+			L_16_:Create(L_293_arg1.Character:WaitForChild('Torso'):WaitForChild('Right Hip'), TweenInfo.new(0.6), {
+				C1 = CFrame.new(0.5, 1, 0, 0, 0, 1, 0, 1, -0, -1, 0, 0)
+			}):Play()
+			L_16_:Create(L_293_arg1.Character:WaitForChild('Torso'):WaitForChild('Left Hip'), TweenInfo.new(0.6), {
+				C1 = CFrame.new(-0.5, 1, 0, 0, -0.173648179, -0.98480773, 0, 0.98480773, -0.173648179, 1, 0, 0)
+			}):Play()
+		elseif L_298_arg6 == -1 then
+			L_16_:Create(L_293_arg1.Character:WaitForChild('HumanoidRootPart'):WaitForChild('RootJoint'), TweenInfo.new(0.6), {
+				C1 = CFrame.new(-0.200000003, 0, 0, -0.98480773, 0, -0.173648179, -0.173648179, 0, 0.98480773, 0, 1, 0)
+			}):Play()
+			L_16_:Create(L_293_arg1.Character:WaitForChild('Torso'):WaitForChild('Right Hip'), TweenInfo.new(0.6), {
+				C1 = CFrame.new(0.5, 1, 0, 0, 0.173648179, 0.98480773, 0, 0.98480773, -0.173648179, -1, 0, 0)
+			}):Play()
+			L_16_:Create(L_293_arg1.Character:WaitForChild('Torso'):WaitForChild('Left Hip'), TweenInfo.new(0.6), {
+				C1 = CFrame.new(-0.5, 1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0)
+			}):Play()
+		elseif L_298_arg6 == 0 then
+			L_16_:Create(L_293_arg1.Character:WaitForChild('HumanoidRootPart'):WaitForChild('RootJoint'), TweenInfo.new(0.6), {
+				C1 = CFrame.new(0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, -0)
+			}):Play()
+			L_16_:Create(L_293_arg1.Character:WaitForChild('Torso'):WaitForChild('Right Hip'), TweenInfo.new(0.6), {
+				C1 = CFrame.new(0.5, 1, 0, 0, 0, 1, 0, 1, -0, -1, 0, 0)
+			}):Play()
+			L_16_:Create(L_293_arg1.Character:WaitForChild('Torso'):WaitForChild('Left Hip'), TweenInfo.new(0.6), {
+				C1 = CFrame.new(-0.5, 1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0)
+			}):Play()
+		end
+	end;
+end);
+
+L_21_.whizEvent.OnClientEvent:connect(function(L_300_arg1, L_301_arg2, L_302_arg3, L_303_arg4, L_304_arg5, L_305_arg6, L_306_arg7, L_307_arg8)
+	if L_1_ ~= L_300_arg1 then
+		CreateExternalBullet(L_301_arg2, L_302_arg3, L_303_arg4, L_304_arg5, L_305_arg6, L_306_arg7, L_307_arg8)
+	end
+end);
+
+L_21_.serverFXEvent.OnClientEvent:connect(function(L_308_arg1, L_309_arg2)
+	if L_22_.hud then
+		if L_20_.globalConfig.OverlayEnabled and L_22_.painShade.ImageTransparency ==  1 then
+			if (L_2_.HumanoidRootPart.Position - L_308_arg1).magnitude <= 10 then
+				L_22_.intenseShade.Visible = true
+				L_16_:Create(L_22_.intenseShade, TweenInfo.new(0.1), {
+					ImageTransparency = 0
+				}):Play()
+				delay(0.7, function()
+					L_16_:Create(L_22_.intenseShade, TweenInfo.new(3), {
+						ImageTransparency = 1
+					}):Play()
+				end)
+			end
+		end;
+	end;
+end);
+
+L_21_.manipEvent.OnClientEvent:Connect(function(L_310_arg1, L_311_arg2, L_312_arg3, L_313_arg4)
+	if L_1_ ~= L_310_arg1 then
+		for L_314_forvar1, L_315_forvar2 in pairs(L_311_arg2:WaitForChild('FlashLight'):GetChildren()) do
+			if L_315_forvar2 and L_315_forvar2.Name == 'Enable' then
+				L_315_forvar2.Enabled = L_312_arg3
+			end
+		end
+	end;
+end)
+
+L_21_.resupplyEvent.OnClientEvent:Connect(function()
+	L_50_ = true
+end)
+
+--// Animations
+local L_62_
+
+function IdleAnim(L_316_arg1)
+	L_22_.curConfig.IdleAnim(L_2_, L_62_, {
+		L_22_.AnimBaseW,
+		L_22_.RAW,
+		L_22_.LAW,
+		L_22_.GripW
+	});
+end;
+
+function BoltBackAnim(L_317_arg1)
+	L_22_.curConfig.BoltBackAnim(L_2_, L_62_, {
+		L_22_.BoltW,
+		L_22_.LAW,
+		L_22_.RAW,
+		L_22_.AnimBaseW,
+		L_22_.Bolt,
+		L_22_.RA,
+		L_22_.LA,
+		L_22_.Grip,
+		L_22_.Grip.GripW
+	});
+end;
+
+function BoltForwardAnim(L_318_arg1)
+	L_22_.curConfig.BoltForwardAnim(L_2_, L_62_, {
+		L_22_.BoltW,
+		L_22_.LAW,
+		L_22_.RAW,
+		L_22_.AnimBaseW,
+		L_22_.Bolt,
+		L_22_.RA,
+		L_22_.LA,
+		L_22_.Grip,
+		L_22_.Grip.GripW
+	});
+end;
+
+function BoltingBackAnim(L_319_arg1)
+	L_22_.curConfig.BoltingBackAnim(L_2_, L_62_, {
+		L_22_.BoltW,
+		L_22_.Mag,
+		L_22_.Ammo
+	});
+end
+
+function BoltingForwardAnim(L_320_arg1)
+	L_22_.curConfig.BoltingForwardAnim(L_2_, L_62_, {
+		L_22_.BoltW,
+		L_22_.Mag,
+		L_22_.Ammo
+	});
+end
+
+function ReloadAnim(L_321_arg1)
+	L_22_.curConfig.ReloadAnim(L_2_, L_62_, {
+		L_22_.AnimBaseW,
+		L_22_.RAW,
+		L_22_.LAW,
+		L_22_.Mag,
+		L_22_.LA,
+		L_22_.Grip,
+		L_22_.BoltW,
+		L_22_.RA,
+		L_22_.GripW,
+		L_22_.curModel,
+		L_22_.Bolt,
+		L_22_.Ammo,
+		L_22_.curConfig.Ammo
+	});
+end;
+
+function FireModeAnim(L_322_arg1)
+	L_22_.curConfig.FireModeAnim(L_2_, L_62_, {
+		L_22_.AnimBaseW,
+		L_22_.LAW,
+		L_22_.RAW,
+		L_22_.Grip
+	});
+end
+
+--// UI Operations
+L_22_.optionButton.MouseEnter:connect(function()
+	L_16_:Create(L_22_.optionButton:WaitForChild('Detail'), TweenInfo.new(0.3), {
+		BackgroundTransparency = 0.3
+	}):Play()
+end)
+
+L_22_.optionButton.MouseLeave:connect(function()
+	if L_47_ ~= 'Option' then
+		L_16_:Create(L_22_.optionButton:WaitForChild('Detail'), TweenInfo.new(0.3), {
+			BackgroundTransparency = 1
+		}):Play()
+	end;
+end)
+
+L_22_.optionButton.MouseButton1Click:connect(function()
+	L_47_ = 'Option'
+	L_16_:Create(L_22_.optionButton:WaitForChild('Hover'), TweenInfo.new(0.3), {
+		ImageTransparency = 0.6
+	}):Play()
+	L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('PageLayout'):JumpTo(L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild(L_47_))
+	
+	for L_323_forvar1, L_324_forvar2 in pairs(L_22_.menuFrame:WaitForChild('Buttons'):GetDescendants()) do
+		if L_324_forvar2 and L_324_forvar2.Name == 'Hover' and L_324_forvar2.Parent ~= L_22_.optionButton then
+			L_16_:Create(L_324_forvar2, TweenInfo.new(0.3), {
+				ImageTransparency = 1
+			}):Play()
+		end
+		
+		if L_324_forvar2 and L_324_forvar2.Name == 'Detail' and L_324_forvar2.Parent ~= L_22_.optionButton then
+			L_16_:Create(L_324_forvar2, TweenInfo.new(0.3), {
+				BackgroundTransparency = 1
+			}):Play()
+		end
+	end;
+end)
+
+L_22_.keybindButton.MouseEnter:connect(function()
+	L_16_:Create(L_22_.keybindButton:WaitForChild('Detail'), TweenInfo.new(0.3), {
+		BackgroundTransparency = 0.3
+	}):Play()
+end)
+
+L_22_.keybindButton.MouseLeave:connect(function()
+	if L_47_ ~= 'Keybind' then
+		L_16_:Create(L_22_.keybindButton:WaitForChild('Detail'), TweenInfo.new(0.3), {
+			BackgroundTransparency = 1
+		}):Play()
+	end;
+end)
+
+L_22_.keybindButton.MouseButton1Click:connect(function()
+	L_47_ = 'Keybind'
+	L_16_:Create(L_22_.keybindButton:WaitForChild('Hover'), TweenInfo.new(0.3), {
+		ImageTransparency = 0.6
+	}):Play()
+	L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('PageLayout'):JumpTo(L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild(L_47_))
+	
+	for L_325_forvar1, L_326_forvar2 in pairs(L_22_.menuFrame:WaitForChild('Buttons'):GetDescendants()) do
+		if L_326_forvar2 and L_326_forvar2.Name == 'Hover' and L_326_forvar2.Parent ~= L_22_.keybindButton then
+			L_16_:Create(L_326_forvar2, TweenInfo.new(0.3), {
+				ImageTransparency = 1
+			}):Play()
+		end
+		
+		if L_326_forvar2 and L_326_forvar2.Name == 'Detail' and L_326_forvar2.Parent ~= L_22_.keybindButton then
+			L_16_:Create(L_326_forvar2, TweenInfo.new(0.3), {
+				BackgroundTransparency = 1
+			}):Play()
+		end
+	end;
+end)
+
+
+L_22_.patchButton.MouseEnter:connect(function()
+	L_16_:Create(L_22_.patchButton:WaitForChild('Detail'), TweenInfo.new(0.3), {
+		BackgroundTransparency = 0.3
+	}):Play()
+end)
+
+L_22_.patchButton.MouseLeave:connect(function()
+	if L_47_ ~= 'Patch' then	
+		L_16_:Create(L_22_.patchButton:WaitForChild('Detail'), TweenInfo.new(0.3), {
+			BackgroundTransparency = 1
+		}):Play()
+	end;
+end)
+
+L_22_.patchButton.MouseButton1Click:connect(function()
+	L_47_ = 'Patch'
+	L_16_:Create(L_22_.patchButton:WaitForChild('Hover'), TweenInfo.new(0.3), {
+		ImageTransparency = 0.6
+	}):Play()
+	L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('PageLayout'):JumpTo(L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild(L_47_))
+	
+	for L_327_forvar1, L_328_forvar2 in pairs(L_22_.menuFrame:WaitForChild('Buttons'):GetDescendants()) do
+		if L_328_forvar2 and L_328_forvar2.Name == 'Hover' and L_328_forvar2.Parent ~= L_22_.patchButton then
+			L_16_:Create(L_328_forvar2, TweenInfo.new(0.3), {
+				ImageTransparency = 1
+			}):Play()
+		end
+		
+		if L_328_forvar2 and L_328_forvar2.Name == 'Detail' and L_328_forvar2.Parent ~= L_22_.patchButton then
+			L_16_:Create(L_328_forvar2, TweenInfo.new(0.3), {
+				BackgroundTransparency = 1
+			}):Play()
+		end
+	end;
+end)
+
+L_22_.storeButton.MouseEnter:connect(function()
+	L_16_:Create(L_22_.storeButton:WaitForChild('Detail'), TweenInfo.new(0.3), {
+		BackgroundTransparency = 0.3
+	}):Play()
+end)
+
+L_22_.storeButton.MouseLeave:connect(function()
+	if L_47_ ~= 'Store' then
+		L_16_:Create(L_22_.storeButton:WaitForChild('Detail'), TweenInfo.new(0.3), {
+			BackgroundTransparency = 1
+		}):Play()
+	end;
+end)
+
+L_22_.storeButton.MouseButton1Click:connect(function()
+	L_47_ = 'Store'
+	L_16_:Create(L_22_.storeButton:WaitForChild('Hover'), TweenInfo.new(0.3), {
+		ImageTransparency = 0.6
+	}):Play()
+	L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('PageLayout'):JumpTo(L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild(L_47_))
+	
+	for L_329_forvar1, L_330_forvar2 in pairs(L_22_.menuFrame:WaitForChild('Buttons'):GetDescendants()) do
+		if L_330_forvar2 and L_330_forvar2.Name == 'Hover' and L_330_forvar2.Parent ~= L_22_.storeButton then
+			L_16_:Create(L_330_forvar2, TweenInfo.new(0.3), {
+				ImageTransparency = 1
+			}):Play()
+		end
+		
+		if L_330_forvar2 and L_330_forvar2.Name == 'Detail' and L_330_forvar2.Parent ~= L_22_.storeButton then
+			L_16_:Create(L_330_forvar2, TweenInfo.new(0.3), {
+				BackgroundTransparency = 1
+			}):Play()
+		end
+	end;
+end)
+
+L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('Option'):WaitForChild('BaseSens'):WaitForChild('Context').FocusLost:connect(function(L_331_arg1)
+	if L_331_arg1 then
+		local L_332_ = tonumber(L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('Option'):WaitForChild('BaseSens'):WaitForChild('Context').Text)
+		if L_332_ > 0 and L_332_ <= 1 then
+			L_22_.baseSens = L_332_
+			L_60_.Value = L_332_
+		end;
+	else
+		L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('Option'):WaitForChild('BaseSens'):WaitForChild('Context').Text = L_22_.baseSens
+		L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('Option'):WaitForChild('AimSens'):WaitForChild('Context').Text = L_22_.aimSens
+	end;
+end)
+
+L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('Option'):WaitForChild('AimSens'):WaitForChild('Context').FocusLost:connect(function(L_333_arg1)
+	if L_333_arg1 then
+		local L_334_ = tonumber(L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('Option'):WaitForChild('AimSens'):WaitForChild('Context').Text)
+		if L_334_ > 0 and L_334_ <= 1 then
+			L_22_.aimSens = L_334_
+			L_61_.Value = L_334_
+		end;
+	else
+		L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('Option'):WaitForChild('BaseSens'):WaitForChild('Context').Text = L_22_.baseSens
+		L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('Option'):WaitForChild('AimSens'):WaitForChild('Context').Text = L_22_.aimSens
+	end;
+end)
+
+L_22_.menuButton.MouseButton1Click:connect(function()
+	L_22_.menuFrame.Visible = not L_22_.menuFrame.Visible
+	
+	if L_22_.menuFrame.Visible then
+		L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('Option'):WaitForChild('BaseSens'):WaitForChild('Context').Text = L_22_.baseSens
+		L_22_.menuFrame:WaitForChild('PagesFrame'):WaitForChild('Option'):WaitForChild('AimSens'):WaitForChild('Context').Text = L_22_.aimSens
+	end;
+end)
