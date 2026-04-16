@@ -1,0 +1,197 @@
+--!strict
+local DonorSpring = require(script.Parent:WaitForChild("DonorSpring"))
+
+local DonorMotionSway = {}
+DonorMotionSway.__index = DonorMotionSway
+
+local sin = math.sin
+local cos = math.cos
+local rad = math.rad
+local clamp = math.clamp
+
+local DEFAULTS = {
+	MouseSpringFrequency = 10.0,
+	MouseSpringDamping = 0.82,
+
+	MouseImpulseDivHip = 60,
+	MouseImpulseDivADS = 90,
+
+	MouseRotMulHip = 6.0,
+	MouseRotMulADS = 2.8,
+	MouseRollMulHip = 3.5,
+	MouseRollMulADS = 1.2,
+
+	CarryDivHip = 64,
+	CarryDivADS = 120,
+	CarryClampHip = 2.0,
+	CarryClampADS = 0.65,
+	CarryReturnHip = 4.5,
+	CarryReturnADS = 8.0,
+
+	CarryPosX = 0.0010,
+	CarryPosY = -0.0040,
+	CarryPitchDiv = 4.0,
+	CarryYawDiv = 4.0,
+
+	WalkLerpSpeed = 10.0,
+	WalkCycleHip = 7.0,
+	WalkCycleSprint = 8.0,
+
+	WalkPosXHip = 0.050,
+	WalkPosYHip = 0.025,
+	WalkRollHip = 1.2,
+
+	WalkPosXADS = 0.018,
+	WalkPosYADS = 0.010,
+	WalkRollADS = 0.45,
+
+	IdlePosX = 0.01875,
+	IdlePosY = 0.01875,
+	IdleFreqX = 1.5,
+	IdleFreqY = 2.0,
+
+	CrouchScale = 0.85,
+	SprintScale = 1.18,
+}
+
+function DonorMotionSway.new(settings)
+	local self = setmetatable({}, DonorMotionSway)
+
+	self.settings = settings or {}
+	self.walkTime = 0
+	self.moveAlpha = 0
+	self.carry = Vector2.new()
+	self.walkCF = CFrame.new()
+
+	self.mouseSpring = DonorSpring.new(
+		DEFAULTS.MouseSpringFrequency,
+		DEFAULTS.MouseSpringDamping,
+		1.0,
+		Vector3.new(),
+		Vector3.new()
+	)
+
+	return self
+end
+
+function DonorMotionSway:Update(dt, mouseDelta, moveSpeed, isAiming, isSprinting, isCrouching, fatigueScale)
+	dt = clamp(dt or 0.016, 0.0001, 0.05)
+	mouseDelta = mouseDelta or Vector2.new()
+
+	local fatigue = fatigueScale or 1
+	local moveMag = moveSpeed or 0
+	local isMoving = moveMag > 0.1
+
+	local impulseDiv = isAiming and DEFAULTS.MouseImpulseDivADS or DEFAULTS.MouseImpulseDivHip
+	local rotMul = isAiming and DEFAULTS.MouseRotMulADS or DEFAULTS.MouseRotMulHip
+	local rollMul = isAiming and DEFAULTS.MouseRollMulADS or DEFAULTS.MouseRollMulHip
+
+	local impulseScale = fatigue
+	if isCrouching then
+		impulseScale *= DEFAULTS.CrouchScale
+	end
+	if isSprinting then
+		impulseScale *= 1.05
+	end
+
+	self.mouseSpring:Shove(Vector3.new(
+		-mouseDelta.X / impulseDiv,
+		-mouseDelta.Y / impulseDiv,
+		0
+		) * impulseScale)
+
+	local springPos = self.mouseSpring:Update(dt)
+
+	local mouseCF =
+		CFrame.Angles(
+			springPos.Y * rotMul,
+			springPos.X * rotMul,
+			springPos.Y * rollMul
+		)
+
+	local carryDiv = isAiming and DEFAULTS.CarryDivADS or DEFAULTS.CarryDivHip
+	local carryClamp = isAiming and DEFAULTS.CarryClampADS or DEFAULTS.CarryClampHip
+	local carryReturn = isAiming and DEFAULTS.CarryReturnADS or DEFAULTS.CarryReturnHip
+
+	self.carry = self.carry - (mouseDelta / carryDiv)
+
+	if self.carry.Magnitude > carryClamp then
+		self.carry = self.carry:Lerp(self.carry.Unit * carryClamp, clamp(dt * 24, 0, 1))
+	end
+
+	self.carry = self.carry:Lerp(Vector2.new(), clamp(dt * carryReturn, 0, 1))
+
+	local carryCF =
+		CFrame.new(
+			self.carry.X * DEFAULTS.CarryPosX,
+			self.carry.Y * DEFAULTS.CarryPosY,
+			0
+		)
+		* CFrame.Angles(
+			rad(self.carry.Y / DEFAULTS.CarryPitchDiv),
+			rad(self.carry.X / DEFAULTS.CarryYawDiv),
+			0
+		)
+
+	self.moveAlpha = self.moveAlpha + (((isMoving and 1 or 0) - self.moveAlpha) * clamp(dt * 8, 0, 1))
+
+	if isMoving then
+		self.walkTime += dt * (isSprinting and DEFAULTS.WalkCycleSprint or DEFAULTS.WalkCycleHip)
+	else
+		self.walkTime += dt * 1.5
+	end
+
+	local bobTarget = CFrame.new()
+
+	if isMoving then
+		local posX = isAiming and DEFAULTS.WalkPosXADS or DEFAULTS.WalkPosXHip
+		local posY = isAiming and DEFAULTS.WalkPosYADS or DEFAULTS.WalkPosYHip
+		local roll = isAiming and DEFAULTS.WalkRollADS or DEFAULTS.WalkRollHip
+
+		local bobScale = self.moveAlpha
+		if isCrouching then
+			bobScale *= DEFAULTS.CrouchScale
+		end
+		if isSprinting then
+			bobScale *= DEFAULTS.SprintScale
+		end
+
+		bobTarget =
+			CFrame.new(
+				sin(self.walkTime) * posX * bobScale,
+				cos(self.walkTime * 2) * posY * bobScale,
+				0
+			)
+			* CFrame.Angles(
+				0,
+				0,
+				rad(sin(self.walkTime) * roll) * bobScale
+			)
+	else
+		local idleScale = isAiming and 0.35 or 1.0
+		if isCrouching then
+			idleScale *= 0.8
+		end
+
+		bobTarget = CFrame.new(
+			DEFAULTS.IdlePosX * sin(self.walkTime * DEFAULTS.IdleFreqX) * idleScale,
+			DEFAULTS.IdlePosY * cos(self.walkTime * DEFAULTS.IdleFreqY) * idleScale,
+			0
+		)
+	end
+
+	self.walkCF = self.walkCF:Lerp(bobTarget, clamp(dt * DEFAULTS.WalkLerpSpeed, 0, 1))
+
+	local lookCF = carryCF * mouseCF
+	return lookCF, self.walkCF
+end
+
+function DonorMotionSway:Reset()
+	self.walkTime = 0
+	self.moveAlpha = 0
+	self.carry = Vector2.new()
+	self.walkCF = CFrame.new()
+	self.mouseSpring:Reset(Vector3.new())
+end
+
+return DonorMotionSway
