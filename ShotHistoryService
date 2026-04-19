@@ -1,0 +1,175 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local ShotHistoryService = {}
+
+local SNAPSHOT_INTERVAL = 0.05
+local HISTORY_WINDOW = 0.35
+local MAX_SNAPSHOTS = 8
+
+local history = {}
+local lastCapture = 0
+local started = false
+
+local TRACKED_PARTS = {
+	"Head",
+	"UpperTorso",
+	"LowerTorso",
+	"HumanoidRootPart",
+}
+
+local function captureCharacterSnapshot(player)
+	local character = player.Character
+	if not character then
+		return nil
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		return nil
+	end
+
+	local snapshot = {
+		time = workspace:GetServerTimeNow(),
+		parts = {},
+	}
+
+	for _, partName in ipairs(TRACKED_PARTS) do
+		local part = character:FindFirstChild(partName)
+		if part and part:IsA("BasePart") then
+			snapshot.parts[partName] = {
+				position = part.Position,
+			}
+		end
+	end
+
+	if not next(snapshot.parts) then
+		return nil
+	end
+
+	return snapshot
+end
+
+local function trimHistory(player)
+	local buffer = history[player]
+	if not buffer then
+		return
+	end
+
+	local now = workspace:GetServerTimeNow()
+
+	while #buffer > 0 and (now - buffer[1].time) > HISTORY_WINDOW do
+		table.remove(buffer, 1)
+	end
+
+	while #buffer > MAX_SNAPSHOTS do
+		table.remove(buffer, 1)
+	end
+end
+
+local function captureAll()
+	for _, player in ipairs(Players:GetPlayers()) do
+		local snapshot = captureCharacterSnapshot(player)
+		if snapshot then
+			history[player] = history[player] or {}
+			table.insert(history[player], snapshot)
+			trimHistory(player)
+		end
+	end
+end
+
+local function lerpVector3(a, b, alpha)
+	return a:Lerp(b, alpha)
+end
+
+local function interpolateSnapshot(beforeSnap, afterSnap, shotTime)
+	if not beforeSnap then
+		return afterSnap
+	end
+
+	if not afterSnap then
+		return beforeSnap
+	end
+
+	local dt = afterSnap.time - beforeSnap.time
+	if dt <= 0 then
+		return beforeSnap
+	end
+
+	local alpha = math.clamp((shotTime - beforeSnap.time) / dt, 0, 1)
+
+	local result = {
+		time = shotTime,
+		parts = {},
+	}
+
+	for _, partName in ipairs(TRACKED_PARTS) do
+		local beforePart = beforeSnap.parts[partName]
+		local afterPart = afterSnap.parts[partName]
+
+		if beforePart and afterPart then
+			result.parts[partName] = {
+				position = lerpVector3(beforePart.position, afterPart.position, alpha),
+			}
+		elseif beforePart then
+			result.parts[partName] = {
+				position = beforePart.position,
+			}
+		elseif afterPart then
+			result.parts[partName] = {
+				position = afterPart.position,
+			}
+		end
+	end
+
+	return result
+end
+
+function ShotHistoryService.GetSnapshotAt(player, shotTime)
+	local buffer = history[player]
+	if not buffer or #buffer == 0 then
+		return nil
+	end
+
+	local beforeSnap = nil
+	local afterSnap = nil
+
+	for i = 1, #buffer do
+		local snap = buffer[i]
+		if snap.time <= shotTime then
+			beforeSnap = snap
+		end
+		if snap.time >= shotTime then
+			afterSnap = snap
+			break
+		end
+	end
+
+	if not beforeSnap and not afterSnap then
+		return nil
+	end
+
+	return interpolateSnapshot(beforeSnap, afterSnap, shotTime)
+end
+
+function ShotHistoryService.Start()
+	if started then
+		return
+	end
+
+	started = true
+
+	RunService.Heartbeat:Connect(function()
+		local now = workspace:GetServerTimeNow()
+		if now - lastCapture >= SNAPSHOT_INTERVAL then
+			lastCapture = now
+			captureAll()
+		end
+	end)
+
+	Players.PlayerRemoving:Connect(function(player)
+		history[player] = nil
+	end)
+end
+
+return ShotHistoryService
