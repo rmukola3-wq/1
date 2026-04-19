@@ -1,0 +1,334 @@
+local Players = game:GetService("Players")
+
+local ShotHistoryService = require(script.Parent:WaitForChild("ShotHistoryService"))
+
+local ShotValidator = {}
+
+local MAX_SHOT_AGE = 0.25
+local MAX_ORIGIN_OFFSET = 12
+local MIN_DIRECTION_DOT = 0.65
+local MAX_DISTANCE = 3000
+local LAST_SHOT_BY_PLAYER = {}
+local FIRE_RATE_TOLERANCE = 0.90
+
+local HIT_RADII = {
+	Head = 0.65,
+	UpperTorso = 1.05,
+	LowerTorso = 1.00,
+	HumanoidRootPart = 0.95,
+}
+
+local HIT_GROUPS = {
+	Head = 1,
+	UpperTorso = 2,
+	LowerTorso = 2,
+	HumanoidRootPart = 2,
+}
+
+local function getCharacterHumanoid(player)
+	if not player.Character then
+		return nil
+	end
+	return player.Character:FindFirstChildOfClass("Humanoid")
+end
+
+local function pointOnSegmentClosestToPoint(a, b, p)
+	local ab = b - a
+	local abLengthSq = ab:Dot(ab)
+	if abLengthSq <= 0 then
+		return a, 0
+	end
+
+	local t = math.clamp((p - a):Dot(ab) / abLengthSq, 0, 1)
+	return a + ab * t, t
+end
+
+local function makeOcclusionParams(shooterCharacter, targetCharacter)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.IgnoreWater = true
+
+	local ignoreList = {}
+	if shooterCharacter then
+		table.insert(ignoreList, shooterCharacter)
+	end
+	if targetCharacter then
+		table.insert(ignoreList, targetCharacter)
+	end
+
+	local acsWorkspace = workspace:FindFirstChild("ACS_WorkSpace")
+	if acsWorkspace then
+		if acsWorkspace:FindFirstChild("Client") then
+			table.insert(ignoreList, acsWorkspace.Client)
+		end
+		if acsWorkspace:FindFirstChild("Server") then
+			table.insert(ignoreList, acsWorkspace.Server)
+		end
+	end
+
+	params.FilterDescendantsInstances = ignoreList
+	return params
+end
+
+local function getMinShotInterval(weaponData)
+	local rpm = weaponData and weaponData.ShootRate or 600
+	return (60 / math.max(rpm, 1)) * FIRE_RATE_TOLERANCE
+end
+
+local function validateFireRate(player, tool, shotTime, weaponData)
+	local playerState = LAST_SHOT_BY_PLAYER[player]
+	if not playerState then
+		playerState = {}
+		LAST_SHOT_BY_PLAYER[player] = playerState
+	end
+
+	local lastShotTime = playerState[tool]
+	local minInterval = getMinShotInterval(weaponData)
+
+	if lastShotTime and (shotTime - lastShotTime) < minInterval then
+		return false
+	end
+
+	playerState[tool] = shotTime
+	return true
+end
+
+local function compareDamageArrays(a, b)
+	if typeof(a) ~= "table" or typeof(b) ~= "table" then
+		return false
+	end
+
+	return a[1] == b[1] and a[2] == b[2]
+end
+
+local function validateWeaponDataAgainstServer(tool, clientWeaponData)
+	if typeof(clientWeaponData) ~= "table" then
+		return false
+	end
+
+	local settingsModule = tool:FindFirstChild("ACS_Settings")
+	if not settingsModule then
+		return false
+	end
+
+	local ok, serverWeaponData = pcall(require, settingsModule)
+	if not ok or typeof(serverWeaponData) ~= "table" then
+		return false
+	end
+
+	if clientWeaponData.gunName ~= serverWeaponData.gunName then
+		return false
+	end
+
+	if clientWeaponData.Type ~= serverWeaponData.Type then
+		return false
+	end
+
+	if clientWeaponData.ShootRate ~= serverWeaponData.ShootRate then
+		return false
+	end
+
+	if clientWeaponData.Bullets ~= serverWeaponData.Bullets then
+		return false
+	end
+
+	if not compareDamageArrays(clientWeaponData.LimbDamage, serverWeaponData.LimbDamage) then
+		return false
+	end
+
+	if not compareDamageArrays(clientWeaponData.TorsoDamage, serverWeaponData.TorsoDamage) then
+		return false
+	end
+
+	if not compareDamageArrays(clientWeaponData.HeadDamage, serverWeaponData.HeadDamage) then
+		return false
+	end
+
+	return true, serverWeaponData
+end
+
+local function validateModTable(modTable)
+	if typeof(modTable) ~= "table" then
+		return false
+	end
+
+	local numericKeys = {
+		"DamageMod",
+		"minDamageMod",
+		"MinRecoilPower",
+		"MaxRecoilPower",
+		"RecoilPowerStepAmount",
+		"MinSpread",
+		"MaxSpread",
+		"AimInaccuracyStepAmount",
+		"AimInaccuracyDecrease",
+		"WalkMult",
+		"adsTime",
+		"MuzzleVelocity",
+	}
+
+	for _, key in ipairs(numericKeys) do
+		local value = modTable[key]
+		if value ~= nil then
+			if typeof(value) ~= "number" then
+				return false
+			end
+			if value ~= value or value == math.huge or value == -math.huge then
+				return false
+			end
+		end
+	end
+
+	return true
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	LAST_SHOT_BY_PLAYER[player] = nil
+end)
+
+local function findBestRewindHit(shooter, origin, direction, shotTime, maxDistance)
+	local dirUnit = direction.Unit
+	local segmentEnd = origin + dirUnit * maxDistance
+	local bestHit = nil
+	local maxDistSq = maxDistance * maxDistance
+
+	for _, candidate in ipairs(Players:GetPlayers()) do
+		if candidate ~= shooter then
+			local humanoid = getCharacterHumanoid(candidate)
+			if humanoid and humanoid.Health > 0 and candidate.Character then
+				local root = candidate.Character:FindFirstChild("HumanoidRootPart")
+				if root then
+					local toCandidate = root.Position - origin
+					if toCandidate:Dot(toCandidate) <= maxDistSq then
+						local unitToCandidate = toCandidate.Magnitude > 0 and toCandidate.Unit or Vector3.zero
+						if unitToCandidate == Vector3.zero or dirUnit:Dot(unitToCandidate) >= 0.3 then
+							local snapshot = ShotHistoryService.GetSnapshotAt(candidate, shotTime)
+							if snapshot and snapshot.parts then
+								for partName, radius in pairs(HIT_RADII) do
+									local partData = snapshot.parts[partName]
+									if partData then
+										local closestPoint, t = pointOnSegmentClosestToPoint(origin, segmentEnd, partData.position)
+										local distToRay = (partData.position - closestPoint).Magnitude
+
+										if distToRay <= radius then
+											local distanceAlongRay = (closestPoint - origin).Magnitude
+											local occlusionParams = makeOcclusionParams(shooter.Character, candidate.Character)
+											local occlusion = workspace:Raycast(origin, partData.position - origin, occlusionParams)
+
+											if not occlusion then
+												if not bestHit or distanceAlongRay < bestHit.distance then
+													bestHit = {
+														hit = true,
+														player = candidate,
+														humanoid = humanoid,
+														partName = partName,
+														part = candidate.Character:FindFirstChild(partName),
+														position = partData.position,
+														normal = Vector3.new(0, 1, 0),
+														material = Enum.Material.Plastic,
+														distance = distanceAlongRay,
+														hitGroup = HIT_GROUPS[partName] or 3,
+														t = t,
+													}
+												end
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	return bestHit
+end
+
+function ShotValidator.Validate(player, shotPacket)
+	if typeof(shotPacket) ~= "table" then
+		return false, "bad_packet"
+	end
+
+	if not player.Character or not player.Character:FindFirstChild("Humanoid") then
+		return false, "no_character"
+	end
+
+	local humanoid = player.Character.Humanoid
+	if humanoid.Health <= 0 then
+		return false, "dead"
+	end
+
+	local now = workspace:GetServerTimeNow()
+	local shotTime = shotPacket.shotTime or 0
+	local shotAge = now - shotTime
+	local maxFuture = 0.05
+
+	if shotTime > now + maxFuture then
+		return false, "shot_in_future"
+	end
+
+	if shotAge < 0 or shotAge > MAX_SHOT_AGE then
+		return false, "shot_too_old"
+	end
+
+	local tool = shotPacket.weaponTool
+	if not tool or not tool:IsDescendantOf(player.Character) then
+		return false, "bad_weapon"
+	end
+
+	local weaponData = shotPacket.weaponData
+	local weaponOk = validateWeaponDataAgainstServer(tool, weaponData)
+	if not weaponOk then
+		return false, "bad_weapon_data"
+	end
+
+	local modTable = shotPacket.modTable
+	if not validateModTable(modTable) then
+		return false, "bad_mod_table"
+	end
+
+	local handle = tool:FindFirstChild("Handle")
+	local muzzle = handle and handle:FindFirstChild("Muzzle")
+	if not muzzle then
+		return false, "no_muzzle"
+	end
+
+	local origin = shotPacket.origin
+	local direction = shotPacket.direction
+	local maxDistance = math.clamp(shotPacket.maxDistance or MAX_DISTANCE, 0, MAX_DISTANCE)
+
+	if typeof(origin) ~= "Vector3" or typeof(direction) ~= "Vector3" then
+		return false, "bad_vectors"
+	end
+
+	if direction.Magnitude < 0.95 then
+		return false, "bad_direction"
+	end
+
+	local muzzlePos = muzzle.WorldPosition
+	if (origin - muzzlePos).Magnitude > MAX_ORIGIN_OFFSET then
+		return false, "origin_too_far"
+	end
+
+	local muzzleLook = muzzle.WorldCFrame.LookVector
+	if muzzleLook:Dot(direction.Unit) < MIN_DIRECTION_DOT then
+		return false, "direction_mismatch"
+	end
+
+	if not validateFireRate(player, tool, shotTime, weaponData) then
+		return false, "fire_rate_exceeded"
+	end
+
+	local rewindHit = findBestRewindHit(player, origin, direction, shotTime, maxDistance)
+	if rewindHit then
+		return true, rewindHit
+	end
+
+	return true, {
+		hit = false,
+	}
+end
+
+return ShotValidator
