@@ -1,0 +1,137 @@
+local ShotValidator = {}
+
+local MAX_SHOT_AGE = 0.25
+local MAX_ORIGIN_OFFSET = 12
+local MAX_DIRECTION_DOT_ERROR = 0.35
+
+local function getHitGroup(part)
+	if not part then
+		return 3
+	end
+
+	local name = part.Name
+
+	if name == "Head" then
+		return 1
+	end
+
+	if name == "Torso" or name == "UpperTorso" or name == "LowerTorso" or name == "Right Arm" or name == "Left Arm"
+		or name == "RightUpperArm" or name == "RightLowerArm" or name == "RightHand"
+		or name == "LeftUpperArm" or name == "LeftLowerArm" or name == "LeftHand" then
+		return 2
+	end
+
+	return 3
+end
+
+local function makeRayParams(player)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Blacklist
+	params.IgnoreWater = true
+
+	local ignore = {}
+
+	if player.Character then
+		table.insert(ignore, player.Character)
+	end
+
+	local acsWorkspace = workspace:FindFirstChild("ACS_WorkSpace")
+	if acsWorkspace and acsWorkspace:FindFirstChild("Client") then
+		table.insert(ignore, acsWorkspace.Client)
+	end
+
+	params.FilterDescendantsInstances = ignore
+	return params
+end
+
+function ShotValidator.Validate(player, shotPacket)
+	if typeof(shotPacket) ~= "table" then
+		return false, "bad_packet"
+	end
+
+	if not player.Character or not player.Character:FindFirstChild("Humanoid") then
+		return false, "no_character"
+	end
+
+	local humanoid = player.Character.Humanoid
+	if humanoid.Health <= 0 then
+		return false, "dead"
+	end
+
+	local now = workspace:GetServerTimeNow()
+	local shotTime = shotPacket.shotTime or 0
+	local shotAge = now - shotTime
+	if shotAge < 0 or shotAge > MAX_SHOT_AGE then
+		return false, "shot_too_old"
+	end
+
+	local tool = shotPacket.weaponTool
+	if not tool or not tool:IsDescendantOf(player.Character) then
+		return false, "bad_weapon"
+	end
+
+	local handle = tool:FindFirstChild("Handle")
+	local muzzle = handle and handle:FindFirstChild("Muzzle")
+	if not muzzle then
+		return false, "no_muzzle"
+	end
+
+	local origin = shotPacket.origin
+	local direction = shotPacket.direction
+	local maxDistance = shotPacket.maxDistance or 3000
+
+	if typeof(origin) ~= "Vector3" or typeof(direction) ~= "Vector3" then
+		return false, "bad_vectors"
+	end
+
+	if direction.Magnitude < 0.95 then
+		return false, "bad_direction"
+	end
+
+	local muzzlePos = muzzle.WorldPosition
+	if (origin - muzzlePos).Magnitude > MAX_ORIGIN_OFFSET then
+		return false, "origin_too_far"
+	end
+
+	local muzzleLook = muzzle.WorldCFrame.LookVector
+	if muzzleLook:Dot(direction.Unit) < MAX_DIRECTION_DOT_ERROR then
+		return false, "direction_mismatch"
+	end
+
+	local params = makeRayParams(player)
+	local result = workspace:Raycast(origin, direction.Unit * maxDistance, params)
+
+	if not result then
+		return true, {
+			hit = false,
+		}
+	end
+
+	local hitPart = result.Instance
+	local victimModel = hitPart and hitPart:FindFirstAncestorOfClass("Model")
+	local victimHumanoid = victimModel and victimModel:FindFirstChildOfClass("Humanoid")
+
+	if victimHumanoid and victimHumanoid ~= humanoid then
+		return true, {
+			hit = true,
+			humanoid = victimHumanoid,
+			part = hitPart,
+			position = result.Position,
+			normal = result.Normal,
+			material = result.Material,
+			distance = (result.Position - origin).Magnitude,
+			hitGroup = getHitGroup(hitPart),
+		}
+	end
+
+	return true, {
+		hit = false,
+		part = hitPart,
+		position = result.Position,
+		normal = result.Normal,
+		material = result.Material,
+		distance = (result.Position - origin).Magnitude,
+	}
+end
+
+return ShotValidator
