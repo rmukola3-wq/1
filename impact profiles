@@ -1,0 +1,93 @@
+--!strict
+
+local ImpactProfiles = {}
+
+local profiles = {
+	Pistol = {
+		DebrisScale = 0.65,
+		SmokeScale = 0.60,
+		BloodScale = 0.78,
+		DecalScale = 0.78,
+		LightScale = 0.45,
+		SuppressionBonus = 0.80,
+		CameraNudge = 0.70,
+		SurfaceImpulse = 0.65,
+		FleshImpulse = 0.78,
+		HitAccent = 0.70,
+	},
+
+	SMG = {
+		DebrisScale = 0.78,
+		SmokeScale = 0.72,
+		BloodScale = 0.88,
+		DecalScale = 0.86,
+		LightScale = 0.55,
+		SuppressionBonus = 0.88,
+		CameraNudge = 0.78,
+		SurfaceImpulse = 0.76,
+		FleshImpulse = 0.86,
+		HitAccent = 0.82,
+	},
+
+	SmallRifle = {
+		DebrisScale = 1.00,
+		SmokeScale = 1.00,
+		BloodScale = 1.00,
+		DecalScale = 1.00,
+		LightScale = 0.80,
+		SuppressionBonus = 1.00,
+		CameraNudge = 1.00,
+		SurfaceImpulse = 1.00,
+		FleshImpulse = 1.00,
+		HitAccent = 1.00,
+	},
+
+	Rifle = {
+		DebrisScale = 1.15,
+		SmokeScale = 1.08,
+		BloodScale = 1.12,
+		DecalScale = 1.08,
+		LightScale = 0.92,
+		SuppressionBonus = 1.08,
+		CameraNudge = 1.08,
+		SurfaceImpulse = 1.12,
+		FleshImpulse = 1.14,
+		HitAccent = 1.10,
+	},
+
+	BattleRifle = {
+		DebrisScale = 1.35,
+		SmokeScale = 1.18,
+		BloodScale = 1.26,
+		DecalScale = 1.14,
+		LightScale = 1.05,
+		SuppressionBonus = 1.18,
+		CameraNudge = 1.18,
+		SurfaceImpulse = 1.22,
+		FleshImpulse = 1.24,
+		HitAccent = 1.18,
+	},
+
+	Shotgun = {
+		DebrisScale = 1.40,
+		SmokeScale = 1.08,
+		BloodScale = 1.40,
+		DecalScale = 1.20,
+		LightScale = 0.95,
+		SuppressionBonus = 1.15,
+		CameraNudge = 1.28,
+		SurfaceImpulse = 1.25,
+		FleshImpulse = 1.40,
+		HitAccent = 1.30,
+	},
+}
+
+function ImpactProfiles.Get(id)
+	return profiles[id] or profiles.SmallRifle
+end
+
+function ImpactProfiles.GetAll()
+	return profiles
+end
+
+return ImpactProfiles
