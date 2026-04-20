@@ -1,0 +1,59 @@
+--!strict
+
+local AmmoProfiles = require(script.Parent:WaitForChild("AmmoProfiles"))
+
+local BallisticsResolver = {}
+
+local function shallowCopy(source)
+	local copy = {}
+	if source then
+		for key, value in pairs(source) do
+			copy[key] = value
+		end
+	end
+	return copy
+end
+
+function BallisticsResolver.Resolve(weaponData, modTable)
+	local ammoId = weaponData.AmmoProfile or weaponData.AmmoType or "556x45_FMJ"
+	local ammo = AmmoProfiles.Get(ammoId) or AmmoProfiles.Get("556x45_FMJ")
+
+	local resolvedModTable = shallowCopy(modTable)
+	resolvedModTable.DamageMod = (resolvedModTable.DamageMod or 1) * (ammo.DamageMult or 1)
+	resolvedModTable.minDamageMod = (resolvedModTable.minDamageMod or 1) * (ammo.MinDamageMult or 1)
+	resolvedModTable.MuzzleVelocity = (resolvedModTable.MuzzleVelocity or 1) * (ammo.VelocityMult or 1)
+	resolvedModTable.Penetration = (resolvedModTable.Penetration or 1) * (ammo.PenetrationMult or 1)
+
+	local muzzleVelocity = math.max(
+		1,
+		(weaponData.MuzzleVelocity or 2000)
+			* (modTable and (modTable.MuzzleVelocity or 1) or 1)
+			* (ammo.VelocityMult or 1)
+	)
+
+	local bulletDrop = (weaponData.BulletDrop or 1) * (ammo.DropMult or 1)
+	local currentZero = weaponData.CurrentZero or 0
+	local zeroOffset = (((bulletDrop * currentZero / 4) / muzzleVelocity) / 2) * (ammo.ZeroingScale or 1)
+
+	return {
+		AmmoId = ammoId,
+		Ammo = ammo,
+		ServerModTable = resolvedModTable,
+		ImpactProfile = weaponData.ImpactProfileOverride or ammo.ImpactProfile or "SmallRifle",
+		BasePenetration = resolvedModTable.Penetration or 1,
+
+		MuzzleVelocity = muzzleVelocity,
+		BulletDrop = bulletDrop,
+		GravityScale = ammo.GravityScale or 1,
+		Drag = ammo.Drag or 0,
+		SpreadMult = ammo.SpreadMult or 1,
+		SuppressionMult = ammo.SuppressionMult or 1,
+		PenetrationIndex = ((weaponData.WallbangPenetration or ((weaponData.BulletPenetration or 0) * 0.18)) * (ammo.PenetrationMult or 1)),
+		MaxDistance = ammo.MaxDistance or 7000,
+		WhizzRadius = ammo.WhizzRadius or 25,
+		ImpactProfile = ammo.ImpactProfile or "Rifle",
+		ZeroOffset = zeroOffset,
+	}
+end
+
+return BallisticsResolver
