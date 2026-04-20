@@ -1,0 +1,124 @@
+--!strict
+
+local SurfaceResponse = {}
+
+local WALLBANG_CONSTANT = 1
+
+local WALLBANG_MATERIAL_HARDNESS = {
+	default = 8,
+
+	Concrete = 45,
+	Brick = 55,
+	Basalt = 45,
+	Asphalt = 45,
+	Pavement = 45,
+	Cobblestone = 45,
+	Rock = 45,
+	Slate = 45,
+	Granite = 45,
+	Limestone = 45,
+	Pebble = 45,
+
+	Wood = 20.45,
+	WoodPlanks = 20.28,
+	Cardboard = 20.20,
+
+	Metal = 35,
+	DiamondPlate = 24,
+	CorrodedMetal = 14,
+
+	Grass = 0.30,
+	LeafyGrass = 0.30,
+	Dirt = 2.5,
+	Ground = 2.5,
+	Mud = 2.2,
+	Sand = 1.8,
+	Snow = 0.9,
+	Fabric = 35.10,
+	Carpet = 8,
+	Leather = 10,
+	Neon = 10,
+	Water = 2.0,
+	Rubber = 12,
+
+	Plastic = 29.18,
+	SmoothPlastic = 20.18,
+	Glass = 20.05,
+	Glacier = 20.12,
+	Ice = 20.10,
+}
+
+local WALLBANG_SPECIAL_NAMES = {
+	BulletproofGlass = 2,
+	Armor = 10,
+	EShield = 10,
+	Hitmaker = 1000,
+	Invincible = 1000,
+}
+
+local function getHardness(hitPart, material)
+	if hitPart and WALLBANG_SPECIAL_NAMES[hitPart.Name] then
+		return WALLBANG_SPECIAL_NAMES[hitPart.Name]
+	end
+
+	if material and WALLBANG_MATERIAL_HARDNESS[material.Name] ~= nil then
+		return WALLBANG_MATERIAL_HARDNESS[material.Name]
+	end
+
+	return WALLBANG_MATERIAL_HARDNESS.default
+end
+
+function SurfaceResponse.Resolve(hitResult, velocity, bulletPower, resolvedBallistics)
+	local hitPart = hitResult.Instance
+	if not hitPart or not hitPart:IsA("BasePart") then
+		return { Type = "Stop" }
+	end
+
+	local penetrationIndex = resolvedBallistics.PenetrationIndex or 0
+	if penetrationIndex <= 0 or bulletPower <= 0 then
+		return { Type = "Stop" }
+	end
+
+	local hardness = getHardness(hitPart, hitResult.Material)
+	if hardness >= 1000 then
+		return { Type = "Stop" }
+	end
+
+	local castDist = if hardness <= 0 then 6 else (penetrationIndex / hardness)
+	local castDist2 = castDist * bulletPower * WALLBANG_CONSTANT
+
+	if castDist2 <= 0.01 then
+		return { Type = "Stop" }
+	end
+
+	local rayDir = velocity.Unit
+
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { hitPart }
+	params.IgnoreWater = true
+
+	local startPos = hitResult.Position + rayDir * castDist2
+	local backVec = -rayDir * castDist2
+
+	local exitRay = workspace:Raycast(startPos, backVec, params)
+	if not exitRay then
+		return { Type = "Stop" }
+	end
+
+	local thickness = (exitRay.Position - hitResult.Position).Magnitude
+	local newBulletPower = math.max(bulletPower - (thickness / castDist2), 0)
+
+	if newBulletPower <= 0.05 then
+		return { Type = "Stop" }
+	end
+
+	return {
+		Type = "Penetrate",
+		ExitPosition = exitRay.Position + rayDir * 0.05,
+		Thickness = thickness,
+		BulletPower = newBulletPower,
+	}
+end
+
+return SurfaceResponse
