@@ -1,0 +1,594 @@
+-- Saved by UniversalSynSaveInstance (Join to Copy Games) https://discord.gg/wx4ThpAsmw
+
+-- Decompiled with Konstant V2.1, a fast Luau decompiler made in Luau by plusgiant5 (https://discord.gg/brNTY8nX8t)
+-- Decompiled on 2026-02-15 12:34:33
+-- Luau version 6, Types version 3
+-- Time taken: 0.026274 seconds
+
+local Players_upvr = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer_upvr = Players_upvr.LocalPlayer
+local module_upvr = require(ReplicatedStorage.Game.Modules:WaitForChild("TeamsService"))
+local module_upvr_2 = require(ReplicatedStorage:WaitForChild("Game"):FindFirstChild("Modules"):FindFirstChild("Packets"))
+local tbl_2_upvr = {
+	TagName = "TeamTag";
+	DroneTagName = "DroneTag";
+	DroneWorkspaceName = "DroneWorkspace";
+	HidingAttributes = {"InMenu", "InDrone"};
+	BatchUpdateDelay = 0.1;
+	Debug = false;
+}
+local tbl_upvr_2 = {}
+local tbl_upvr = {}
+local var10_upvw
+local var11_upvw = false
+local function log_upvr(...) -- Line 25, Named "log"
+	--[[ Upvalues[1]:
+		[1]: tbl_2_upvr (readonly)
+	]]
+	if tbl_2_upvr.Debug then
+		print("[TeamTagController]", ...)
+	end
+end
+local function _(arg1) -- Line 31, Named "getPlayerTag"
+	--[[ Upvalues[1]:
+		[1]: tbl_2_upvr (readonly)
+	]]
+	local Character_3 = arg1.Character
+	if not Character_3 then
+		return nil
+	end
+	return Character_3:FindFirstChild(tbl_2_upvr.TagName)
+end
+local function _(arg1) -- Line 38, Named "getDroneTag"
+	--[[ Upvalues[1]:
+		[1]: tbl_2_upvr (readonly)
+	]]
+	local Other_2 = arg1:FindFirstChild("Other")
+	if not Other_2 then
+		return nil
+	end
+	local Parts = Other_2:FindFirstChild("Parts")
+	if not Parts then
+		return nil
+	end
+	return Parts:FindFirstChild(tbl_2_upvr.DroneTagName)
+end
+local function isPlayerHiding_upvr(arg1) -- Line 48, Named "isPlayerHiding"
+	--[[ Upvalues[1]:
+		[1]: tbl_2_upvr (readonly)
+	]]
+	for _, v in ipairs(tbl_2_upvr.HidingAttributes) do
+		if arg1:GetAttribute(v) == true then
+			return true
+		end
+	end
+	return false
+end
+local function isSameTeam_upvr(arg1) -- Line 57, Named "isSameTeam"
+	--[[ Upvalues[2]:
+		[1]: module_upvr (readonly)
+		[2]: LocalPlayer_upvr (readonly)
+	]]
+	local var20
+	if not var20 then
+		var20 = false
+		return var20
+	end
+	var20 = module_upvr:GetPlayerTeam(arg1).Name
+	if not var20 then
+		var20 = false
+		return var20
+	end
+	var20 = module_upvr:GetPlayerTeam(LocalPlayer_upvr)
+	if not var20 then
+		var20 = false
+		return var20
+	end
+	var20 = module_upvr:GetPlayerTeam(LocalPlayer_upvr).Name
+	if not var20 then
+		var20 = false
+		return var20
+	end
+	if module_upvr:GetPlayerTeam(arg1).Name ~= module_upvr:GetPlayerTeam(LocalPlayer_upvr).Name then
+		var20 = false
+	else
+		var20 = true
+	end
+	return var20
+end
+local function _(arg1) -- Line 66, Named "isDroneOnSameTeam"
+	--[[ Upvalues[2]:
+		[1]: module_upvr (readonly)
+		[2]: LocalPlayer_upvr (readonly)
+	]]
+	local var21
+	if not module_upvr:GetPlayerTeam(LocalPlayer_upvr) then
+		return false
+	end
+	if arg1:GetAttribute("Team") ~= module_upvr:GetPlayerTeam(LocalPlayer_upvr).Name then
+		var21 = false
+	else
+		var21 = true
+	end
+	return var21
+end
+local function updatePlayerTag_upvr(arg1) -- Line 72, Named "updatePlayerTag"
+	--[[ Upvalues[5]:
+		[1]: LocalPlayer_upvr (readonly)
+		[2]: tbl_2_upvr (readonly)
+		[3]: isSameTeam_upvr (readonly)
+		[4]: isPlayerHiding_upvr (readonly)
+		[5]: log_upvr (readonly)
+	]]
+	-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+	local var22
+	if arg1 == var22 then
+	else
+		local Character = arg1.Character
+		if not Character then
+			var22 = nil
+		else
+			var22 = Character:FindFirstChild(tbl_2_upvr.TagName)
+		end
+		if not var22 then return end
+		Character = false
+		local var24 = Character
+		if isSameTeam_upvr(arg1) then
+			var24 = not isPlayerHiding_upvr(arg1)
+		else
+			var24 = false
+		end
+		if var22.Enabled ~= var24 then
+			var22.Enabled = var24
+			if var24 then
+			else
+			end
+			log_upvr("Player", arg1.Name, "tag:", "HIDDEN")
+		end
+	end
+end
+local function _(arg1) -- Line 92, Named "updateDroneTag"
+	--[[ Upvalues[4]:
+		[1]: tbl_2_upvr (readonly)
+		[2]: module_upvr (readonly)
+		[3]: LocalPlayer_upvr (readonly)
+		[4]: log_upvr (readonly)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 32 start (CF ANALYSIS FAILED)
+	local Other = arg1:FindFirstChild("Other")
+	if not Other then
+		-- KONSTANTWARNING: GOTO [21] #18
+	end
+	-- KONSTANTERROR: [0] 1. Error Block 32 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [7] 7. Error Block 27 start (CF ANALYSIS FAILED)
+	if not Other:FindFirstChild("Parts") then
+		-- KONSTANTWARNING: GOTO [21] #18
+	end
+	-- KONSTANTERROR: [7] 7. Error Block 27 end (CF ANALYSIS FAILED)
+end
+local function _() -- Line 104, Named "updateAllPlayerTags"
+	--[[ Upvalues[2]:
+		[1]: Players_upvr (readonly)
+		[2]: updatePlayerTag_upvr (readonly)
+	]]
+	for _, v_2 in ipairs(Players_upvr:GetPlayers()) do
+		updatePlayerTag_upvr(v_2)
+	end
+end
+local function updateAllDroneTags_upvr() -- Line 110, Named "updateAllDroneTags"
+	--[[ Upvalues[5]:
+		[1]: var10_upvw (read and write)
+		[2]: tbl_2_upvr (readonly)
+		[3]: module_upvr (readonly)
+		[4]: LocalPlayer_upvr (readonly)
+		[5]: log_upvr (readonly)
+	]]
+	if not var10_upvw then
+	else
+		for _, v_10 in ipairs(var10_upvw:GetChildren()) do
+			local children = v_10:IsA("Model")
+			if children then
+				local Other_3 = v_10:FindFirstChild("Other")
+				if not Other_3 then
+					children = nil
+				else
+					local Parts_2 = Other_3:FindFirstChild("Parts")
+					if not Parts_2 then
+						children = nil
+					else
+						children = Parts_2:FindFirstChild(tbl_2_upvr.DroneTagName)
+					end
+				end
+				if not children then
+				else
+					if not module_upvr:GetPlayerTeam(LocalPlayer_upvr) then
+						Other_3 = false
+					elseif v_10:GetAttribute("Team") ~= module_upvr:GetPlayerTeam(LocalPlayer_upvr).Name then
+						Other_3 = false
+					else
+						Other_3 = true
+					end
+					local var41
+					if children.Enabled ~= Other_3 then
+						children.Enabled = Other_3
+						if Other_3 then
+							var41 = "VISIBLE"
+						else
+							var41 = "HIDDEN"
+						end
+						log_upvr("Drone tag:", var41)
+					end
+				end
+			end
+		end
+	end
+end
+local function _() -- Line 120, Named "scheduleUpdate"
+	--[[ Upvalues[5]:
+		[1]: var11_upvw (read and write)
+		[2]: tbl_2_upvr (readonly)
+		[3]: Players_upvr (readonly)
+		[4]: updatePlayerTag_upvr (readonly)
+		[5]: updateAllDroneTags_upvr (readonly)
+	]]
+	if var11_upvw then
+	else
+		var11_upvw = true
+		task.delay(tbl_2_upvr.BatchUpdateDelay, function() -- Line 124
+			--[[ Upvalues[4]:
+				[1]: var11_upvw (copied, read and write)
+				[2]: Players_upvr (copied, readonly)
+				[3]: updatePlayerTag_upvr (copied, readonly)
+				[4]: updateAllDroneTags_upvr (copied, readonly)
+			]]
+			var11_upvw = false
+			for _, v_11 in ipairs(Players_upvr:GetPlayers()) do
+				updatePlayerTag_upvr(v_11)
+			end
+			updateAllDroneTags_upvr()
+		end)
+	end
+end
+local function _(arg1) -- Line 131, Named "cleanupPlayerConnections"
+	--[[ Upvalues[1]:
+		[1]: tbl_upvr_2 (readonly)
+	]]
+	local var50 = tbl_upvr_2[arg1]
+	if var50 then
+		for _, v_3 in ipairs(var50) do
+			v_3:Disconnect()
+		end
+		tbl_upvr_2[arg1] = nil
+	end
+end
+local function _(arg1) -- Line 141, Named "cleanupCharacterConnections"
+	--[[ Upvalues[1]:
+		[1]: tbl_upvr (readonly)
+	]]
+	local var56 = tbl_upvr[arg1]
+	if var56 then
+		for _, v_4 in ipairs(var56) do
+			v_4:Disconnect()
+		end
+		tbl_upvr[arg1] = nil
+	end
+end
+local function setupCharacterConnections_upvr(arg1, arg2) -- Line 151, Named "setupCharacterConnections"
+	--[[ Upvalues[3]:
+		[1]: tbl_upvr (readonly)
+		[2]: tbl_2_upvr (readonly)
+		[3]: updatePlayerTag_upvr (readonly)
+	]]
+	local var62 = tbl_upvr[arg2]
+	if var62 then
+		for _, v_5 in ipairs(var62) do
+			v_5:Disconnect()
+		end
+		tbl_upvr[arg2] = nil
+	end
+	local tbl = {}
+	table.insert(tbl, arg2.ChildAdded:Connect(function(arg1_2) -- Line 156
+		--[[ Upvalues[3]:
+			[1]: tbl_2_upvr (copied, readonly)
+			[2]: updatePlayerTag_upvr (copied, readonly)
+			[3]: arg1 (readonly)
+		]]
+		if arg1_2.Name == tbl_2_upvr.TagName then
+			updatePlayerTag_upvr(arg1)
+		end
+	end))
+	tbl_upvr[arg2] = tbl
+	task.defer(function() -- Line 164
+		--[[ Upvalues[2]:
+			[1]: updatePlayerTag_upvr (copied, readonly)
+			[2]: arg1 (readonly)
+		]]
+		updatePlayerTag_upvr(arg1)
+	end)
+end
+local function setupPlayerConnections_upvr(arg1) -- Line 169, Named "setupPlayerConnections"
+	--[[ Upvalues[6]:
+		[1]: LocalPlayer_upvr (readonly)
+		[2]: tbl_upvr_2 (readonly)
+		[3]: tbl_2_upvr (readonly)
+		[4]: updatePlayerTag_upvr (readonly)
+		[5]: setupCharacterConnections_upvr (readonly)
+		[6]: tbl_upvr (readonly)
+	]]
+	-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+	if arg1 == LocalPlayer_upvr then
+	else
+		local var85 = tbl_upvr_2[arg1]
+		if var85 then
+			for _, v_12 in ipairs(var85) do
+				v_12:Disconnect()
+			end
+			tbl_upvr_2[arg1] = nil
+		end
+		for _, v_13 in ipairs(tbl_2_upvr.HidingAttributes) do
+			table.insert({}, arg1:GetAttributeChangedSignal(v_13):Connect(function() -- Line 176
+				--[[ Upvalues[2]:
+					[1]: updatePlayerTag_upvr (copied, readonly)
+					[2]: arg1 (readonly)
+				]]
+				updatePlayerTag_upvr(arg1)
+			end))
+			local var94
+		end
+		table.insert(var94, arg1.CharacterAdded:Connect(function(arg1_3) -- Line 181
+			--[[ Upvalues[2]:
+				[1]: setupCharacterConnections_upvr (copied, readonly)
+				[2]: arg1 (readonly)
+			]]
+			setupCharacterConnections_upvr(arg1, arg1_3)
+		end))
+		table.insert(var94, arg1.CharacterRemoving:Connect(function(arg1_4) -- Line 185
+			--[[ Upvalues[1]:
+				[1]: tbl_upvr (copied, readonly)
+			]]
+			local var99 = tbl_upvr[arg1_4]
+			if var99 then
+				for _, v_14 in ipairs(var99) do
+					v_14:Disconnect()
+				end
+				tbl_upvr[arg1_4] = nil
+			end
+		end))
+		tbl_upvr_2[arg1] = var94
+		if arg1.Character then
+			setupCharacterConnections_upvr(arg1, arg1.Character)
+		end
+	end
+end
+local Workspace_upvr = game:GetService("Workspace")
+local function setupDroneConnections_upvr() -- Line 196, Named "setupDroneConnections"
+	--[[ Upvalues[8]:
+		[1]: var10_upvw (read and write)
+		[2]: Workspace_upvr (readonly)
+		[3]: tbl_2_upvr (readonly)
+		[4]: log_upvr (readonly)
+		[5]: setupDroneConnections_upvr (readonly)
+		[6]: module_upvr (readonly)
+		[7]: LocalPlayer_upvr (readonly)
+		[8]: updateAllDroneTags_upvr (readonly)
+	]]
+	var10_upvw = Workspace_upvr:FindFirstChild(tbl_2_upvr.DroneWorkspaceName)
+	if not var10_upvw then
+		log_upvr("Drone folder not found, waiting...")
+		local var105_upvw
+		var105_upvw = Workspace_upvr.ChildAdded:Connect(function(arg1) -- Line 202
+			--[[ Upvalues[4]:
+				[1]: tbl_2_upvr (copied, readonly)
+				[2]: var10_upvw (copied, read and write)
+				[3]: setupDroneConnections_upvr (copied, readonly)
+				[4]: var105_upvw (read and write)
+			]]
+			if arg1.Name == tbl_2_upvr.DroneWorkspaceName then
+				var10_upvw = arg1
+				setupDroneConnections_upvr()
+				var105_upvw:Disconnect()
+			end
+		end)
+	else
+		var10_upvw.ChildAdded:Connect(function(arg1) -- Line 212
+			--[[ Upvalues[4]:
+				[1]: tbl_2_upvr (copied, readonly)
+				[2]: module_upvr (copied, readonly)
+				[3]: LocalPlayer_upvr (copied, readonly)
+				[4]: log_upvr (copied, readonly)
+			]]
+			-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+			-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+			-- KONSTANTERROR: [5] 5. Error Block 33 start (CF ANALYSIS FAILED)
+			task.wait(0.1)
+			if not arg1:FindFirstChild("Other") then
+				-- KONSTANTWARNING: GOTO [30] #25
+			end
+			-- KONSTANTERROR: [5] 5. Error Block 33 end (CF ANALYSIS FAILED)
+		end)
+		var10_upvw.DescendantAdded:Connect(function(arg1) -- Line 219
+			--[[ Upvalues[5]:
+				[1]: tbl_2_upvr (copied, readonly)
+				[2]: var10_upvw (copied, read and write)
+				[3]: module_upvr (copied, readonly)
+				[4]: LocalPlayer_upvr (copied, readonly)
+				[5]: log_upvr (copied, readonly)
+			]]
+			-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+			-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+			local var108
+			-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+			-- KONSTANTERROR: [7] 5. Error Block 2 start (CF ANALYSIS FAILED)
+			var108 = "Model"
+			local instance = arg1:FindFirstAncestorOfClass(var108)
+			-- KONSTANTERROR: [7] 5. Error Block 2 end (CF ANALYSIS FAILED)
+			-- KONSTANTERROR: [12] 9. Error Block 3 start (CF ANALYSIS FAILED)
+			var108 = var10_upvw
+			-- KONSTANTERROR: [12] 9. Error Block 3 end (CF ANALYSIS FAILED)
+			-- KONSTANTERROR: [31] 24. Error Block 38 start (CF ANALYSIS FAILED)
+			local var110
+			-- KONSTANTWARNING: Failed to evaluate expression, replaced with nil [34.4]
+			local SOME = nil:FindFirstChild(tbl_2_upvr.DroneTagName)
+			if not SOME then
+			else
+				if not module_upvr:GetPlayerTeam(LocalPlayer_upvr) then
+					var108 = false
+				elseif instance:GetAttribute("Team") ~= module_upvr:GetPlayerTeam(LocalPlayer_upvr).Name then
+					var108 = false
+				else
+					var108 = true
+				end
+				if SOME.Enabled ~= var108 then
+					SOME.Enabled = var108
+					if var108 then
+					else
+					end
+					log_upvr("Drone tag:", "HIDDEN")
+				end
+				-- KONSTANTERROR: [31] 24. Error Block 38 end (CF ANALYSIS FAILED)
+				-- KONSTANTERROR: [76] 59. Error Block 25 start (CF ANALYSIS FAILED)
+				-- KONSTANTERROR: [76] 59. Error Block 25 end (CF ANALYSIS FAILED)
+			end
+		end)
+		updateAllDroneTags_upvr()
+	end
+end
+local function _() -- Line 231, Named "setupLocalPlayerConnections"
+	--[[ Upvalues[7]:
+		[1]: module_upvr_2 (readonly)
+		[2]: log_upvr (readonly)
+		[3]: var11_upvw (read and write)
+		[4]: tbl_2_upvr (readonly)
+		[5]: Players_upvr (readonly)
+		[6]: updatePlayerTag_upvr (readonly)
+		[7]: updateAllDroneTags_upvr (readonly)
+	]]
+	module_upvr_2.TeamService.OnClientEvent:Connect(function(arg1, arg2) -- Line 232
+		--[[ Upvalues[6]:
+			[1]: log_upvr (copied, readonly)
+			[2]: var11_upvw (copied, read and write)
+			[3]: tbl_2_upvr (copied, readonly)
+			[4]: Players_upvr (copied, readonly)
+			[5]: updatePlayerTag_upvr (copied, readonly)
+			[6]: updateAllDroneTags_upvr (copied, readonly)
+		]]
+		if arg1 == "AddPlayerToTeam" then
+			log_upvr("Local player team changed")
+			if var11_upvw then
+			else
+				var11_upvw = true
+				task.delay(tbl_2_upvr.BatchUpdateDelay, function() -- Line 124
+					--[[ Upvalues[4]:
+						[1]: var11_upvw (copied, read and write)
+						[2]: Players_upvr (copied, readonly)
+						[3]: updatePlayerTag_upvr (copied, readonly)
+						[4]: updateAllDroneTags_upvr (copied, readonly)
+					]]
+					var11_upvw = false
+					for _, v_15 in ipairs(Players_upvr:GetPlayers()) do
+						updatePlayerTag_upvr(v_15)
+					end
+					updateAllDroneTags_upvr()
+				end)
+			end
+		end
+		if arg1 == "PlayerAdded" then
+			updatePlayerTag_upvr(arg2)
+		end
+	end)
+end
+;(function() -- Line 242, Named "initialize"
+	--[[ Upvalues[11]:
+		[1]: log_upvr (readonly)
+		[2]: module_upvr_2 (readonly)
+		[3]: var11_upvw (read and write)
+		[4]: tbl_2_upvr (readonly)
+		[5]: Players_upvr (readonly)
+		[6]: updatePlayerTag_upvr (readonly)
+		[7]: updateAllDroneTags_upvr (readonly)
+		[8]: setupPlayerConnections_upvr (readonly)
+		[9]: tbl_upvr_2 (readonly)
+		[10]: tbl_upvr (readonly)
+		[11]: setupDroneConnections_upvr (readonly)
+	]]
+	log_upvr("Initializing...")
+	module_upvr_2.TeamService.OnClientEvent:Connect(function(arg1, arg2) -- Line 232
+		--[[ Upvalues[6]:
+			[1]: log_upvr (copied, readonly)
+			[2]: var11_upvw (copied, read and write)
+			[3]: tbl_2_upvr (copied, readonly)
+			[4]: Players_upvr (copied, readonly)
+			[5]: updatePlayerTag_upvr (copied, readonly)
+			[6]: updateAllDroneTags_upvr (copied, readonly)
+		]]
+		if arg1 == "AddPlayerToTeam" then
+			log_upvr("Local player team changed")
+			if var11_upvw then
+			else
+				var11_upvw = true
+				task.delay(tbl_2_upvr.BatchUpdateDelay, function() -- Line 124
+					--[[ Upvalues[4]:
+						[1]: var11_upvw (copied, read and write)
+						[2]: Players_upvr (copied, readonly)
+						[3]: updatePlayerTag_upvr (copied, readonly)
+						[4]: updateAllDroneTags_upvr (copied, readonly)
+					]]
+					var11_upvw = false
+					for _, v_16 in ipairs(Players_upvr:GetPlayers()) do
+						updatePlayerTag_upvr(v_16)
+					end
+					updateAllDroneTags_upvr()
+				end)
+			end
+		end
+		if arg1 == "PlayerAdded" then
+			updatePlayerTag_upvr(arg2)
+		end
+	end)
+	for _, v_6 in ipairs(Players_upvr:GetPlayers()) do
+		setupPlayerConnections_upvr(v_6)
+	end
+	Players_upvr.PlayerAdded:Connect(function(arg1) -- Line 250
+		--[[ Upvalues[1]:
+			[1]: setupPlayerConnections_upvr (copied, readonly)
+		]]
+		setupPlayerConnections_upvr(arg1)
+	end)
+	Players_upvr.PlayerRemoving:Connect(function(arg1) -- Line 254
+		--[[ Upvalues[2]:
+			[1]: tbl_upvr_2 (copied, readonly)
+			[2]: tbl_upvr (copied, readonly)
+		]]
+		local var149 = tbl_upvr_2[arg1]
+		if var149 then
+			for _, v_7 in ipairs(var149) do
+				v_7:Disconnect()
+			end
+			tbl_upvr_2[arg1] = nil
+		end
+		if arg1.Character then
+			local Character_2 = arg1.Character
+			local var154 = tbl_upvr[Character_2]
+			if var154 then
+				for _, v_8 in ipairs(var154) do
+					v_8:Disconnect()
+				end
+				tbl_upvr[Character_2] = nil
+			end
+		end
+	end)
+	setupDroneConnections_upvr()
+	task.defer(function() -- Line 262
+		--[[ Upvalues[3]:
+			[1]: Players_upvr (copied, readonly)
+			[2]: updatePlayerTag_upvr (copied, readonly)
+			[3]: updateAllDroneTags_upvr (copied, readonly)
+		]]
+		for _, v_9 in ipairs(Players_upvr:GetPlayers()) do
+			updatePlayerTag_upvr(v_9)
+		end
+		updateAllDroneTags_upvr()
+	end)
+	log_upvr("Initialization complete")
+end)()
