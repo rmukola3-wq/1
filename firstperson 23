@@ -1,0 +1,92 @@
+-- Saved by UniversalSynSaveInstance (Join to Copy Games) https://discord.gg/wx4ThpAsmw
+
+-- Decompiled with Konstant V2.1, a fast Luau decompiler made in Luau by plusgiant5 (https://discord.gg/brNTY8nX8t)
+-- Decompiled on 2026-02-14 12:37:16
+-- Luau version 6, Types version 3
+-- Time taken: 0.006121 seconds
+
+local GameConfig_upvr = require(game:GetService("ReplicatedStorage").SPH_Assets.GameConfig)
+local var2_upvw = false
+local var3_upvw
+if GameConfig_upvr.firstPersonBody then
+	local Parent_upvr = script.Parent.Parent
+	local var5_upvw
+	local Humanoid = Parent_upvr:WaitForChild("Humanoid")
+	local var7
+	if Humanoid.RigType == Enum.HumanoidRigType.R6 then
+		var7 = Parent_upvr:WaitForChild("Torso")
+	else
+		var7 = Parent_upvr:WaitForChild("UpperTorso")
+	end
+	Humanoid.Died:Connect(function() -- Line 21
+		--[[ Upvalues[1]:
+			[1]: var2_upvw (read and write)
+		]]
+		var2_upvw = true
+	end)
+	local function CheckForBodyPartNames_upvr(arg1) -- Line 25, Named "CheckForBodyPartNames"
+		--[[ Upvalues[2]:
+			[1]: Parent_upvr (readonly)
+			[2]: var5_upvw (read and write)
+		]]
+		for _, v in ipairs(arg1:GetChildren()) do
+			local SOME = Parent_upvr:FindFirstChild(v.Name)
+			if SOME and SOME:IsA("BasePart") and (not string.find(SOME.Name, "Arm") or not var5_upvw) then
+				return v
+			end
+		end
+	end
+	local var15_upvw
+	Parent_upvr.ChildRemoved:Connect(function(arg1) -- Line 38
+		--[[ Upvalues[1]:
+			[1]: var15_upvw (read and write)
+		]]
+		if arg1:IsA("Tool") and arg1:FindFirstChild("SPH_Weapon") then
+			var15_upvw = true
+			task.wait(0.1)
+			var15_upvw = false
+		end
+	end)
+	game:GetService("RunService").RenderStepped:Connect(function(arg1) -- Line 46
+		--[[ Upvalues[7]:
+			[1]: Parent_upvr (readonly)
+			[2]: var2_upvw (read and write)
+			[3]: var3_upvw (read and write)
+			[4]: var5_upvw (read and write)
+			[5]: var15_upvw (read and write)
+			[6]: CheckForBodyPartNames_upvr (readonly)
+			[7]: GameConfig_upvr (readonly)
+		]]
+		-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [6] 6. Error Block 2 start (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [6] 6. Error Block 2 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [12] 11. Error Block 114 start (CF ANALYSIS FAILED)
+		if var2_upvw or var3_upvw then
+			-- KONSTANTERROR: [16] 15. Error Block 6 start (CF ANALYSIS FAILED)
+			do
+				return
+			end
+			-- KONSTANTERROR: [16] 15. Error Block 6 end (CF ANALYSIS FAILED)
+		end
+		if Parent_upvr:FindFirstChild("Head") and Parent_upvr.Head.LocalTransparencyModifier == 0 then return end
+		var5_upvw = Parent_upvr:FindFirstChildWhichIsA("Tool")
+		if var5_upvw and not var5_upvw:FindFirstChild("SPH_Weapon") then
+			var5_upvw = nil
+		end
+		if not var5_upvw then
+		end
+		local _, _, _ = ipairs(Parent_upvr:GetChildren())
+		-- KONSTANTERROR: [12] 11. Error Block 114 end (CF ANALYSIS FAILED)
+	end)
+	Humanoid.Seated:Connect(function(arg1, arg2) -- Line 137
+		--[[ Upvalues[1]:
+			[1]: var3_upvw (read and write)
+		]]
+		if arg1 and arg2:IsA("VehicleSeat") then
+			var3_upvw = true
+		else
+			var3_upvw = false
+		end
+	end)
+end
