@@ -1,0 +1,2063 @@
+-- Saved by UniversalSynSaveInstance (Join to Copy Games) https://discord.gg/wx4ThpAsmw
+
+-- Decompiled with Konstant V2.1, a fast Luau decompiler made in Luau by plusgiant5 (https://discord.gg/brNTY8nX8t)
+-- Decompiled on 2026-02-15 12:34:37
+-- Luau version 6, Types version 3
+-- Time taken: 0.150167 seconds
+
+local ContextActionService_upvr = game:GetService("ContextActionService")
+local RunService_upvr = game:GetService("RunService")
+local TweenService_upvr = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HapticService_upvr = game:GetService("HapticService")
+local UserInputService_upvr = game:GetService("UserInputService")
+local module = require(ReplicatedStorage:WaitForChild("Framework"):WaitForChild("Modules"):WaitForChild("BridgeNet2"))
+local module_upvr = {}
+local LocalPlayer_upvr = game:GetService("Players").LocalPlayer
+local CurrentCamera_upvr = game:GetService("Workspace").CurrentCamera
+local var11_upvw
+local var12_upvw
+local var13_upvw
+local tbl_6_upvw = {
+	Reloading = false;
+}
+local module_upvw = {}
+local tbl_2_upvw = {}
+local tbl_21_upvw = {}
+local tbl_18_upvw = {}
+local var19_upvw = 0
+local tbl_22_upvr = {}
+tbl_22_upvr.__index = tbl_22_upvr
+function tbl_22_upvr.new(arg1, arg2, arg3, arg4) -- Line 95
+	--[[ Upvalues[1]:
+		[1]: tbl_22_upvr (readonly)
+	]]
+	local setmetatable_result1 = setmetatable({}, tbl_22_upvr)
+	setmetatable_result1.position = arg1
+	setmetatable_result1.velocity = 0
+	setmetatable_result1.target = arg1
+	setmetatable_result1.stiffness = arg2 or 180
+	setmetatable_result1.damping = arg3 or 12
+	setmetatable_result1.precision = arg4 or 0.001
+	return setmetatable_result1
+end
+function tbl_22_upvr.update(arg1, arg2) -- Line 106
+	local var22 = arg1.target - arg1.position
+	arg1.velocity += (var22 * arg1.stiffness - arg1.velocity * arg1.damping) * arg2
+	arg1.position += arg1.velocity * arg2
+	if math.abs(var22) < arg1.precision and math.abs(arg1.velocity) < arg1.precision then
+		arg1.position = arg1.target
+		arg1.velocity = 0
+	end
+	return arg1.position
+end
+function tbl_22_upvr.setTarget(arg1, arg2) -- Line 123
+	arg1.target = arg2
+end
+function tbl_22_upvr.snap(arg1, arg2) -- Line 127
+	arg1.position = arg2
+	arg1.velocity = 0
+	arg1.target = arg2
+end
+local any_new_result1_upvw = tbl_22_upvr.new(16, 120, 14, 0.01)
+local any_new_result1_upvw_2 = tbl_22_upvr.new(0, 120, 15, 0.05)
+local var25_upvw = 0
+local var26_upvw = 0
+local var27_upvw = false
+local var28_upvw = false
+local var29_upvw = false
+local var30_upvw = false
+local var31_upvw = false
+local var32_upvw = false
+local zero_cframe_upvw = CFrame.new()
+local var34_upvw = false
+local var35_upvw = 0
+local var36_upvw = 0
+local var37_upvw
+local var38_upvw
+local var39_upvw = 0
+local var40_upvw
+local tbl_23_upvr = {}
+local var42_upvw
+local var43_upvw
+local var44_upvw = 0
+local tbl_15_upvr = {}
+local tbl_12_upvr = {
+	RaycastDistance = 3;
+	LowHeightOffset = -1;
+	MidHeightOffset = 2.5;
+	HighHeightOffset = 4;
+	LedgeCheckForward = 1;
+	ClimbTweenTime = 0.8;
+	VaultTweenTime = 0.5;
+	AnimationId = "rbxassetid://129980771941015";
+}
+local tbl_4_upvr = {
+	SlowDuration = 1;
+	SlowMultiplier = 0.55;
+	WindMinSpeed = 35;
+	WindMaxSpeed = 110;
+	WindSoundId = "rbxassetid://112426728115254";
+	LandSoundId = "rbxassetid://4839280516";
+	SafeYVelocity = 50;
+	HardYVelocity = 80;
+	FatalYVelocity = 120;
+	MinFallTime = 0.18;
+	DamageSoft = 4;
+	DamageHard = 18;
+	DamageMax = 55;
+}
+local tbl_11_upvr = {
+	StandToCrouch = 0.05;
+	CrouchToProne = 0.08;
+	ProneToStand = 0.1;
+	CrouchToStand = 0.05;
+	ProneToCrouch = 0.08;
+}
+local _ = {
+	StandToCrouch = 3.5;
+	CrouchToStand = 3.5;
+	CrouchToProne = 2.5;
+	ProneToCrouch = 2.5;
+	ProneToStand = 2;
+}
+local function _(arg1, arg2) -- Line 220, Named "addConnection"
+	--[[ Upvalues[1]:
+		[1]: tbl_23_upvr (readonly)
+	]]
+	local any_Connect_result1 = arg1:Connect(arg2)
+	table.insert(tbl_23_upvr, any_Connect_result1)
+	return any_Connect_result1
+end
+local function _() -- Line 226, Named "hasValidCharacter"
+	--[[ Upvalues[3]:
+		[1]: var11_upvw (read and write)
+		[2]: var12_upvw (read and write)
+		[3]: var13_upvw (read and write)
+	]]
+	local var55 = false
+	if var11_upvw ~= nil then
+		var55 = false
+		if var11_upvw.Parent ~= nil then
+			var55 = false
+			if var12_upvw ~= nil then
+				var55 = false
+				if var12_upvw.Parent ~= nil then
+					var55 = false
+					if var13_upvw ~= nil then
+						if var13_upvw.Parent == nil then
+							var55 = false
+						else
+							var55 = true
+						end
+					end
+				end
+			end
+		end
+	end
+	return var55
+end
+local function _(arg1, arg2) -- Line 232, Named "checkDebounce"
+	--[[ Upvalues[1]:
+		[1]: tbl_15_upvr (readonly)
+	]]
+	if tbl_15_upvr[arg1] then
+		return false
+	end
+	tbl_15_upvr[arg1] = true
+	task.delay(arg2, function() -- Line 237
+		--[[ Upvalues[2]:
+			[1]: tbl_15_upvr (copied, readonly)
+			[2]: arg1 (readonly)
+		]]
+		tbl_15_upvr[arg1] = nil
+	end)
+	return true
+end
+local function _() -- Line 243, Named "isInDrone"
+	--[[ Upvalues[1]:
+		[1]: LocalPlayer_upvr (readonly)
+	]]
+	local var57
+	if LocalPlayer_upvr:GetAttribute("InDrone") ~= true then
+		var57 = false
+	else
+		var57 = true
+	end
+	return var57
+end
+local function _() -- Line 247, Named "isInMenu"
+	local var58
+	if workspace:GetAttribute("InMenu") ~= true then
+		var58 = false
+	else
+		var58 = true
+	end
+	return var58
+end
+local SoundService_upvr = game:GetService("SoundService")
+local function initializeSounds_upvr() -- Line 251, Named "initializeSounds"
+	--[[ Upvalues[4]:
+		[1]: var37_upvw (read and write)
+		[2]: tbl_4_upvr (readonly)
+		[3]: SoundService_upvr (readonly)
+		[4]: var38_upvw (read and write)
+	]]
+	if not var37_upvw then
+		var37_upvw = Instance.new("Sound")
+		var37_upvw.Name = "FallWind"
+		var37_upvw.SoundId = tbl_4_upvr.WindSoundId
+		var37_upvw.Looped = true
+		var37_upvw.Volume = 0
+		var37_upvw.RollOffMode = Enum.RollOffMode.Linear
+		var37_upvw.Parent = SoundService_upvr
+	end
+	if not var38_upvw then
+		var38_upvw = Instance.new("Sound")
+		var38_upvw.Name = "FallLand"
+		var38_upvw.SoundId = tbl_4_upvr.LandSoundId
+		var38_upvw.Volume = 0.8
+		var38_upvw.RollOffMode = Enum.RollOffMode.Linear
+		var38_upvw.Parent = SoundService_upvr
+	end
+end
+local function _() -- Line 271, Named "stopWindSound"
+	--[[ Upvalues[1]:
+		[1]: var37_upvw (read and write)
+	]]
+	if var37_upvw then
+		var37_upvw:Stop()
+		var37_upvw.Volume = 0
+	end
+end
+local zero_vector3_upvw = Vector3.new()
+local function startFreeLook_upvr() -- Line 278, Named "startFreeLook"
+	--[[ Upvalues[8]:
+		[1]: var32_upvw (read and write)
+		[2]: var11_upvw (read and write)
+		[3]: var12_upvw (read and write)
+		[4]: var13_upvw (read and write)
+		[5]: zero_vector3_upvw (read and write)
+		[6]: zero_cframe_upvw (read and write)
+		[7]: CurrentCamera_upvr (readonly)
+		[8]: RunService_upvr (readonly)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+	local var65
+	-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [2] 3. Error Block 33 start (CF ANALYSIS FAILED)
+	var65 = false
+	if var11_upvw ~= nil then
+		var65 = false
+		if var11_upvw.Parent ~= nil then
+			var65 = false
+			if var12_upvw ~= nil then
+				var65 = false
+				if var12_upvw.Parent ~= nil then
+					var65 = false
+					if var13_upvw ~= nil then
+						if var13_upvw.Parent == nil then
+							var65 = false
+						else
+							var65 = true
+						end
+					end
+				end
+			end
+		end
+	end
+	if not var65 then
+		-- KONSTANTERROR: [34] 26. Error Block 11 start (CF ANALYSIS FAILED)
+		do
+			return
+		end
+		-- KONSTANTERROR: [34] 26. Error Block 11 end (CF ANALYSIS FAILED)
+	end
+	var32_upvw = true
+	if not var12_upvw.MoveDirection then
+	end
+	zero_vector3_upvw = Vector3.new()
+	if not CurrentCamera_upvr or not CurrentCamera_upvr.CFrame then
+	end
+	zero_cframe_upvw = CFrame.new()
+	var12_upvw.AutoRotate = false
+	RunService_upvr:BindToRenderStep("FreeLookMovement", Enum.RenderPriority.Character.Value + 1, function() -- Line 287
+		--[[ Upvalues[5]:
+			[1]: var32_upvw (copied, read and write)
+			[2]: var11_upvw (copied, read and write)
+			[3]: var12_upvw (copied, read and write)
+			[4]: var13_upvw (copied, read and write)
+			[5]: zero_vector3_upvw (copied, read and write)
+		]]
+		if var32_upvw then
+			local var67 = false
+			if var11_upvw ~= nil then
+				var67 = false
+				if var11_upvw.Parent ~= nil then
+					var67 = false
+					if var12_upvw ~= nil then
+						var67 = false
+						if var12_upvw.Parent ~= nil then
+							var67 = false
+							if var13_upvw ~= nil then
+								if var13_upvw.Parent == nil then
+									var67 = false
+								else
+									var67 = true
+								end
+							end
+						end
+					end
+				end
+			end
+			if var67 then
+				var12_upvw:Move(zero_vector3_upvw, false)
+			end
+		end
+	end)
+	-- KONSTANTERROR: [2] 3. Error Block 33 end (CF ANALYSIS FAILED)
+end
+local function _() -- Line 294, Named "stopFreeLook"
+	--[[ Upvalues[5]:
+		[1]: var32_upvw (read and write)
+		[2]: RunService_upvr (readonly)
+		[3]: var12_upvw (read and write)
+		[4]: CurrentCamera_upvr (readonly)
+		[5]: zero_cframe_upvw (read and write)
+	]]
+	if not var32_upvw then
+	else
+		var32_upvw = false
+		RunService_upvr:UnbindFromRenderStep("FreeLookMovement")
+		if var12_upvw and var12_upvw.Parent then
+			var12_upvw.AutoRotate = true
+		end
+		if CurrentCamera_upvr then
+			CurrentCamera_upvr.CFrame = zero_cframe_upvw
+		end
+	end
+end
+local function _() -- Line 309, Named "stopHapticFeedback"
+	--[[ Upvalues[3]:
+		[1]: var43_upvw (read and write)
+		[2]: HapticService_upvr (readonly)
+		[3]: var44_upvw (read and write)
+	]]
+	if var43_upvw then
+		var43_upvw:Disconnect()
+		var43_upvw = nil
+	end
+	pcall(function() -- Line 314
+		--[[ Upvalues[1]:
+			[1]: HapticService_upvr (copied, readonly)
+		]]
+		HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Small, 0)
+		HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Large, 0)
+	end)
+	var44_upvw = 0
+end
+local function _() -- Line 321, Named "startHapticFeedback"
+	--[[ Upvalues[6]:
+		[1]: var43_upvw (read and write)
+		[2]: LocalPlayer_upvr (readonly)
+		[3]: var44_upvw (read and write)
+		[4]: RunService_upvr (readonly)
+		[5]: module_upvw (read and write)
+		[6]: HapticService_upvr (readonly)
+	]]
+	if var43_upvw or LocalPlayer_upvr:GetAttribute("DisableHaptics") then
+	else
+		var44_upvw = 0
+		var43_upvw = RunService_upvr.Heartbeat:Connect(function(arg1) -- Line 327
+			--[[ Upvalues[5]:
+				[1]: module_upvw (copied, read and write)
+				[2]: LocalPlayer_upvr (copied, readonly)
+				[3]: var43_upvw (copied, read and write)
+				[4]: HapticService_upvr (copied, readonly)
+				[5]: var44_upvw (copied, read and write)
+			]]
+			-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+			-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+			-- KONSTANTERROR: [4] 4. Error Block 2 start (CF ANALYSIS FAILED)
+			-- KONSTANTERROR: [4] 4. Error Block 2 end (CF ANALYSIS FAILED)
+			-- KONSTANTERROR: [8] 7. Error Block 3 start (CF ANALYSIS FAILED)
+			-- KONSTANTERROR: [8] 7. Error Block 3 end (CF ANALYSIS FAILED)
+			-- KONSTANTERROR: [18] 15. Error Block 20 start (CF ANALYSIS FAILED)
+			if var43_upvw then
+				var43_upvw:Disconnect()
+				var43_upvw = nil
+			end
+			pcall(function() -- Line 314
+				--[[ Upvalues[1]:
+					[1]: HapticService_upvr (copied, readonly)
+				]]
+				HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Small, 0)
+				HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Large, 0)
+			end)
+			var44_upvw = 0
+			do
+				return
+			end
+			-- KONSTANTERROR: [18] 15. Error Block 20 end (CF ANALYSIS FAILED)
+		end)
+	end
+end
+local function _() -- Line 349, Named "onCharacterDied"
+	--[[ Upvalues[14]:
+		[1]: var32_upvw (read and write)
+		[2]: RunService_upvr (readonly)
+		[3]: var12_upvw (read and write)
+		[4]: CurrentCamera_upvr (readonly)
+		[5]: zero_cframe_upvw (read and write)
+		[6]: var37_upvw (read and write)
+		[7]: var43_upvw (read and write)
+		[8]: HapticService_upvr (readonly)
+		[9]: var44_upvw (read and write)
+		[10]: var40_upvw (read and write)
+		[11]: var39_upvw (read and write)
+		[12]: var34_upvw (read and write)
+		[13]: var35_upvw (read and write)
+		[14]: var36_upvw (read and write)
+	]]
+	if not var32_upvw then
+	else
+		var32_upvw = false
+		RunService_upvr:UnbindFromRenderStep("FreeLookMovement")
+		if var12_upvw and var12_upvw.Parent then
+			var12_upvw.AutoRotate = true
+		end
+		if CurrentCamera_upvr then
+			CurrentCamera_upvr.CFrame = zero_cframe_upvw
+		end
+	end
+	if var37_upvw then
+		var37_upvw:Stop()
+		var37_upvw.Volume = 0
+	end
+	if var43_upvw then
+		var43_upvw:Disconnect()
+		var43_upvw = nil
+	end
+	pcall(function() -- Line 314
+		--[[ Upvalues[1]:
+			[1]: HapticService_upvr (copied, readonly)
+		]]
+		HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Small, 0)
+		HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Large, 0)
+	end)
+	var44_upvw = 0
+	if var40_upvw then
+		var40_upvw:Destroy()
+		var40_upvw = nil
+	end
+	var39_upvw = 0
+	var34_upvw = false
+	var35_upvw = 0
+	var36_upvw = 0
+	RunService_upvr:UnbindFromRenderStep("FreeLookMovement")
+end
+local function calculateTargetWalkspeed_upvr() -- Line 367, Named "calculateTargetWalkspeed"
+	--[[ Upvalues[4]:
+		[1]: tbl_18_upvw (read and write)
+		[2]: module_upvw (read and write)
+		[3]: var12_upvw (read and write)
+		[4]: var19_upvw (read and write)
+	]]
+	local var72
+	if workspace:GetAttribute("InMenu") ~= true then
+		var72 = false
+	else
+		var72 = true
+	end
+	if var72 then
+		var72 = 0
+		return var72
+	end
+	var72 = tbl_18_upvw
+	local function INLINED() -- Internal function, doesn't exist in bytecode
+		var72 = tbl_18_upvw.DefaultWalkspeed
+		return var72
+	end
+	if not var72 or not INLINED() then
+		var72 = 16
+		return var72
+	end
+	var72 = module_upvw.Climbing
+	local function INLINED_2() -- Internal function, doesn't exist in bytecode
+		var72 = module_upvw.Vaulting
+		return var72
+	end
+	if var72 or INLINED_2() then
+		var72 = 0
+		return var72
+	end
+	var72 = tbl_18_upvw.DefaultWalkspeed
+	if module_upvw.Prone then
+		var72 = tbl_18_upvw.ProneWalkspeed
+		-- KONSTANTWARNING: GOTO [69] #54
+	end
+	if module_upvw.Crouching then
+		var72 = tbl_18_upvw.CrouchWalkspeed
+	elseif module_upvw.Sprinting and not module_upvw.Jogging then
+		var72 = tbl_18_upvw.SprintWalkspeed
+	elseif module_upvw.Jogging then
+		var72 = tbl_18_upvw.JogWalkspeed
+	end
+	if var12_upvw then
+		var72 *= math.clamp(var12_upvw.Health / 100, 0.5, 1)
+	end
+	var72 = math.clamp(var72, tbl_18_upvw.ProneWalkspeed, tbl_18_upvw.SprintWalkspeed)
+	if module_upvw.isHoldingFocus then
+		var72 *= 0.5
+	end
+	return var72 * math.clamp(1 - var19_upvw * 0.02, 0.7, 1)
+end
+local function _() -- Line 409, Named "updateTargetWalkspeed"
+	--[[ Upvalues[2]:
+		[1]: calculateTargetWalkspeed_upvr (readonly)
+		[2]: any_new_result1_upvw (read and write)
+	]]
+	any_new_result1_upvw:setTarget(calculateTargetWalkspeed_upvr())
+end
+local function playStanceAnimation_upvr(arg1, arg2, arg3) -- Line 414, Named "playStanceAnimation"
+	--[[ Upvalues[2]:
+		[1]: tbl_2_upvw (read and write)
+		[2]: tbl_6_upvw (read and write)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+	local Prone = tbl_2_upvw.Prone
+	-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [21] 16. Error Block 30 start (CF ANALYSIS FAILED)
+	if Prone.Finish then
+		Prone:Finish()
+		return
+	end
+	Prone:Play({
+		snap = true;
+		fadeTime = 0;
+		speed = 10;
+	})
+	do
+		return
+	end
+	-- KONSTANTERROR: [21] 16. Error Block 30 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [42] 31. Error Block 10 start (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [42] 31. Error Block 10 end (CF ANALYSIS FAILED)
+end
+local function setStance_upvr(arg1) -- Line 462, Named "setStance"
+	--[[ Upvalues[9]:
+		[1]: module_upvw (read and write)
+		[2]: LocalPlayer_upvr (readonly)
+		[3]: var12_upvw (read and write)
+		[4]: tbl_11_upvr (readonly)
+		[5]: playStanceAnimation_upvr (readonly)
+		[6]: calculateTargetWalkspeed_upvr (readonly)
+		[7]: any_new_result1_upvw (read and write)
+		[8]: var11_upvw (read and write)
+		[9]: var40_upvw (read and write)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [4] 4. Error Block 2 start (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [4] 4. Error Block 2 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [18] 15. Error Block 7 start (CF ANALYSIS FAILED)
+	do
+		return
+	end
+	-- KONSTANTERROR: [18] 15. Error Block 7 end (CF ANALYSIS FAILED)
+end
+local const_number_upvw = 0
+local const_number_upvw_2 = 0
+local function handleSprintInput_upvr(arg1, arg2) -- Line 520, Named "handleSprintInput"
+	--[[ Upvalues[14]:
+		[1]: LocalPlayer_upvr (readonly)
+		[2]: module_upvw (read and write)
+		[3]: var27_upvw (read and write)
+		[4]: var28_upvw (read and write)
+		[5]: const_number_upvw (read and write)
+		[6]: calculateTargetWalkspeed_upvr (readonly)
+		[7]: any_new_result1_upvw (read and write)
+		[8]: var43_upvw (read and write)
+		[9]: HapticService_upvr (readonly)
+		[10]: var44_upvw (read and write)
+		[11]: const_number_upvw_2 (read and write)
+		[12]: setStance_upvr (readonly)
+		[13]: var29_upvw (read and write)
+		[14]: RunService_upvr (readonly)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 52 start (CF ANALYSIS FAILED)
+	local var77
+	if LocalPlayer_upvr:GetAttribute("InDrone") ~= true then
+		var77 = false
+	else
+		var77 = true
+	end
+	-- KONSTANTERROR: [0] 1. Error Block 52 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [10] 9. Error Block 5 start (CF ANALYSIS FAILED)
+	var77 = module_upvw.Climbing
+	-- KONSTANTERROR: [10] 9. Error Block 5 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [18] 15. Error Block 7 start (CF ANALYSIS FAILED)
+	do
+		return
+	end
+	-- KONSTANTERROR: [18] 15. Error Block 7 end (CF ANALYSIS FAILED)
+end
+local function handleCrouchProneInput_upvr(arg1, arg2) -- Line 571, Named "handleCrouchProneInput"
+	--[[ Upvalues[3]:
+		[1]: LocalPlayer_upvr (readonly)
+		[2]: module_upvw (read and write)
+		[3]: setStance_upvr (readonly)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 31 start (CF ANALYSIS FAILED)
+	local var79
+	if LocalPlayer_upvr:GetAttribute("InDrone") ~= true then
+		var79 = false
+	else
+		var79 = true
+	end
+	-- KONSTANTERROR: [0] 1. Error Block 31 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [10] 9. Error Block 32 start (CF ANALYSIS FAILED)
+	if workspace:GetAttribute("InMenu") ~= true then
+		var79 = false
+	else
+		var79 = true
+	end
+	local function INLINED_5() -- Internal function, doesn't exist in bytecode
+		var79 = module_upvw.Climbing
+		return var79
+	end
+	local function INLINED_6() -- Internal function, doesn't exist in bytecode
+		var79 = module_upvw.Vaulting
+		return var79
+	end
+	if var79 or INLINED_5() or INLINED_6() then
+		-- KONSTANTERROR: [29] 23. Error Block 11 start (CF ANALYSIS FAILED)
+		do
+			return
+		end
+		-- KONSTANTERROR: [29] 23. Error Block 11 end (CF ANALYSIS FAILED)
+	end
+	var79 = Enum.UserInputState.Begin
+	if arg2 ~= var79 then
+	else
+		var79 = module_upvw.Crouching
+		if not var79 then
+			var79 = module_upvw.Prone
+			if not var79 then
+				var79 = setStance_upvr
+				var79("Crouch")
+				return
+			end
+		end
+		var79 = module_upvw.Crouching
+		if var79 then
+			var79 = setStance_upvr
+			var79("Prone")
+		end
+		-- KONSTANTERROR: [10] 9. Error Block 32 end (CF ANALYSIS FAILED)
+	end
+end
+local function handleReverseCrouchInput_upvr(arg1, arg2) -- Line 587, Named "handleReverseCrouchInput"
+	--[[ Upvalues[3]:
+		[1]: LocalPlayer_upvr (readonly)
+		[2]: module_upvw (read and write)
+		[3]: setStance_upvr (readonly)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 30 start (CF ANALYSIS FAILED)
+	local var80
+	if LocalPlayer_upvr:GetAttribute("InDrone") ~= true then
+		var80 = false
+	else
+		var80 = true
+	end
+	-- KONSTANTERROR: [0] 1. Error Block 30 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [10] 9. Error Block 31 start (CF ANALYSIS FAILED)
+	if workspace:GetAttribute("InMenu") ~= true then
+		var80 = false
+	else
+		var80 = true
+	end
+	local function INLINED_7() -- Internal function, doesn't exist in bytecode
+		var80 = module_upvw.Climbing
+		return var80
+	end
+	local function INLINED_8() -- Internal function, doesn't exist in bytecode
+		var80 = module_upvw.Vaulting
+		return var80
+	end
+	if var80 or INLINED_7() or INLINED_8() then
+		-- KONSTANTERROR: [29] 23. Error Block 25 start (CF ANALYSIS FAILED)
+		var80 = Enum.ContextActionResult.Pass
+		do
+			return var80
+		end
+		-- KONSTANTERROR: [29] 23. Error Block 25 end (CF ANALYSIS FAILED)
+	end
+	var80 = Enum.UserInputState.Begin
+	if arg2 ~= var80 then
+		var80 = Enum.ContextActionResult.Pass
+		return var80
+	end
+	var80 = module_upvw.Prone
+	if var80 then
+		var80 = setStance_upvr
+		var80("Crouch")
+		var80 = Enum.ContextActionResult.Sink
+		return var80
+	end
+	var80 = module_upvw.Crouching
+	if var80 then
+		var80 = setStance_upvr
+		var80("Stand")
+		var80 = Enum.ContextActionResult.Sink
+		return var80
+	end
+	var80 = Enum.ContextActionResult.Pass
+	do
+		return var80
+	end
+	-- KONSTANTERROR: [10] 9. Error Block 31 end (CF ANALYSIS FAILED)
+end
+local function calculateLeanTarget_upvr() -- Line 607, Named "calculateLeanTarget"
+	--[[ Upvalues[3]:
+		[1]: module_upvw (read and write)
+		[2]: var30_upvw (read and write)
+		[3]: var31_upvw (read and write)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 41 start (CF ANALYSIS FAILED)
+	local var81
+	if workspace:GetAttribute("InMenu") ~= true then
+		var81 = false
+	else
+		var81 = true
+	end
+	-- KONSTANTERROR: [0] 1. Error Block 41 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [11] 9. Error Block 5 start (CF ANALYSIS FAILED)
+	var81 = module_upvw.Climbing
+	-- KONSTANTERROR: [11] 9. Error Block 5 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [23] 18. Error Block 35 start (CF ANALYSIS FAILED)
+	var81 = 0
+	do
+		return var81
+	end
+	-- KONSTANTERROR: [23] 18. Error Block 35 end (CF ANALYSIS FAILED)
+end
+local function _() -- Line 636, Named "updateLeanTarget"
+	--[[ Upvalues[3]:
+		[1]: calculateLeanTarget_upvr (readonly)
+		[2]: module_upvw (read and write)
+		[3]: var26_upvw (read and write)
+	]]
+	local calculateLeanTarget_result1 = calculateLeanTarget_upvr()
+	module_upvw.LeaningValBASED = calculateLeanTarget_result1
+	var26_upvw = calculateLeanTarget_result1
+end
+local function _(arg1, arg2, arg3) -- Line 642, Named "smoothLeanRelease"
+	if math.abs(arg2) < 0.1 and 0.1 < math.abs(arg1) then
+		local var83 = arg3 * 18
+		if 0 < arg1 then
+			return math.max(0, arg1 - var83)
+		end
+		return math.min(0, arg1 + var83)
+	end
+	return arg2
+end
+local function handleLeanLeftInput_upvr(arg1, arg2) -- Line 655, Named "handleLeanLeftInput"
+	--[[ Upvalues[7]:
+		[1]: LocalPlayer_upvr (readonly)
+		[2]: module_upvw (read and write)
+		[3]: var30_upvw (read and write)
+		[4]: UserInputService_upvr (readonly)
+		[5]: HapticService_upvr (readonly)
+		[6]: calculateLeanTarget_upvr (readonly)
+		[7]: var26_upvw (read and write)
+	]]
+	-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+	-- KONSTANTERROR: [0] 1. Error Block 31 start (CF ANALYSIS FAILED)
+	local var84
+	if LocalPlayer_upvr:GetAttribute("InDrone") ~= true then
+		var84 = false
+	else
+		var84 = true
+	end
+	-- KONSTANTERROR: [0] 1. Error Block 31 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [10] 9. Error Block 32 start (CF ANALYSIS FAILED)
+	if workspace:GetAttribute("InMenu") ~= true then
+		var84 = false
+	else
+		var84 = true
+	end
+	local function INLINED_9() -- Internal function, doesn't exist in bytecode
+		var84 = module_upvw.Climbing
+		return var84
+	end
+	local function INLINED_10() -- Internal function, doesn't exist in bytecode
+		var84 = module_upvw.Vaulting
+		return var84
+	end
+	local function INLINED_11() -- Internal function, doesn't exist in bytecode
+		var84 = module_upvw.Prone
+		return var84
+	end
+	if var84 or INLINED_9() or INLINED_10() or INLINED_11() then
+		-- KONSTANTERROR: [33] 26. Error Block 12 start (CF ANALYSIS FAILED)
+		do
+			return
+		end
+		-- KONSTANTERROR: [33] 26. Error Block 12 end (CF ANALYSIS FAILED)
+	end
+	var84 = var30_upvw
+	if arg2 ~= Enum.UserInputState.Begin then
+	else
+	end
+	var30_upvw = true
+	if var30_upvw and not var84 and UserInputService_upvr.GamepadEnabled then
+		pcall(function() -- Line 664
+			--[[ Upvalues[1]:
+				[1]: HapticService_upvr (copied, readonly)
+			]]
+			HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Small, 0.15)
+			task.delay(0.05, function() -- Line 666
+				--[[ Upvalues[1]:
+					[1]: HapticService_upvr (copied, readonly)
+				]]
+				HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Small, 0)
+			end)
+		end)
+	end
+	local calculateLeanTarget_result1_2 = calculateLeanTarget_upvr()
+	module_upvw.LeaningValBASED = calculateLeanTarget_result1_2
+	var26_upvw = calculateLeanTarget_result1_2
+	-- KONSTANTERROR: [10] 9. Error Block 32 end (CF ANALYSIS FAILED)
+end
+local function handleLeanRightInput_upvr(arg1, arg2) -- Line 675, Named "handleLeanRightInput"
+	--[[ Upvalues[7]:
+		[1]: LocalPlayer_upvr (readonly)
+		[2]: module_upvw (read and write)
+		[3]: var31_upvw (read and write)
+		[4]: UserInputService_upvr (readonly)
+		[5]: HapticService_upvr (readonly)
+		[6]: calculateLeanTarget_upvr (readonly)
+		[7]: var26_upvw (read and write)
+	]]
+	-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+	-- KONSTANTERROR: [0] 1. Error Block 31 start (CF ANALYSIS FAILED)
+	local var88
+	if LocalPlayer_upvr:GetAttribute("InDrone") ~= true then
+		var88 = false
+	else
+		var88 = true
+	end
+	-- KONSTANTERROR: [0] 1. Error Block 31 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [10] 9. Error Block 32 start (CF ANALYSIS FAILED)
+	if workspace:GetAttribute("InMenu") ~= true then
+		var88 = false
+	else
+		var88 = true
+	end
+	local function INLINED_12() -- Internal function, doesn't exist in bytecode
+		var88 = module_upvw.Climbing
+		return var88
+	end
+	local function INLINED_13() -- Internal function, doesn't exist in bytecode
+		var88 = module_upvw.Vaulting
+		return var88
+	end
+	local function INLINED_14() -- Internal function, doesn't exist in bytecode
+		var88 = module_upvw.Prone
+		return var88
+	end
+	if var88 or INLINED_12() or INLINED_13() or INLINED_14() then
+		-- KONSTANTERROR: [33] 26. Error Block 12 start (CF ANALYSIS FAILED)
+		do
+			return
+		end
+		-- KONSTANTERROR: [33] 26. Error Block 12 end (CF ANALYSIS FAILED)
+	end
+	var88 = var31_upvw
+	if arg2 ~= Enum.UserInputState.Begin then
+	else
+	end
+	var31_upvw = true
+	if var31_upvw and not var88 and UserInputService_upvr.GamepadEnabled then
+		pcall(function() -- Line 684
+			--[[ Upvalues[1]:
+				[1]: HapticService_upvr (copied, readonly)
+			]]
+			HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Small, 0.15)
+			task.delay(0.05, function() -- Line 686
+				--[[ Upvalues[1]:
+					[1]: HapticService_upvr (copied, readonly)
+				]]
+				HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Small, 0)
+			end)
+		end)
+	end
+	local calculateLeanTarget_upvr_result1 = calculateLeanTarget_upvr()
+	module_upvw.LeaningValBASED = calculateLeanTarget_upvr_result1
+	var26_upvw = calculateLeanTarget_upvr_result1
+	-- KONSTANTERROR: [10] 9. Error Block 32 end (CF ANALYSIS FAILED)
+end
+local function handleFreeLookInput_upvr(arg1, arg2) -- Line 694, Named "handleFreeLookInput"
+	--[[ Upvalues[10]:
+		[1]: LocalPlayer_upvr (readonly)
+		[2]: module_upvw (read and write)
+		[3]: var11_upvw (read and write)
+		[4]: var12_upvw (read and write)
+		[5]: var13_upvw (read and write)
+		[6]: startFreeLook_upvr (readonly)
+		[7]: var32_upvw (read and write)
+		[8]: RunService_upvr (readonly)
+		[9]: CurrentCamera_upvr (readonly)
+		[10]: zero_cframe_upvw (read and write)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 47 start (CF ANALYSIS FAILED)
+	local var93
+	if LocalPlayer_upvr:GetAttribute("InDrone") ~= true then
+		var93 = false
+	else
+		var93 = true
+	end
+	-- KONSTANTERROR: [0] 1. Error Block 47 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [10] 9. Error Block 56 start (CF ANALYSIS FAILED)
+	if workspace:GetAttribute("InMenu") ~= true then
+		var93 = false
+	else
+		var93 = true
+	end
+	local function INLINED_17() -- Internal function, doesn't exist in bytecode
+		var93 = module_upvw.Climbing
+		return var93
+	end
+	local function INLINED_18() -- Internal function, doesn't exist in bytecode
+		var93 = module_upvw.Vaulting
+		return var93
+	end
+	if var93 or INLINED_17() or INLINED_18() then
+		-- KONSTANTERROR: [29] 23. Error Block 11 start (CF ANALYSIS FAILED)
+		do
+			return
+		end
+		-- KONSTANTERROR: [29] 23. Error Block 11 end (CF ANALYSIS FAILED)
+	end
+	var93 = Enum.UserInputState.Begin
+	if arg2 == var93 then
+		var93 = false
+		if var11_upvw ~= nil then
+			var93 = false
+			if var11_upvw.Parent ~= nil then
+				var93 = false
+				if var12_upvw ~= nil then
+					var93 = false
+					if var12_upvw.Parent ~= nil then
+						var93 = false
+						if var13_upvw ~= nil then
+							if var13_upvw.Parent == nil then
+								var93 = false
+							else
+								var93 = true
+							end
+						end
+					end
+				end
+			end
+		end
+		if not var93 then
+		else
+			module_upvw.FreeLook = true
+			startFreeLook_upvr()
+		end
+	end
+	if arg2 == Enum.UserInputState.End then
+		module_upvw.FreeLook = false
+		if not var32_upvw then return end
+		var32_upvw = false
+		RunService_upvr:UnbindFromRenderStep("FreeLookMovement")
+		if var12_upvw and var12_upvw.Parent then
+			var12_upvw.AutoRotate = true
+		end
+		if CurrentCamera_upvr then
+			CurrentCamera_upvr.CFrame = zero_cframe_upvw
+		end
+	end
+	-- KONSTANTERROR: [10] 9. Error Block 56 end (CF ANALYSIS FAILED)
+end
+local var94_upvw = false
+local function handleWallClimbInput_upvr(arg1, arg2) -- Line 711, Named "handleWallClimbInput"
+	--[[ Upvalues[13]:
+		[1]: module_upvw (read and write)
+		[2]: var94_upvw (read and write)
+		[3]: var11_upvw (read and write)
+		[4]: var12_upvw (read and write)
+		[5]: var13_upvw (read and write)
+		[6]: CurrentCamera_upvr (readonly)
+		[7]: tbl_12_upvr (readonly)
+		[8]: tbl_18_upvw (read and write)
+		[9]: TweenService_upvr (readonly)
+		[10]: tbl_2_upvw (read and write)
+		[11]: tbl_6_upvw (read and write)
+		[12]: calculateTargetWalkspeed_upvr (readonly)
+		[13]: any_new_result1_upvw (read and write)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [4] 4. Error Block 2 start (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [4] 4. Error Block 2 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [8] 7. Error Block 54 start (CF ANALYSIS FAILED)
+	do
+		return Enum.ContextActionResult.Pass
+	end
+	-- KONSTANTERROR: [8] 7. Error Block 54 end (CF ANALYSIS FAILED)
+end
+local any_ReferenceBridge_result1_upvr_2 = module.ReferenceBridge("MessageEvent")
+local function handleActionFrameInput_upvr(arg1, arg2) -- Line 823, Named "handleActionFrameInput"
+	--[[ Upvalues[9]:
+		[1]: LocalPlayer_upvr (readonly)
+		[2]: module_upvw (read and write)
+		[3]: any_ReferenceBridge_result1_upvr_2 (readonly)
+		[4]: var11_upvw (read and write)
+		[5]: TweenService_upvr (readonly)
+		[6]: UserInputService_upvr (readonly)
+		[7]: RunService_upvr (readonly)
+		[8]: ContextActionService_upvr (readonly)
+		[9]: tbl_15_upvr (readonly)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+	local ActionFrame_upvr = module_upvw.ActionFrame
+	-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [14] 11. Error Block 16 start (CF ANALYSIS FAILED)
+	if not ActionFrame_upvr then
+		-- KONSTANTERROR: [15] 12. Error Block 3 start (CF ANALYSIS FAILED)
+		do
+			return
+		end
+		-- KONSTANTERROR: [15] 12. Error Block 3 end (CF ANALYSIS FAILED)
+	end
+	local ModalText_upvr = ActionFrame_upvr.ModalText
+	local Holder_upvr = ActionFrame_upvr.Holder
+	local Color3_fromRGB_result1_upvr_2 = Color3.fromRGB(0, 0, 0)
+	local Color3_fromRGB_result1_upvr = Color3.fromRGB(200, 200, 200)
+	local const_number_upvw_5 = 0
+	local var102_upvw
+	local var103_upvw = false
+	local var104_upvw = 0
+	local var105_upvw
+	local var106_upvw
+	local var107_upvw = 0
+	local var108_upvw = 0
+	local tbl_5_upvr = {}
+	local tbl_13 = {
+		Name = "Option1";
+	}
+	local function Func() -- Line 845
+	end
+	tbl_13.Func = Func
+	tbl_5_upvr[1] = tbl_13
+	local tbl_24 = {
+		Name = "Test";
+	}
+	local tbl_8 = {}
+	local tbl_20 = {}
+	local function Func() -- Line 847
+		--[[ Upvalues[1]:
+			[1]: any_ReferenceBridge_result1_upvr_2 (copied, readonly)
+		]]
+		any_ReferenceBridge_result1_upvr_2:Fire({
+			Request = "DroneRequest";
+		})
+	end
+	tbl_20.Func = Func
+	tbl_8[1] = tbl_20
+	local tbl = {}
+	local function Func() -- Line 848
+		--[[ Upvalues[1]:
+			[1]: any_ReferenceBridge_result1_upvr_2 (copied, readonly)
+		]]
+		any_ReferenceBridge_result1_upvr_2:Fire({
+			Request = "RequestSupplyDrop";
+		})
+	end
+	tbl.Func = Func
+	tbl_8[2] = tbl
+	local tbl_7 = {}
+	local function Func() -- Line 849
+		--[[ Upvalues[1]:
+			[1]: any_ReferenceBridge_result1_upvr_2 (copied, readonly)
+		]]
+		any_ReferenceBridge_result1_upvr_2:Fire({
+			Request = "SignalNearbyTeammates";
+		})
+	end
+	tbl_7.Func = Func
+	tbl_8[3] = tbl_7
+	tbl_24.Sub = tbl_8
+	tbl_5_upvr[2] = tbl_24
+	tbl_5_upvr[3] = {
+		Name = "Bandage";
+		Sub = {-- : First try: K:0: attempt to index nil with 't'
+;
+	}
+	local tbl_19_upvr = {Holder_upvr:FindFirstChild(tostring(1)), Holder_upvr:FindFirstChild(tostring(2)), Holder_upvr:FindFirstChild(tostring(3))}
+	local function setHighlight_upvr(arg1_2) -- Line 866, Named "setHighlight"
+		--[[ Upvalues[5]:
+			[1]: tbl_19_upvr (readonly)
+			[2]: TweenService_upvr (copied, readonly)
+			[3]: Color3_fromRGB_result1_upvr (readonly)
+			[4]: Color3_fromRGB_result1_upvr_2 (readonly)
+			[5]: const_number_upvw_5 (read and write)
+		]]
+		-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+		local pairs_result1_2, pairs_result2, pairs_result3_3 = pairs(tbl_19_upvr)
+		-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [105] 84. Error Block 27 start (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [105] 84. Error Block 27 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [5] 5. Error Block 2 start (CF ANALYSIS FAILED)
+		-- KONSTANTWARNING: Failed to evaluate expression, replaced with nil [105.5]
+		-- KONSTANTERROR: [5] 5. Error Block 2 end (CF ANALYSIS FAILED)
+	end
+	local function setSubHighlight_upvr(arg1_3) -- Line 893, Named "setSubHighlight"
+		--[[ Upvalues[6]:
+			[1]: var106_upvw (read and write)
+			[2]: TweenService_upvr (copied, readonly)
+			[3]: Color3_fromRGB_result1_upvr (readonly)
+			[4]: Color3_fromRGB_result1_upvr_2 (readonly)
+			[5]: var11_upvw (copied, read and write)
+			[6]: var104_upvw (read and write)
+		]]
+		-- KONSTANTERROR: [0] 1. Error Block 35 start (CF ANALYSIS FAILED)
+		if not var106_upvw then return end
+		local pairs_result1, pairs_result2_3, pairs_result3_5 = pairs(var106_upvw)
+		-- KONSTANTERROR: [0] 1. Error Block 35 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [127] 102. Error Block 31 start (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [127] 102. Error Block 31 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [8] 8. Error Block 4 start (CF ANALYSIS FAILED)
+		-- KONSTANTWARNING: Failed to evaluate expression, replaced with nil [127.5]
+		-- KONSTANTERROR: [8] 8. Error Block 4 end (CF ANALYSIS FAILED)
+	end
+	local function resetMenu_upvr() -- Line 926, Named "resetMenu"
+		--[[ Upvalues[9]:
+			[1]: Holder_upvr (readonly)
+			[2]: tbl_5_upvr (readonly)
+			[3]: ActionFrame_upvr (readonly)
+			[4]: var102_upvw (read and write)
+			[5]: var103_upvw (read and write)
+			[6]: var105_upvw (read and write)
+			[7]: var106_upvw (read and write)
+			[8]: setHighlight_upvr (readonly)
+			[9]: setSubHighlight_upvr (readonly)
+		]]
+		Holder_upvr.Visible = true
+		for _, v in pairs(tbl_5_upvr) do
+			local SOME = ActionFrame_upvr:FindFirstChild(v.Name)
+			if SOME then
+				SOME.Visible = false
+			end
+		end
+		var102_upvw = nil
+		var103_upvw = false
+		var105_upvw = nil
+		var106_upvw = nil
+		setHighlight_upvr(0)
+		setSubHighlight_upvr(0)
+	end
+	if arg2 == Enum.UserInputState.Begin then
+		resetMenu_upvr()
+		TweenService_upvr:Create(ActionFrame_upvr, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+			GroupTransparency = 0;
+		}):Play()
+		ActionFrame_upvr.Interactable = true
+		ModalText_upvr.Modal = true
+		local mouse_upvr = LocalPlayer_upvr:GetMouse()
+		local var139_upvr = Holder_upvr.AbsolutePosition.X + Holder_upvr.AbsoluteSize.X / 2
+		local var140_upvr = Holder_upvr.AbsolutePosition.Y + Holder_upvr.AbsoluteSize.Y / 2
+		RunService_upvr:BindToRenderStep("ActionFrameInput", Enum.RenderPriority.Character.Value, function() -- Line 959
+			--[[ Upvalues[13]:
+				[1]: ActionFrame_upvr (readonly)
+				[2]: var107_upvw (read and write)
+				[3]: var108_upvw (read and write)
+				[4]: mouse_upvr (readonly)
+				[5]: var139_upvr (readonly)
+				[6]: var140_upvr (readonly)
+				[7]: var103_upvw (read and write)
+				[8]: var105_upvw (read and write)
+				[9]: tbl_5_upvr (readonly)
+				[10]: var104_upvw (read and write)
+				[11]: setSubHighlight_upvr (readonly)
+				[12]: const_number_upvw_5 (read and write)
+				[13]: setHighlight_upvr (readonly)
+			]]
+			-- KONSTANTERROR: [0] 1. Error Block 46 start (CF ANALYSIS FAILED)
+			local var141
+			if not ActionFrame_upvr.Interactable then return end
+			local var142
+			local var143
+			var141 = var107_upvw
+			var141 = var108_upvw * var108_upvw
+			if 0.3 < math.sqrt(var141 * var107_upvw + var141) then
+				var142 = var107_upvw * 100
+				var143 = var108_upvw * 100
+			else
+				var142 = mouse_upvr.X - var139_upvr
+				var143 = mouse_upvr.Y - var140_upvr
+			end
+			var141 = var142 * var142
+			var141 = 20
+			-- KONSTANTERROR: [0] 1. Error Block 46 end (CF ANALYSIS FAILED)
+			-- KONSTANTERROR: [47] 41. Error Block 47 start (CF ANALYSIS FAILED)
+			var141 = math.deg(math.atan2(var143, var142))
+			if var141 < 0 then
+				var141 += 360
+			end
+			if 45 <= var141 and var141 < 135 then
+				-- KONSTANTWARNING: GOTO [87] #71
+			end
+			-- KONSTANTERROR: [47] 41. Error Block 47 end (CF ANALYSIS FAILED)
+		end)
+		local any_Connect_result1_2_upvr = UserInputService_upvr.InputChanged:Connect(function(arg1_4) -- Line 952
+			--[[ Upvalues[2]:
+				[1]: var107_upvw (read and write)
+				[2]: var108_upvw (read and write)
+			]]
+			if arg1_4.KeyCode == Enum.KeyCode.Thumbstick2 then
+				var107_upvw = arg1_4.Position.X
+				var108_upvw = -arg1_4.Position.Y
+			end
+		end)
+		ContextActionService_upvr:BindActionAtPriority("ActionFrameSelect", function(arg1_5, arg2_2) -- Line 1011
+			--[[ Upvalues[17]:
+				[1]: ActionFrame_upvr (readonly)
+				[2]: var103_upvw (read and write)
+				[3]: var105_upvw (read and write)
+				[4]: var104_upvw (read and write)
+				[5]: RunService_upvr (copied, readonly)
+				[6]: ContextActionService_upvr (copied, readonly)
+				[7]: any_Connect_result1_2_upvr (readonly)
+				[8]: TweenService_upvr (copied, readonly)
+				[9]: ModalText_upvr (readonly)
+				[10]: resetMenu_upvr (readonly)
+				[11]: tbl_5_upvr (readonly)
+				[12]: const_number_upvw_5 (read and write)
+				[13]: Holder_upvr (readonly)
+				[14]: var102_upvw (read and write)
+				[15]: var106_upvw (read and write)
+				[16]: setSubHighlight_upvr (readonly)
+				[17]: tbl_15_upvr (copied, readonly)
+			]]
+			if arg2_2 ~= Enum.UserInputState.Begin or not ActionFrame_upvr.Interactable then
+			else
+				if var103_upvw then
+					local var158 = var105_upvw[var104_upvw]
+					if var158 then
+						if var158.Func then
+							var158.Func()
+						end
+					end
+					RunService_upvr:UnbindFromRenderStep("ActionFrameInput")
+					ContextActionService_upvr:UnbindAction("ActionFrameSelect")
+					ContextActionService_upvr:UnbindAction("ActionFrameBack")
+					any_Connect_result1_2_upvr:Disconnect()
+					local tbl_14 = {
+						GroupTransparency = 1;
+					}
+					TweenService_upvr:Create(ActionFrame_upvr, TweenInfo.new(0.3, Enum.EasingStyle.Quad), tbl_14):Play()
+					ActionFrame_upvr.Interactable = false
+					ModalText_upvr.Modal = false
+					resetMenu_upvr()
+					return
+				end
+				local var160 = tbl_5_upvr[const_number_upvw_5]
+				local var161
+				if var160 then
+					var161 = var160.Sub
+					if var161 then
+						var161 = ActionFrame_upvr:FindFirstChild(var160.Name)
+						if var161 then
+							Holder_upvr.Visible = false
+							var161.Visible = true
+						end
+						var102_upvw = var160
+						var103_upvw = true
+						var105_upvw = var160.Sub
+						var106_upvw = {}
+						for i_5 = 0, 3 do
+							tbl_14 = var161
+							local var162 = tbl_14
+							if var162 then
+								var162 = var161:FindFirstChild(tostring(i_5))
+							end
+							if var162 then
+								var106_upvw[i_5] = var162
+							end
+						end
+						var104_upvw = 0
+						setSubHighlight_upvr(0)
+						return
+					end
+					if tbl_15_upvr.ActionFrameClick then
+						var161 = false
+					else
+						tbl_15_upvr.ActionFrameClick = true
+						local var164_upvr = "ActionFrameClick"
+						task.delay(1, function() -- Line 237
+							--[[ Upvalues[2]:
+								[1]: tbl_15_upvr (copied, readonly)
+								[2]: var164_upvr (readonly)
+							]]
+							tbl_15_upvr[var164_upvr] = nil
+						end)
+						var161 = true
+					end
+					if var161 then
+						var161 = var160.Func
+						if var161 then
+							var161 = var160.Func
+							var161()
+						end
+					end
+					var161 = RunService_upvr:UnbindFromRenderStep
+					var161("ActionFrameInput")
+					var161 = ContextActionService_upvr:UnbindAction
+					var161("ActionFrameSelect")
+					var161 = ContextActionService_upvr:UnbindAction
+					var161("ActionFrameBack")
+					var161 = any_Connect_result1_2_upvr:Disconnect
+					var161()
+					var161 = TweenService_upvr
+					var164_upvr = 0.3
+					var164_upvr = {}
+					var164_upvr.GroupTransparency = 1
+					var161 = var161:Create(ActionFrame_upvr, TweenInfo.new(var164_upvr, Enum.EasingStyle.Quad), var164_upvr):Play
+					var161()
+					var161 = ActionFrame_upvr
+					var161.Interactable = false
+					var161 = ModalText_upvr
+					var161.Modal = false
+					var161 = resetMenu_upvr
+					var161()
+				end
+			end
+		end, true, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonX)
+		ContextActionService_upvr:BindActionAtPriority("ActionFrameBack", function(arg1_6, arg2_3) -- Line 1067
+			--[[ Upvalues[3]:
+				[1]: ActionFrame_upvr (readonly)
+				[2]: var103_upvw (read and write)
+				[3]: resetMenu_upvr (readonly)
+			]]
+			if arg2_3 == Enum.UserInputState.Begin and ActionFrame_upvr.Interactable then
+				if var103_upvw then
+					resetMenu_upvr()
+				end
+			end
+		end, true, Enum.ContextActionPriority.High.Value, Enum.UserInputType.MouseButton2)
+	else
+		var139_upvr = Enum.UserInputState.End
+		if arg2 == var139_upvr then
+			var139_upvr = RunService_upvr
+			any_Connect_result1_2_upvr = "ActionFrameInput"
+			var139_upvr = var139_upvr:UnbindFromRenderStep
+			var139_upvr(any_Connect_result1_2_upvr)
+			var139_upvr = ContextActionService_upvr
+			any_Connect_result1_2_upvr = "ActionFrameSelect"
+			var139_upvr = var139_upvr:UnbindAction
+			var139_upvr(any_Connect_result1_2_upvr)
+			var139_upvr = ContextActionService_upvr
+			any_Connect_result1_2_upvr = "ActionFrameBack"
+			var139_upvr = var139_upvr:UnbindAction
+			var139_upvr(any_Connect_result1_2_upvr)
+			var139_upvr = TweenService_upvr
+			any_Connect_result1_2_upvr = ActionFrame_upvr
+			local _ = {
+				GroupTransparency = 1;
+			}
+			var139_upvr = var139_upvr:Create(any_Connect_result1_2_upvr, TweenInfo.new(0.3, Enum.EasingStyle.Quad), _):Play
+			var139_upvr()
+			var139_upvr = false
+			ActionFrame_upvr.Interactable = var139_upvr
+			var139_upvr = false
+			ModalText_upvr.Modal = var139_upvr
+			var139_upvr = resetMenu_upvr
+			var139_upvr()
+		end
+	end
+	-- KONSTANTERROR: [14] 11. Error Block 16 end (CF ANALYSIS FAILED)
+end
+local function _() -- Line 1086, Named "initializeRenderLoop"
+	--[[ Upvalues[19]:
+		[1]: var42_upvw (read and write)
+		[2]: RunService_upvr (readonly)
+		[3]: var12_upvw (read and write)
+		[4]: module_upvw (read and write)
+		[5]: calculateTargetWalkspeed_upvr (readonly)
+		[6]: var39_upvw (read and write)
+		[7]: tbl_4_upvr (readonly)
+		[8]: any_new_result1_upvw (read and write)
+		[9]: var25_upvw (read and write)
+		[10]: var26_upvw (read and write)
+		[11]: any_new_result1_upvw_2 (read and write)
+		[12]: tbl_18_upvw (read and write)
+		[13]: var29_upvw (read and write)
+		[14]: var27_upvw (read and write)
+		[15]: var28_upvw (read and write)
+		[16]: var13_upvw (read and write)
+		[17]: var11_upvw (read and write)
+		[18]: var40_upvw (read and write)
+		[19]: tbl_23_upvr (readonly)
+	]]
+	if var42_upvw then
+		var42_upvw:Disconnect()
+		var42_upvw = nil
+	end
+	local var169_upvw = false
+	local var170_upvw = false
+	local var171_upvw = false
+	local var172_upvw = false
+	local var173_upvw = 0
+	local var174_upvw = 0
+	local var175_upvw = 0
+	var42_upvw = RunService_upvr.RenderStepped:Connect(function(arg1) -- Line 1102
+		--[[ Upvalues[23]:
+			[1]: var12_upvw (copied, read and write)
+			[2]: module_upvw (copied, read and write)
+			[3]: var169_upvw (read and write)
+			[4]: var170_upvw (read and write)
+			[5]: var171_upvw (read and write)
+			[6]: var172_upvw (read and write)
+			[7]: calculateTargetWalkspeed_upvr (copied, readonly)
+			[8]: var39_upvw (copied, read and write)
+			[9]: tbl_4_upvr (copied, readonly)
+			[10]: any_new_result1_upvw (copied, read and write)
+			[11]: var25_upvw (copied, read and write)
+			[12]: var26_upvw (copied, read and write)
+			[13]: any_new_result1_upvw_2 (copied, read and write)
+			[14]: var173_upvw (read and write)
+			[15]: var174_upvw (read and write)
+			[16]: tbl_18_upvw (copied, read and write)
+			[17]: var29_upvw (copied, read and write)
+			[18]: var27_upvw (copied, read and write)
+			[19]: var28_upvw (copied, read and write)
+			[20]: var13_upvw (copied, read and write)
+			[21]: var175_upvw (read and write)
+			[22]: var11_upvw (copied, read and write)
+			[23]: var40_upvw (copied, read and write)
+		]]
+		-- KONSTANTERROR: [0] 1. Error Block 122 start (CF ANALYSIS FAILED)
+		local var188
+		if not var12_upvw or not var12_upvw.Parent then return end
+		local MoveDirection_2 = var12_upvw.MoveDirection
+		if 0.0001 >= MoveDirection_2.X * MoveDirection_2.X + MoveDirection_2.Z * MoveDirection_2.Z then
+			var188 = false
+		else
+			var188 = true
+		end
+		module_upvw.isMoving = var188
+		var188 = true
+		-- KONSTANTERROR: [0] 1. Error Block 122 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [39] 29. Error Block 10 start (CF ANALYSIS FAILED)
+		var188 = true
+		-- KONSTANTERROR: [39] 29. Error Block 10 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [46] 34. Error Block 11 start (CF ANALYSIS FAILED)
+		var188 = true
+		-- KONSTANTERROR: [46] 34. Error Block 11 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [53] 39. Error Block 119 start (CF ANALYSIS FAILED)
+		if module_upvw.Prone == var172_upvw then
+			var188 = false
+		else
+			var188 = true
+		end
+		-- KONSTANTERROR: [53] 39. Error Block 119 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [61] 45. Error Block 106 start (CF ANALYSIS FAILED)
+		var169_upvw = module_upvw.Sprinting
+		var170_upvw = module_upvw.Jogging
+		var171_upvw = module_upvw.Crouching
+		var172_upvw = module_upvw.Prone
+		-- KONSTANTERROR: [61] 45. Error Block 106 end (CF ANALYSIS FAILED)
+	end)
+	table.insert(tbl_23_upvr, var42_upvw)
+end
+local any_new_result1_upvr = require(ReplicatedStorage:WaitForChild("Framework"):WaitForChild("Modules"):WaitForChild("MobileHandler")).new()
+local any_ReferenceBridge_result1_upvr = module.ReferenceBridge("FallDamage")
+local function setupCharacter_upvr(arg1) -- Line 1244, Named "setupCharacter"
+	--[[ Upvalues[35]:
+		[1]: var11_upvw (read and write)
+		[2]: var12_upvw (read and write)
+		[3]: var13_upvw (read and write)
+		[4]: initializeSounds_upvr (readonly)
+		[5]: tbl_18_upvw (read and write)
+		[6]: any_new_result1_upvw (read and write)
+		[7]: any_new_result1_upvw_2 (read and write)
+		[8]: module_upvw (read and write)
+		[9]: var32_upvw (read and write)
+		[10]: RunService_upvr (readonly)
+		[11]: CurrentCamera_upvr (readonly)
+		[12]: zero_cframe_upvw (read and write)
+		[13]: var37_upvw (read and write)
+		[14]: var43_upvw (read and write)
+		[15]: HapticService_upvr (readonly)
+		[16]: var44_upvw (read and write)
+		[17]: var40_upvw (read and write)
+		[18]: var39_upvw (read and write)
+		[19]: var34_upvw (read and write)
+		[20]: var35_upvw (read and write)
+		[21]: var36_upvw (read and write)
+		[22]: setStance_upvr (readonly)
+		[23]: var30_upvw (read and write)
+		[24]: var31_upvw (read and write)
+		[25]: calculateTargetWalkspeed_upvr (readonly)
+		[26]: any_new_result1_upvr (readonly)
+		[27]: tbl_23_upvr (readonly)
+		[28]: tbl_4_upvr (readonly)
+		[29]: any_ReferenceBridge_result1_upvr (readonly)
+		[30]: var38_upvw (read and write)
+		[31]: UserInputService_upvr (readonly)
+		[32]: handleLeanRightInput_upvr (readonly)
+		[33]: handleLeanLeftInput_upvr (readonly)
+		[34]: handleSprintInput_upvr (readonly)
+		[35]: handleCrouchProneInput_upvr (readonly)
+	]]
+	var11_upvw = arg1
+	var12_upvw = arg1:WaitForChild("Humanoid")
+	var13_upvw = arg1:WaitForChild("HumanoidRootPart")
+	initializeSounds_upvr()
+	var12_upvw.JumpPower = tbl_18_upvw.JumpPower or 20
+	any_new_result1_upvw:snap(tbl_18_upvw.DefaultWalkspeed or 16)
+	any_new_result1_upvw_2:snap(0)
+	module_upvw.Sprinting = false
+	module_upvw.Jogging = false
+	module_upvw.Crouching = false
+	module_upvw.Prone = false
+	module_upvw.Climbing = false
+	module_upvw.Vaulting = false
+	module_upvw.StaminaValue = 100
+	table.insert(tbl_23_upvr, var12_upvw.Died:Connect(function() -- Line 1264
+		--[[ Upvalues[22]:
+			[1]: var32_upvw (copied, read and write)
+			[2]: RunService_upvr (copied, readonly)
+			[3]: var12_upvw (copied, read and write)
+			[4]: CurrentCamera_upvr (copied, readonly)
+			[5]: zero_cframe_upvw (copied, read and write)
+			[6]: var37_upvw (copied, read and write)
+			[7]: var43_upvw (copied, read and write)
+			[8]: HapticService_upvr (copied, readonly)
+			[9]: var44_upvw (copied, read and write)
+			[10]: var40_upvw (copied, read and write)
+			[11]: var39_upvw (copied, read and write)
+			[12]: var34_upvw (copied, read and write)
+			[13]: var35_upvw (copied, read and write)
+			[14]: var36_upvw (copied, read and write)
+			[15]: setStance_upvr (copied, readonly)
+			[16]: module_upvw (copied, read and write)
+			[17]: var30_upvw (copied, read and write)
+			[18]: var31_upvw (copied, read and write)
+			[19]: any_new_result1_upvw_2 (copied, read and write)
+			[20]: calculateTargetWalkspeed_upvr (copied, readonly)
+			[21]: any_new_result1_upvw (copied, read and write)
+			[22]: any_new_result1_upvr (copied, readonly)
+		]]
+		if not var32_upvw then
+		else
+			var32_upvw = false
+			RunService_upvr:UnbindFromRenderStep("FreeLookMovement")
+			if var12_upvw and var12_upvw.Parent then
+				var12_upvw.AutoRotate = true
+			end
+			if CurrentCamera_upvr then
+				CurrentCamera_upvr.CFrame = zero_cframe_upvw
+			end
+		end
+		if var37_upvw then
+			var37_upvw:Stop()
+			var37_upvw.Volume = 0
+		end
+		if var43_upvw then
+			var43_upvw:Disconnect()
+			var43_upvw = nil
+		end
+		pcall(function() -- Line 314
+			--[[ Upvalues[1]:
+				[1]: HapticService_upvr (copied, readonly)
+			]]
+			HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Small, 0)
+			HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Large, 0)
+		end)
+		var44_upvw = 0
+		if var40_upvw then
+			var40_upvw:Destroy()
+			var40_upvw = nil
+		end
+		var39_upvw = 0
+		var34_upvw = false
+		var35_upvw = 0
+		var36_upvw = 0
+		RunService_upvr:UnbindFromRenderStep("FreeLookMovement")
+		setStance_upvr("Stand")
+		module_upvw.Climbing = false
+		module_upvw.Vaulting = false
+		module_upvw.isMoving = false
+		var30_upvw = false
+		var31_upvw = false
+		any_new_result1_upvw_2:snap(0)
+		module_upvw.StaminaValue = 100
+		any_new_result1_upvw:setTarget(calculateTargetWalkspeed_upvr())
+		if any_new_result1_upvr then
+			any_new_result1_upvr:ClearButtons()
+		end
+	end))
+	table.insert(tbl_23_upvr, RunService_upvr.Heartbeat:Connect(function() -- Line 1280
+		--[[ Upvalues[7]:
+			[1]: var11_upvw (copied, read and write)
+			[2]: module_upvw (copied, read and write)
+			[3]: var34_upvw (copied, read and write)
+			[4]: var13_upvw (copied, read and write)
+			[5]: var36_upvw (copied, read and write)
+			[6]: tbl_4_upvr (copied, readonly)
+			[7]: var37_upvw (copied, read and write)
+		]]
+		-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [2] 3. Error Block 2 start (CF ANALYSIS FAILED)
+		var11_upvw:SetAttribute("Crouching", module_upvw.Crouching)
+		var11_upvw:SetAttribute("Prone", module_upvw.Prone)
+		var11_upvw:SetAttribute("Sprinting", module_upvw.Sprinting)
+		var11_upvw:SetAttribute("Jogging", module_upvw.Jogging)
+		-- KONSTANTERROR: [2] 3. Error Block 2 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [34] 27. Error Block 3 start (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [34] 27. Error Block 3 end (CF ANALYSIS FAILED)
+	end))
+	table.insert(tbl_23_upvr, var12_upvw.StateChanged:Connect(function(arg1_7, arg2) -- Line 1317
+		--[[ Upvalues[10]:
+			[1]: var34_upvw (copied, read and write)
+			[2]: var35_upvw (copied, read and write)
+			[3]: var36_upvw (copied, read and write)
+			[4]: var37_upvw (copied, read and write)
+			[5]: tbl_4_upvr (copied, readonly)
+			[6]: any_ReferenceBridge_result1_upvr (copied, readonly)
+			[7]: var39_upvw (copied, read and write)
+			[8]: var38_upvw (copied, read and write)
+			[9]: var12_upvw (copied, read and write)
+			[10]: module_upvw (copied, read and write)
+		]]
+		if arg2 == Enum.HumanoidStateType.Freefall then
+			var34_upvw = true
+			var35_upvw = os.clock()
+			var36_upvw = math.huge
+		end
+		if arg2 == Enum.HumanoidStateType.Landed or arg2 == Enum.HumanoidStateType.Running or var34_upvw then
+			var34_upvw = false
+			if var37_upvw then
+				var37_upvw.Volume = 0
+				var37_upvw:Stop()
+			end
+			local var201
+			if tbl_4_upvr.MinFallTime <= os.clock() - var35_upvw then
+				var201 = var36_upvw
+				local var202 = -var201
+				var201 = 0
+				if tbl_4_upvr.FatalYVelocity <= var202 then
+					var201 = 9999
+				elseif tbl_4_upvr.HardYVelocity <= var202 then
+					var201 = tbl_4_upvr.DamageHard + (var202 - tbl_4_upvr.HardYVelocity) / math.max(0.001, tbl_4_upvr.FatalYVelocity - tbl_4_upvr.HardYVelocity) * (tbl_4_upvr.DamageMax - tbl_4_upvr.DamageHard)
+				elseif tbl_4_upvr.SafeYVelocity <= var202 then
+					var201 = tbl_4_upvr.DamageSoft + (var202 - tbl_4_upvr.SafeYVelocity) / math.max(0.001, tbl_4_upvr.HardYVelocity - tbl_4_upvr.SafeYVelocity) * (tbl_4_upvr.DamageHard - tbl_4_upvr.DamageSoft)
+				end
+				if 0 < var201 then
+					any_ReferenceBridge_result1_upvr:Fire({
+						amount = var201;
+					})
+					var39_upvw = os.clock() + tbl_4_upvr.SlowDuration
+					if var38_upvw then
+						var38_upvw:Play()
+					end
+				end
+			end
+		end
+		if arg2 == Enum.HumanoidStateType.Landed then
+			var12_upvw:SetStateEnabled(Enum.HumanoidStateType.Jumping, false)
+			task.delay(0.1, function() -- Line 1359
+				--[[ Upvalues[2]:
+					[1]: var12_upvw (copied, read and write)
+					[2]: module_upvw (copied, read and write)
+				]]
+				if var12_upvw and var12_upvw.Parent then
+					local Crouching_2 = module_upvw.Crouching
+					if not Crouching_2 then
+						Crouching_2 = module_upvw.Prone
+					end
+					var12_upvw:SetStateEnabled(Enum.HumanoidStateType.Jumping, not Crouching_2)
+					var12_upvw.Jump = false
+				end
+			end)
+		end
+	end))
+	if any_new_result1_upvr then
+		any_new_result1_upvr:HandleIt()
+	end
+	if UserInputService_upvr.TouchEnabled and any_new_result1_upvr then
+		task.delay(2.5, function() -- Line 1373
+			--[[ Upvalues[5]:
+				[1]: any_new_result1_upvr (copied, readonly)
+				[2]: handleLeanRightInput_upvr (copied, readonly)
+				[3]: handleLeanLeftInput_upvr (copied, readonly)
+				[4]: handleSprintInput_upvr (copied, readonly)
+				[5]: handleCrouchProneInput_upvr (copied, readonly)
+			]]
+			any_new_result1_upvr:CreateButton("Right", function(arg1_8, arg2) -- Line 1374
+				--[[ Upvalues[1]:
+					[1]: handleLeanRightInput_upvr (copied, readonly)
+				]]
+				handleLeanRightInput_upvr("LeanRight", arg1_8)
+			end)
+			any_new_result1_upvr:CreateButton("Left", function(arg1_9, arg2) -- Line 1377
+				--[[ Upvalues[1]:
+					[1]: handleLeanLeftInput_upvr (copied, readonly)
+				]]
+				handleLeanLeftInput_upvr("LeanLeft", arg1_9)
+			end)
+			any_new_result1_upvr:CreateButton("Sprint", function(arg1_10, arg2) -- Line 1380
+				--[[ Upvalues[1]:
+					[1]: handleSprintInput_upvr (copied, readonly)
+				]]
+				handleSprintInput_upvr("Sprint", arg1_10)
+			end)
+			any_new_result1_upvr:CreateButton("Crouch", function(arg1_11, arg2) -- Line 1383
+				--[[ Upvalues[1]:
+					[1]: handleCrouchProneInput_upvr (copied, readonly)
+				]]
+				handleCrouchProneInput_upvr("Crouch", arg1_11)
+			end)
+		end)
+	end
+	any_new_result1_upvw:setTarget(calculateTargetWalkspeed_upvr())
+end
+function module_upvr.Init(arg1, arg2, arg3, arg4, arg5) -- Line 1392
+	--[[ Upvalues[38]:
+		[1]: module_upvr (readonly)
+		[2]: tbl_6_upvw (read and write)
+		[3]: module_upvw (read and write)
+		[4]: tbl_21_upvw (read and write)
+		[5]: tbl_2_upvw (read and write)
+		[6]: tbl_18_upvw (read and write)
+		[7]: any_new_result1_upvw (read and write)
+		[8]: tbl_22_upvr (readonly)
+		[9]: any_new_result1_upvw_2 (read and write)
+		[10]: ContextActionService_upvr (readonly)
+		[11]: handleSprintInput_upvr (readonly)
+		[12]: handleCrouchProneInput_upvr (readonly)
+		[13]: handleReverseCrouchInput_upvr (readonly)
+		[14]: handleLeanLeftInput_upvr (readonly)
+		[15]: handleLeanRightInput_upvr (readonly)
+		[16]: handleWallClimbInput_upvr (readonly)
+		[17]: handleFreeLookInput_upvr (readonly)
+		[18]: handleActionFrameInput_upvr (readonly)
+		[19]: LocalPlayer_upvr (readonly)
+		[20]: setupCharacter_upvr (readonly)
+		[21]: tbl_23_upvr (readonly)
+		[22]: var32_upvw (read and write)
+		[23]: RunService_upvr (readonly)
+		[24]: var12_upvw (read and write)
+		[25]: CurrentCamera_upvr (readonly)
+		[26]: zero_cframe_upvw (read and write)
+		[27]: var11_upvw (read and write)
+		[28]: var13_upvw (read and write)
+		[29]: var42_upvw (read and write)
+		[30]: calculateTargetWalkspeed_upvr (readonly)
+		[31]: var39_upvw (read and write)
+		[32]: tbl_4_upvr (readonly)
+		[33]: var25_upvw (read and write)
+		[34]: var26_upvw (read and write)
+		[35]: var29_upvw (read and write)
+		[36]: var27_upvw (read and write)
+		[37]: var28_upvw (read and write)
+		[38]: var40_upvw (read and write)
+	]]
+	module_upvr.Cleanup()
+	tbl_6_upvw = arg5
+	if not arg1 then
+		local tbl_10 = {
+			Sprinting = false;
+			Jogging = false;
+			Crouching = false;
+			Prone = false;
+			Climbing = false;
+			Vaulting = false;
+			isHoldingFocus = false;
+			isMoving = false;
+			Lean = 0;
+			StaminaValue = 100;
+			FreeLook = false;
+		}
+	end
+	module_upvw = tbl_10
+	tbl_10 = arg2
+	local var216 = tbl_10
+	if not var216 then
+		var216 = {}
+	end
+	tbl_21_upvw = var216
+	tbl_2_upvw = arg4
+	tbl_18_upvw = arg3.Movement
+	any_new_result1_upvw = tbl_22_upvr.new(tbl_18_upvw.DefaultWalkspeed or 16, 120, 14, 0.01)
+	any_new_result1_upvw_2 = tbl_22_upvr.new(0, 80, 10, 0.1)
+	for i_2, v_2 in pairs({
+		Sprint = handleSprintInput_upvr;
+		Crouch = handleCrouchProneInput_upvr;
+		ReverseCrouch = handleReverseCrouchInput_upvr;
+		LeanLeft = handleLeanLeftInput_upvr;
+		LeanRight = handleLeanRightInput_upvr;
+		WallClimb = handleWallClimbInput_upvr;
+		FreeLook = handleFreeLookInput_upvr;
+		ActionFrame = handleActionFrameInput_upvr;
+	}) do
+		local var222 = tbl_21_upvw[i_2]
+		if var222 then
+			(function(arg1_12, arg2_4, arg3_2, arg4_2) -- Line 1416, Named "bindAction"
+				--[[ Upvalues[1]:
+					[1]: ContextActionService_upvr (copied, readonly)
+				]]
+				if not arg3_2 then
+				else
+					local tbl_16 = {}
+					tbl_16[1] = arg3_2
+					if arg4_2 then
+						table.insert(tbl_16, arg4_2)
+					end
+					if ContextActionService_upvr.BindActionAtPriority then
+						ContextActionService_upvr:BindActionAtPriority(arg1_12, arg2_4, false, Enum.ContextActionPriority.Medium.Value, table.unpack(tbl_16))
+						return
+					end
+					ContextActionService_upvr:BindAction(arg1_12, arg2_4, false, table.unpack(tbl_16))
+				end
+			end)(i_2.."Action", v_2, var222.Computer, var222.Console)
+		end
+	end
+	table.insert(tbl_23_upvr, LocalPlayer_upvr.CharacterAdded:Connect(setupCharacter_upvr))
+	table.insert(tbl_23_upvr, LocalPlayer_upvr.CharacterRemoving:Connect(function() -- Line 1452
+		--[[ Upvalues[7]:
+			[1]: var32_upvw (copied, read and write)
+			[2]: RunService_upvr (copied, readonly)
+			[3]: var12_upvw (copied, read and write)
+			[4]: CurrentCamera_upvr (copied, readonly)
+			[5]: zero_cframe_upvw (copied, read and write)
+			[6]: var11_upvw (copied, read and write)
+			[7]: var13_upvw (copied, read and write)
+		]]
+		if not var32_upvw then
+		else
+			var32_upvw = false
+			RunService_upvr:UnbindFromRenderStep("FreeLookMovement")
+			if var12_upvw and var12_upvw.Parent then
+				var12_upvw.AutoRotate = true
+			end
+			if CurrentCamera_upvr then
+				CurrentCamera_upvr.CFrame = zero_cframe_upvw
+			end
+		end
+		var11_upvw = nil
+		var12_upvw = nil
+		var13_upvw = nil
+	end))
+	if LocalPlayer_upvr.Character then
+		setupCharacter_upvr(LocalPlayer_upvr.Character)
+	end
+	if var42_upvw then
+		var42_upvw:Disconnect()
+		var42_upvw = nil
+	end
+	local var225_upvw = false
+	local var226_upvw = false
+	local var227_upvw = false
+	local var228_upvw = false
+	local const_number_upvw_6 = 0
+	local const_number_upvw_4 = 0
+	local const_number_upvw_3 = 0
+	var42_upvw = RunService_upvr.RenderStepped:Connect(function(arg1_13) -- Line 1102
+		--[[ Upvalues[23]:
+			[1]: var12_upvw (copied, read and write)
+			[2]: module_upvw (copied, read and write)
+			[3]: var225_upvw (read and write)
+			[4]: var226_upvw (read and write)
+			[5]: var227_upvw (read and write)
+			[6]: var228_upvw (read and write)
+			[7]: calculateTargetWalkspeed_upvr (copied, readonly)
+			[8]: var39_upvw (copied, read and write)
+			[9]: tbl_4_upvr (copied, readonly)
+			[10]: any_new_result1_upvw (copied, read and write)
+			[11]: var25_upvw (copied, read and write)
+			[12]: var26_upvw (copied, read and write)
+			[13]: any_new_result1_upvw_2 (copied, read and write)
+			[14]: const_number_upvw_6 (read and write)
+			[15]: const_number_upvw_4 (read and write)
+			[16]: tbl_18_upvw (copied, read and write)
+			[17]: var29_upvw (copied, read and write)
+			[18]: var27_upvw (copied, read and write)
+			[19]: var28_upvw (copied, read and write)
+			[20]: var13_upvw (copied, read and write)
+			[21]: const_number_upvw_3 (read and write)
+			[22]: var11_upvw (copied, read and write)
+			[23]: var40_upvw (copied, read and write)
+		]]
+		-- KONSTANTERROR: [0] 1. Error Block 122 start (CF ANALYSIS FAILED)
+		local var232
+		if not var12_upvw or not var12_upvw.Parent then return end
+		local MoveDirection_3 = var12_upvw.MoveDirection
+		if 0.0001 >= MoveDirection_3.X * MoveDirection_3.X + MoveDirection_3.Z * MoveDirection_3.Z then
+			var232 = false
+		else
+			var232 = true
+		end
+		module_upvw.isMoving = var232
+		var232 = true
+		-- KONSTANTERROR: [0] 1. Error Block 122 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [39] 29. Error Block 10 start (CF ANALYSIS FAILED)
+		var232 = true
+		-- KONSTANTERROR: [39] 29. Error Block 10 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [46] 34. Error Block 11 start (CF ANALYSIS FAILED)
+		var232 = true
+		-- KONSTANTERROR: [46] 34. Error Block 11 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [53] 39. Error Block 119 start (CF ANALYSIS FAILED)
+		if module_upvw.Prone == var228_upvw then
+			var232 = false
+		else
+			var232 = true
+		end
+		-- KONSTANTERROR: [53] 39. Error Block 119 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [61] 45. Error Block 106 start (CF ANALYSIS FAILED)
+		var225_upvw = module_upvw.Sprinting
+		var226_upvw = module_upvw.Jogging
+		var227_upvw = module_upvw.Crouching
+		var228_upvw = module_upvw.Prone
+		-- KONSTANTERROR: [61] 45. Error Block 106 end (CF ANALYSIS FAILED)
+	end)
+	table.insert(tbl_23_upvr, var42_upvw)
+end
+function module_upvr.Cleanup() -- Line 1466
+	--[[ Upvalues[5]:
+		[1]: ContextActionService_upvr (readonly)
+		[2]: var43_upvw (read and write)
+		[3]: HapticService_upvr (readonly)
+		[4]: var44_upvw (read and write)
+		[5]: tbl_23_upvr (readonly)
+	]]
+	for _, v_3 in pairs({"SprintAction", "CrouchAction", "ReverseCrouchAction", "LeanLeftAction", "LeanRightAction", "WallClimbAction", "FreeLookAction", "JumpCooldownGate", "ActionFrameSelect", "ActionFrameBack"}) do
+		ContextActionService_upvr:UnbindAction(v_3)
+	end
+	if var43_upvw then
+		var43_upvw:Disconnect()
+		var43_upvw = nil
+	end
+	pcall(function() -- Line 314
+		--[[ Upvalues[1]:
+			[1]: HapticService_upvr (copied, readonly)
+		]]
+		HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Small, 0)
+		HapticService_upvr:SetMotor(Enum.UserInputType.Gamepad1, Enum.VibrationMotor.Large, 0)
+	end)
+	var44_upvw = 0
+	for _, v_4 in ipairs(tbl_23_upvr) do
+		v_4:Disconnect()
+	end
+	table.clear(tbl_23_upvr)
+end
+function module_upvr.SprintState(arg1) -- Line 1485
+	--[[ Upvalues[9]:
+		[1]: tbl_21_upvw (read and write)
+		[2]: ContextActionService_upvr (readonly)
+		[3]: handleSprintInput_upvr (readonly)
+		[4]: var27_upvw (read and write)
+		[5]: var28_upvw (read and write)
+		[6]: var29_upvw (read and write)
+		[7]: module_upvw (read and write)
+		[8]: calculateTargetWalkspeed_upvr (readonly)
+		[9]: any_new_result1_upvw (read and write)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [5] 5. Error Block 9 start (CF ANALYSIS FAILED)
+	local Sprint = tbl_21_upvw.Sprint
+	if ContextActionService_upvr.BindActionAtPriority then
+		ContextActionService_upvr:BindActionAtPriority("SprintAction", handleSprintInput_upvr, false, Enum.ContextActionPriority.Medium.Value, Sprint.Computer, Sprint.Console)
+		return
+	end
+	ContextActionService_upvr:BindAction("SprintAction", handleSprintInput_upvr, false, Sprint.Computer, Sprint.Console)
+	do
+		return
+	end
+	-- KONSTANTERROR: [5] 5. Error Block 9 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [40] 30. Error Block 6 start (CF ANALYSIS FAILED)
+	ContextActionService_upvr:UnbindAction("SprintAction")
+	var27_upvw = false
+	var28_upvw = false
+	var29_upvw = false
+	module_upvw.Sprinting = false
+	module_upvw.Jogging = false
+	any_new_result1_upvw:setTarget(calculateTargetWalkspeed_upvr())
+	-- KONSTANTERROR: [40] 30. Error Block 6 end (CF ANALYSIS FAILED)
+end
+function module_upvr.SetWeight(arg1) -- Line 1506
+	--[[ Upvalues[3]:
+		[1]: var19_upvw (read and write)
+		[2]: calculateTargetWalkspeed_upvr (readonly)
+		[3]: any_new_result1_upvw (read and write)
+	]]
+	var19_upvw = math.max(0, tonumber(arg1) or 0)
+	any_new_result1_upvw:setTarget(calculateTargetWalkspeed_upvr())
+end
+function module_upvr.UpdateSpeed() -- Line 1511
+	--[[ Upvalues[2]:
+		[1]: calculateTargetWalkspeed_upvr (readonly)
+		[2]: any_new_result1_upvw (read and write)
+	]]
+	any_new_result1_upvw:setTarget(calculateTargetWalkspeed_upvr())
+end
+function module_upvr.GetLean() -- Line 1515
+	--[[ Upvalues[1]:
+		[1]: module_upvw (read and write)
+	]]
+	return module_upvw.Lean or 0
+end
+function module_upvr.SetLeanEnabled(arg1) -- Line 1519
+	--[[ Upvalues[3]:
+		[1]: var30_upvw (read and write)
+		[2]: var31_upvw (read and write)
+		[3]: any_new_result1_upvw_2 (read and write)
+	]]
+	if not arg1 then
+		var30_upvw = false
+		var31_upvw = false
+		any_new_result1_upvw_2:setTarget(0)
+	end
+end
+function module_upvr.ForceStance(arg1) -- Line 1527
+	--[[ Upvalues[1]:
+		[1]: setStance_upvr (readonly)
+	]]
+	setStance_upvr(arg1)
+end
+function module_upvr.GetStamina() -- Line 1531
+	--[[ Upvalues[1]:
+		[1]: module_upvw (read and write)
+	]]
+	return module_upvw.StaminaValue or 100
+end
+function module_upvr.SetStamina(arg1) -- Line 1535
+	--[[ Upvalues[1]:
+		[1]: module_upvw (read and write)
+	]]
+	module_upvw.StaminaValue = math.clamp(arg1, 0, 100)
+end
+function module_upvr.IsSprinting() -- Line 1539
+	--[[ Upvalues[1]:
+		[1]: module_upvw (read and write)
+	]]
+	local Sprinting = module_upvw.Sprinting
+	if Sprinting then
+		Sprinting = not module_upvw.Jogging
+	end
+	return Sprinting
+end
+function module_upvr.IsMoving() -- Line 1543
+	--[[ Upvalues[1]:
+		[1]: module_upvw (read and write)
+	]]
+	return module_upvw.isMoving
+end
+return module_upvr
