@@ -1,0 +1,8 @@
+local CasingConifgs = {
+	
+	AllowCameraAccessories = false		-- [ACSM] Ability to select through a random or set list of camera accessories to be visible in first person (put models in ACS_Engine.Equipment)
+	,TeamBasedAccessories = true		-- Accessories selected are based on only the models under the folder in ACS_Engine.Equipment with the same name as the team name
+	,AssignAccessoriesOnSpawn = false  	-- Give the accessories as soon as the player spawns
+	
+}
+return CasingConifgs
