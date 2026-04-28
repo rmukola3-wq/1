@@ -1,0 +1,355 @@
+-- Saved by UniversalSynSaveInstance (Join to Copy Games) https://discord.gg/wx4ThpAsmw
+
+-- Decompiled with Konstant V2.1, a fast Luau decompiler made in Luau by plusgiant5 (https://discord.gg/brNTY8nX8t)
+-- Decompiled on 2026-02-15 12:34:29
+-- Luau version 6, Types version 3
+-- Time taken: 0.024493 seconds
+
+local Players_upvr = game:GetService("Players")
+local FpsCamera_upvr = require(script.FpsCamera)
+local tbl_2_upvr = {
+	LeftShoulder = true;
+	LeftElbow = true;
+	LeftWrist = true;
+	LeftHip = true;
+	LeftKnee = true;
+	LeftAnkle = true;
+	RightShoulder = true;
+	RightElbow = true;
+	RightWrist = true;
+	RightHip = true;
+	RightKnee = true;
+	RightAnkle = true;
+	Root = true;
+	LAW = true;
+	LLAW = true;
+	LHW = true;
+	RAW = true;
+	RLAW = true;
+	RHW = true;
+	AnimBaseW = true;
+}
+local tbl = {
+	Rotators = {};
+	RotatorList = {};
+	RotatorCount = 0;
+	BindTag = "RealismHook";
+	Player = Players_upvr.LocalPlayer;
+	Pitch = 0;
+	Yaw = 0;
+	Dirty = false;
+	LastUpdate = 0;
+	CachedFirstPerson = false;
+	FirstPersonCacheTime = 0;
+}
+local function _(arg1, arg2, arg3) -- Line 56, Named "lerp"
+	return arg1 + (arg2 - arg1) * arg3
+end
+local function _() -- Line 61, Named "isFirstPerson"
+	--[[ Upvalues[1]:
+		[1]: FpsCamera_upvr (readonly)
+	]]
+	local var5
+	if not FpsCamera_upvr then
+		return false
+	end
+	var5 = FpsCamera_upvr
+	if typeof(var5.IsInFirstPerson) ~= "function" then
+		return false
+	end
+	var5 = FpsCamera_upvr
+	var5 = FpsCamera_upvr
+	local pcall_result1_3, pcall_result2_3 = pcall(var5.IsInFirstPerson, var5)
+	local function INLINED() -- Internal function, doesn't exist in bytecode
+		var5 = pcall_result2_3
+		return var5
+	end
+	if not pcall_result1_3 or not INLINED() then
+		var5 = false
+	end
+	return var5
+end
+function tbl.Connect(arg1, arg2, arg3) -- Line 75
+	return arg3:Connect(function(...) -- Line 77
+		--[[ Upvalues[2]:
+			[1]: arg1 (readonly)
+			[2]: arg2 (readonly)
+		]]
+		arg1[arg2](arg1, ...)
+	end)
+end
+function tbl.AddMotor(arg1, arg2, arg3) -- Line 83
+	if not arg3 or not arg3.Parent then
+	else
+		local Part0_upvr = arg3.Part0
+		local Part1_upvr = arg3.Part1
+		if not Part0_upvr or not Part1_upvr then return end
+		if Part1_upvr.Name == "Head" then
+			Part1_upvr.CanCollide = true
+		end
+		local function setupMotor_upvr() -- Line 99, Named "setupMotor"
+			--[[ Upvalues[4]:
+				[1]: arg3 (readonly)
+				[2]: Part0_upvr (readonly)
+				[3]: arg2 (readonly)
+				[4]: Part1_upvr (readonly)
+			]]
+			if not arg3.Parent then
+			else
+				local SOME = Part0_upvr:FindFirstChild(arg3.Name.."RigAttachment")
+				if SOME and SOME:IsA("Attachment") then
+					local tbl_5 = {}
+					tbl_5.Motor = arg3
+					tbl_5.Origin = SOME
+					tbl_5.C0 = nil
+					arg2.Motors[Part1_upvr.Name] = tbl_5
+					return
+				end
+				local tbl_4 = {}
+				tbl_4.Motor = arg3
+				tbl_4.C0 = arg3.C0
+				arg2.Motors[Part1_upvr.Name] = tbl_4
+			end
+		end
+		local Active = arg3:FindFirstChild("Active")
+		if Active then
+			if Active.Value then
+				setupMotor_upvr()
+			else
+				local var16_upvw
+				var16_upvw = Active.Changed:Connect(function(arg1_2) -- Line 127
+					--[[ Upvalues[2]:
+						[1]: var16_upvw (read and write)
+						[2]: setupMotor_upvr (readonly)
+					]]
+					if arg1_2 then
+						var16_upvw:Disconnect()
+						setupMotor_upvr()
+					end
+				end)
+			end
+		end
+		setupMotor_upvr()
+	end
+end
+function tbl.ComputeLookAngle(arg1, arg2, arg3) -- Line 140
+	-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+	local var23
+	if not var23 then
+		local CurrentCamera_2 = workspace.CurrentCamera
+		if CurrentCamera_2 then
+			var23 = CurrentCamera_2.CFrame.LookVector
+			local var25
+		end
+	end
+	if var23 then
+		var25 = arg1.Player
+		if var25 then
+			var25 = arg1.Player.Character
+		end
+		local var26 = var25
+		if var26 then
+			var26 = var25:FindFirstChild("HumanoidRootPart")
+		end
+		if var26 then
+			if not arg1.CachedFirstPerson then
+			end
+		end
+	end
+	if arg3 then
+		local var28 = arg3
+	end
+	return -var26.CFrame.RightVector:Dot(var23) * var28, var23.Y * var28
+end
+function tbl.StepValue(arg1, arg2, arg3) -- Line 175
+	local Current = arg2.Current
+	local var30 = arg3 * 12
+	if 1 < var30 then
+		var30 = 1
+	end
+	local var31 = Current + (arg2.Goal - Current) * var30
+	arg2.Current = var31
+	return var31
+end
+local const_number_upvw = 0
+local table_create_result1_upvr = table.create(32)
+function tbl.UpdateLookAngles(arg1, arg2) -- Line 190
+	--[[ Upvalues[3]:
+		[1]: FpsCamera_upvr (readonly)
+		[2]: const_number_upvw (read and write)
+		[3]: table_create_result1_upvr (readonly)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [9] 7. Error Block 95 start (CF ANALYSIS FAILED)
+	if not FpsCamera_upvr then
+		-- KONSTANTWARNING: GOTO [35] #28
+	end
+	-- KONSTANTERROR: [9] 7. Error Block 95 end (CF ANALYSIS FAILED)
+end
+function tbl.UnmountCharacter(arg1, arg2) -- Line 355
+	local var35 = arg1.Rotators[arg2]
+	if not var35 then
+	else
+		if var35.Listener then
+			var35.Listener:Disconnect()
+		end
+		arg1.Rotators[arg2] = nil
+		local RotatorList = arg1.RotatorList
+		local RotatorCount = arg1.RotatorCount
+		for i_2 = 1, RotatorCount do
+			if RotatorList[i_2].Character == arg2 then
+				RotatorList[i_2] = RotatorList[RotatorCount]
+				RotatorList[RotatorCount] = nil
+				arg1.RotatorCount = RotatorCount - 1
+				return
+			end
+		end
+	end
+end
+function tbl.MountLookAngle(arg1, arg2) -- Line 382
+	--[[ Upvalues[2]:
+		[1]: Players_upvr (readonly)
+		[2]: tbl_2_upvr (readonly)
+	]]
+	-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+	local var46 = arg2
+	if var46 then
+		var46 = arg2.Parent
+	end
+	if not var46 then return end
+	local var47 = arg1.Rotators[var46]
+	if var47 then
+		return var47
+	end
+	local any_GetPlayerFromCharacter_result1 = Players_upvr:GetPlayerFromCharacter(var46)
+	local module_upvr = {
+		Motors = {};
+		Pitch = {
+			Goal = 0;
+			Current = 0;
+		};
+		Yaw = {
+			Goal = 0;
+			Current = 0;
+		};
+	}
+	local os_clock_result1 = os.clock()
+	module_upvr.LastStep = os_clock_result1
+	if any_GetPlayerFromCharacter_result1 ~= arg1.Player then
+		os_clock_result1 = false
+	else
+		os_clock_result1 = true
+	end
+	module_upvr.SnapFirstPerson = os_clock_result1
+	arg1.Rotators[var46] = module_upvr
+	arg1.RotatorCount += 1
+	local tbl_3 = {
+		Character = var46;
+		Rotator = module_upvr;
+		Owner = any_GetPlayerFromCharacter_result1;
+	}
+	tbl_3.Humanoid = arg2
+	arg1.RotatorList[arg1.RotatorCount] = tbl_3
+	for _, v in var46:GetDescendants() do
+		task.spawn(function(arg1_3) -- Line 413, Named "onDescendantAdded"
+			--[[ Upvalues[3]:
+				[1]: tbl_2_upvr (copied, readonly)
+				[2]: arg1 (readonly)
+				[3]: module_upvr (readonly)
+			]]
+			if not arg1_3:IsA("Motor6D") then
+			else
+				if tbl_2_upvr[arg1_3.Name] then return end
+				if arg1_3.Part1 then
+					arg1:AddMotor(module_upvr, arg1_3)
+					return
+				end
+				local var55_upvw
+				var55_upvw = arg1_3:GetPropertyChangedSignal("Part1"):Connect(function() -- Line 426
+					--[[ Upvalues[4]:
+						[1]: arg1_3 (readonly)
+						[2]: var55_upvw (read and write)
+						[3]: arg1 (copied, readonly)
+						[4]: module_upvr (copied, readonly)
+					]]
+					if arg1_3.Part1 then
+						var55_upvw:Disconnect()
+						arg1:AddMotor(module_upvr, arg1_3)
+					end
+				end)
+			end
+		end, v)
+		local var59
+	end
+	module_upvr.Listener = var46.DescendantAdded:Connect(var59)
+	return module_upvr
+end
+function tbl.OnHumanoidAdded(arg1, arg2) -- Line 445
+	if not arg2:IsA("Humanoid") then
+	else
+		if arg1.SkipLookAngle then return end
+		if workspace:GetAttribute("InMenu") == true then
+			repeat
+				task.wait()
+			until workspace:GetAttribute("InMenu") == false and 300 < tick() - tick()
+		end
+		arg1:MountLookAngle(arg2)
+	end
+end
+local Config_upvr = require(script.Config)
+local CollectionService_upvr = game:GetService("CollectionService")
+local RunService_upvr = game:GetService("RunService")
+function tbl.Start(arg1) -- Line 465
+	--[[ Upvalues[4]:
+		[1]: Config_upvr (readonly)
+		[2]: CollectionService_upvr (readonly)
+		[3]: RunService_upvr (readonly)
+		[4]: FpsCamera_upvr (readonly)
+	]]
+	if _G.DefineRealismClient then
+		warn("Realism already started")
+	else
+		_G.DefineRealismClient = true
+		if Config_upvr then
+			for i_3, v_2 in Config_upvr do
+				arg1[i_3] = v_2
+			end
+		end
+		if workspace:GetAttribute("InMenu") == true then
+			repeat
+				task.wait()
+				i_3 = "InMenu"
+			until workspace:GetAttribute(i_3) == false and 300 < tick() - tick()
+		end
+		for _, v_3_upvr in CollectionService_upvr:GetTagged(arg1.BindTag) do
+			task.spawn(function() -- Line 487
+				--[[ Upvalues[2]:
+					[1]: arg1 (readonly)
+					[2]: v_3_upvr (readonly)
+				]]
+				arg1:OnHumanoidAdded(v_3_upvr)
+			end)
+		end
+		arg1:Connect("UpdateLookAngles", RunService_upvr.Stepped)
+		arg1:Connect("OnHumanoidAdded", CollectionService_upvr:GetInstanceAddedSignal(arg1.BindTag))
+		if FpsCamera_upvr then
+			if typeof(FpsCamera_upvr.Start) == "function" then
+				local pcall_result1, pcall_result2_2 = pcall(FpsCamera_upvr.Start, FpsCamera_upvr)
+				if not pcall_result1 then
+					warn("FpsCamera failed to start: "..tostring(pcall_result2_2))
+				end
+			end
+		end
+	end
+end
+if script:IsA("ModuleScript") then
+	return tbl
+end
+if not script:FindFirstAncestorOfClass("PlayerScripts") then
+	error("RealismClient must be a descendant of PlayerScripts")
+end
+if not Players_upvr.LocalPlayer then
+	error("RealismClient requires a LocalPlayer")
+end
+tbl:Start()
