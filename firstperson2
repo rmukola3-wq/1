@@ -1,0 +1,217 @@
+	local ServerConfig = {
+----------------------------------------------------------------------------------------------------
+------------------=[ ACSM ]=----------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+	
+	--General
+	DamageIndicator = true								--- Directional Damage Indicator
+	,WeaponCheck	= true								---Check the mag and/or chamber the gun when you first equip (no additional animations required)
+	,CameraSway 	= true
+	,CameraShake	= false
+	,DoF			= true								--- If you have a custom DoF or just want to disable it globally with ACSM set this to false.
+	--BodyTypes
+	,RigType = Enum.HumanoidRigType.R15						 --- R6 OR R15
+	,ViewmodelType = Enum.HumanoidRigType.R15 			 --- R6 OR R15, TeamBasedViewmodels must be disabled in order to work.
+	,Dogu15 = false												 --- Uses mesh deformation on character models for smoother R15 looking players
+	
+	--Projectiles
+	,MaxProjectileDistance = 10000
+	,UseUniversalSoundRollOffs = true
+	,MaxSoundRollOff = 72.5
+	,MaxDistantSoundRollOff = 150
+	,ProjectileDuration = 5										 --- How long projectiles last (there is a 5 second delay before the wait), increase this if tracers dissapear too early
+	,ReplicatedBullets = true									 --- Tracers appear for other players
+	,RagdollKnockback = true								 	 --- Knocks back unanchored parts when shot (may cause lag)
+	,BloodSplatter = true										 --- Blood will leave splatter marks when shooting humanoids
+	,BloodSplatterDuration = 30
+	,TweenBloodSplatter = true
+	
+	--Basic Configs
+	,FOVs = { 												 		 --- FieldOfView, make both numbers the same if you wish to have the same FOV for third and first person
+		adjustableFOV = false;									 --- [Not very compatible with many other systems that control the camera but allows for different FoV in third and first person] If disable will use the ThirdPersonFOV by default
+		FirstPersonFOV = 65;
+		ThirdPersonFOV = 65;
+		FOVadjustSpeed = .2 				 						 --- Higher value = slower
+	}
+	,FPBodyParts = true											 --- Shows body parts while in first person
+	,EarsRingOnDeath = true										 --- Ring the player's ears when they die
+	,AntiSpawnKill = true										 --- Anti spawn kill system, prevents spawn killing lol (create a "zone" with a part and if the player is in that part, they wont be able to shoot)
+	,TeamBasedViewmodels = false			 			     	 --- Viewmodel based on player's team
+	,UserDeviceIcons = true				 				 	 --- Icons of the device the player is user above their heads
+	,BendyLasers = false					 					 	 --- Lasers will bend to make sure the point of the laser always stays where the bullet will go (only in third person)
+	,AllowDroppingMags = true				 					 --- Allow players to drop mags
+	,CinematicBars = true					 				    --- Adds cinematic black bars when in hide UI mode
+	,HideCoreUIonCinematics = true							 --- Will hide roblox UI when using cinematic mode (like chat, toolbar, playerlist, etc.)
+	,IndoorReverb = Enum.ReverbType.Room					 --- Reverb sound when indoors
+	,DefaultReverb = Enum.ReverbType.NoReverb				 --- Default sound reverb
+	,ToolStorageLocation = game:GetService("ReplicatedStorage").ACS_Engine.ToolStorage
+	
+	--Gun settings modulescript compat (Do not touch these)
+	,RPStepMult = 0.2												 --- uses range from minimum to maximum recoil power (e.g. 0.2 means it takes 5 shots to get from minimum to maximum recoil power)
+	,AIStepMult = 0.1												 --- same concept, but appleid to aim inaccuracy
+	,AIDecreaseMult = 0.05
+	,AimRecoverDuration = 0.05									 --- time taken for camera recoil to recover (amount depends on AimRecovery value inside gun Settings modulescript) - legacy default: 0.5
+	
+	--[Optimization]
+	,CloneGunSounds = false										 --- For lower end devices may not be able to handle too many cloned sounds, disable this (fixes lag when firing)
+	,DeletePBRonServerModels = false							 --- Deletes PBR textures on serversided gun models (You should have the colormap set as the textureID for each mesh)
+	,DisableServerModelShadows = false						 --- Disables shadows on serversided gun models
+	,RagdollDuration = 30										 --- How long ragdolls last in the workspace
+	,BulletHoleDuration = 120									 --- How long bulletholes last in the workspace
+	,Chemlightduration = 80										 --- How long placed chemlights last in the workspace
+	
+	--[Footsteps]
+	,JumpingSounds = true
+	,LandingSounds = true
+	,GearSounds = true
+	,AdvancedFootstepTracking = true							 --- Plays footstep sound when the character's foot touches the ground in the walk animation (requires animation reuploading)
+	
+	--[ToggleConfigs]
+	,HoldToADS = true										 	 	 --- Must hold the keybind to aim
+	,HoldToLean = true											 --- Must hold the keybind to lean
+	,AllowLeaning = true											 --- Allow the player to lean
+	,LMBChamberWhenJammed = true								 --- Chamber gun with mouse click if jammed or not chambered
+	,LMBReloadWhenEmpty = true								 --- Reload gun with mouse click if empty
+	
+	--[Animations]
+	,MoveTorsoWithHead = false								 	 --- R15 must be enabled, moves head with torso when not equipped
+	
+	--(enabling any of these requires animation reuploading)
+	---------------------------------------------------------
+	,NVGanimations = true
+	,DoorBreachAnimation = true
+	,ShoulderTapAnimation = true
+	,DetainAnimation = true
+	,StanceTransitionTime = .175
+	---------------------------------------------------------
+	
+	--Movement
+	,UseMomentum = true											 --- Enable the momentum system, changes the way the player moves
+	,MaxStamina = 1000
+	,StaminaLossOnJump = 25
+	,StanceSpeed = .28											 --- How quickly the character moves when changing stances
+	,ProneHoldTime = .5
+	
+	--ThirdPerson
+	,AllowTPS = true												 --- Allow going into third person
+	,TPSonly = false												 --- Allow allows for Third person, AllowTPS MUST BE ENABLED
+	,TPSfreelook = true
+	,TPSstancesKey = Enum.KeyCode.CapsLock					 --- Key that must be held to swap through high ready, low ready, etc.
+	,ThirdPersonCrosshair = true
+	,ThirdPersonKey = Enum.KeyCode.RightAlt				 --- Key to enter 3P
+	,ThirdPersonFreelookKey = Enum.KeyCode.LeftAlt
+	
+	--Keybinds
+	,Keybinds = {
+		Reload = Enum.KeyCode.R;
+		CycleAimpart = Enum.KeyCode.T;
+		CycleSilencer = Enum.KeyCode.U;
+		ToggleBipod = Enum.KeyCode.B;
+		Chamber = Enum.KeyCode.F;
+		CycleLaser = Enum.KeyCode.H;
+		CycleLight = Enum.KeyCode.J;
+		CycleFiremode = Enum.KeyCode.V;
+		CheckMag = Enum.KeyCode.M;
+		ToggleNVG = Enum.KeyCode.N;
+		ZeroDown = Enum.KeyCode.LeftBracket;
+		ZeroUp = Enum.KeyCode.RightBracket;
+		SightMarkBrightness = Enum.KeyCode.P;				 --- Keybind to adjust reticle brightness
+		WeaponDropKeybind = Enum.KeyCode.BackSlash;		 --- Keybind to drop weapons if enabled in the tool settings
+		FreelookKeybind = Enum.UserInputType.MouseButton3;--- Keybind to freelook in first person
+		OpenDoorKeybind = Enum.KeyCode.G;					 --- Keybind to open doors
+		SlightlyOpenDoorKeybind = Enum.KeyCode.B;			 --- Keybind to open doors slightly
+		HideGUIsKeybind = Enum.KeyCode.F8;					 --- Keybind to hide all ACSM UI for cinematic purposes
+		AnimationWheelKeybind = Enum.KeyCode.Comma;		 --- Keybind to open the animation emote wheel
+		LeftHandToggle = Enum.KeyCode.K
+	}
+	
+	--[[ACSM DEVELOPER CONSOLE]]
+	,EnableConsole = false										 --- Whether or not private server owners can access the developer console (game owner will always have access)
+	,ConsoleKeybind = Enum.KeyCode.Zero
+	
+----------------------------------------------------------------------------------------------------
+-----------------=[ General ]=----------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+	,TeamKill = false						--- Enable TeamKill?
+	,TeamDmgMult = 1						--- Between 0-1 | This will make you cause less damage if you hit your teammate
+	
+	,KickOnFailedSanityCheck = false	--- kick if the id argument provided in a remote event is not valid (anti-exploit measure, may result in false kicks if the code is not written properly)
+	,KickMessage = nil 					---"potential exploits detected !1!1!1!!1!!!!111 reeeeee" -- change to nil for cringy kick messages
+	
+	,AntiBunnyHop = true					--- Enable anti bunny hop system?
+	,JumpCoolDown = 1.5					--- Seconds before you can jump again
+	,JumpPower = 30						--- Jump power, default is 50
+	
+	,RealisticLaser = true				--- True = Laser line is invisible
+	
+	,EnableRagdoll = true				--- Enable ragdoll death?
+	,TeamTags = true						--- Aaaaaaa
+	,HitmarkerSound = true				--- GGWP MLG 360 NO SCOPE xD
+	--,Crosshair = true					--- Crosshair for Hipfire shooters and arcade modes
+	--,CrosshairOffset = 5					--- Crosshair size offset
+----------------------------------------------------------------------------------------------------
+------------------=[ Core GUI ]=--------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+	,CoreGuiHealth = false				--- Enable Health Bar?
+	,CoreGuiPlayerList = true			--- Enable Player List?
+	,TopBarTransparency = 1
+----------------------------------------------------------------------------------------------------
+------------------=[ Status UI ]=-------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+	,EnableStatusUI = true				--- DO NOT SET TO FALSE
+	,AimSpeedReduction = 2.5			--- Amount of walkspeed subtracted when aiming
+	,WalkSpeedTransitionTime = .8		--- The time it takes for walkspeed to fully adjust
+	,RunWalkSpeed = 18
+	,NormalWalkSpeed = 9
+	,CrouchWalkSpeed = 6
+	,ProneWalksSpeed = 5
+	
+	,InjuredWalksSpeed 	= 8
+	,InjuredCrouchWalkSpeed = 4
+
+	,CanDrown = true 					--- Drowning when underwater for too long
+	
+	,EnableStamina = true 				--- Enable stamina and stamina loss
+	,RunValue = 1							--- Stamina consumption
+	,StandRecover = 1						--- Stamina recovery while stading
+	,CrouchRecover = 2.5					--- Stamina recovery while crouching
+	,ProneRecover = 5						--- Stamina recovery while lying
+
+	,EnableGPS = false					--- GPS shows your allies around you
+	,GPSdistance = 150
+
+	,InteractionMenuKey = Enum.KeyCode.LeftControl
+	
+	,BuildingEnabled = false
+----------------------------------------------------------------------------------------------------
+----------------=[ Medic System ]=------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+	,EnableMedSys = true
+
+	,BleedDamage = 30						--- The damage needed to start bleeding
+	,InjuredDamage = 45					--- The damage needed to get injured
+	,KODamage = 85							--- The damage needed to pass out
+	,PainMult = 1.5						--- 
+	,BloodMult = 1.75						--- 
+
+	,CritOnlyChest = true
+
+	,EnableFallDamage = true			--- Enable Fall Damage?
+	,MaxVelocity = 75						--- Velocity that will trigger the damage
+	,DamageMult = 1 						--- The min time a player has to fall in order to take fall damage.
+----------------------------------------------------------------------------------------------------
+--------------------=[ Others ]=--------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+	,VehicleMaxZoom = 150
+	
+	,AgeRestrictEnabled = true
+	,AgeLimit = 60
+	
+	,WaterMark = false
+	
+	,Blacklist = {44866257} 			--- Auto kick the player (via ID) when he tries to join
+	
+	,Version = "v0.7"
+}
+
+return ServerConfig
