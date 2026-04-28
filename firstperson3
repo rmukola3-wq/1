@@ -1,0 +1,36 @@
+local CasingConifgs = {
+	
+	UseDefaultCasingSound = false		-- [ACSM] This must be disabled to use your own sounds inserted below.
+	
+	,CasingSettings ={
+		ReplicatedCasings = true;				--- (CAN BE LAGGY FOR LOW END DEVICES) Instead of emitted bullet shells, serversided casings are high detail meshed bullet shells
+		CasingLifetime = 5;						--- How long bullet casing last after being ejected
+		CasingLimit = true;						--- Limit the amount of total casing that can exist in a game
+		CasingAmountLimit = 250;				--- How many total casings in a game can exist at one time
+	}
+	
+	,DefaultImpact = "325025387"
+	
+	,WoodImpact = {
+		"6075723260";
+		"6075723407";
+		"6075723575";
+	}
+	,MetalImpact = {
+		"6075719641";
+		"6075719877";
+		"6075720273";
+	}
+	,SoilImpact = {
+		"6075722036";
+		"6075722248";
+		"6075723033";
+	}
+	,ConcreteImpact = {
+		"6075718984";
+		"6075719218";
+		"6075719470";
+	}
+	
+}
+return CasingConifgs
