@@ -1,0 +1,457 @@
+-- Saved by UniversalSynSaveInstance (Join to Copy Games) https://discord.gg/wx4ThpAsmw
+
+-- Decompiled with Konstant V2.1, a fast Luau decompiler made in Luau by plusgiant5 (https://discord.gg/brNTY8nX8t)
+-- Decompiled on 2026-02-15 12:34:31
+-- Luau version 6, Types version 3
+-- Time taken: 0.040009 seconds
+
+local Players_upvr = game:GetService("Players")
+local UserGameSettings_upvr = UserSettings():GetService("UserGameSettings")
+local module_upvr = {
+	HeadAttachments = {
+		FaceCenterAttachment = true;
+		FaceFrontAttachment = true;
+		HairAttachment = true;
+		HatAttachment = true;
+		BodyBackAttachment = true;
+		BodyFrontAttachment = true;
+	};
+	InvalidRotationStates = {
+		Swimming = true;
+		Climbing = true;
+		Dead = true;
+	};
+	ArmParts = {
+		LeftUpperArm = true;
+		LeftLowerArm = true;
+		LeftHand = true;
+		RightUpperArm = true;
+		RightLowerArm = true;
+		RightHand = true;
+	};
+}
+module_upvr.__index = module_upvr
+function module_upvr.Warn(arg1, ...) -- Line 36
+	warn("[FpsCamera]", ...)
+end
+function module_upvr.Connect(arg1, arg2, arg3) -- Line 40
+	return arg3:Connect(function(...) -- Line 41
+		--[[ Upvalues[2]:
+			[1]: arg1 (readonly)
+			[2]: arg2 (readonly)
+		]]
+		arg1[arg2](arg1, ...)
+	end)
+end
+function module_upvr.IsInFirstPerson(arg1) -- Line 46
+	local CurrentCamera = workspace.CurrentCamera
+	if CurrentCamera then
+		if CurrentCamera.CameraType.Name == "Scriptable" then
+			return false
+		end
+		local CFrame_2 = CurrentCamera.CFrame
+		if (CurrentCamera.Focus.Position - CFrame_2.Position).Magnitude > 1 then
+			CFrame_2 = false
+		else
+			CFrame_2 = true
+		end
+		return CFrame_2
+	end
+	return false
+end
+function module_upvr.GetSubjectPosition(arg1) -- Line 63
+	if arg1:IsInFirstPerson() then
+		local CameraSubject = workspace.CurrentCamera.CameraSubject
+		if CameraSubject and CameraSubject:IsA("Humanoid") then
+			local var15
+			if var15 < CameraSubject.Health then
+				var15 = CameraSubject.Parent
+				if var15 then
+					var15 = CameraSubject.Parent:FindFirstChild("Head")
+				end
+				if var15 and var15:IsA("BasePart") then
+					local CFrame_3 = var15.CFrame
+					return (CFrame_3 * CFrame.new(0, var15.Size.Y / 4, -(var15.Size.Z / 2))).Position, CFrame_3.LookVector
+				end
+			end
+		end
+	end
+	if arg1.GetBaseSubjectPosition then
+		return arg1:GetBaseSubjectPosition()
+	end
+	arg1:Warn("BaseSubjectPosition not available, falling back to nil")
+	return nil
+end
+function module_upvr.IsValidPartToModify(arg1, arg2) -- Line 89
+	--[[ Upvalues[1]:
+		[1]: Players_upvr (readonly)
+	]]
+	local var18
+	if arg2:FindFirstAncestorOfClass("Tool") then
+		return false
+	end
+	if var18:IsA("Decal") then
+		var18 = var18.Parent
+	end
+	if var18 and var18:IsA("BasePart") then
+		local class_Accoutrement = var18:FindFirstAncestorWhichIsA("Accoutrement")
+		if not class_Accoutrement then
+			class_Accoutrement = var18:FindFirstAncestorWhichIsA("Accessory")
+		end
+		if class_Accoutrement then
+			return true
+		end
+		if var18:IsDescendantOf(Players_upvr.LocalPlayer.Character) then
+			return true
+		end
+		if var18:GetAttribute("FPInvis") == true then
+			return true
+		end
+		local var20
+		if var18.Name == "Head" then
+			var20 = workspace
+			var20 = var18.Parent
+			if var20 then
+				var20 = var18.Parent:FindFirstChildOfClass("Humanoid")
+			end
+			if var20 and var20.CurrentCamera.CameraSubject == var20 then
+				return true
+			end
+		end
+	end
+	return false
+end
+function module_upvr.MountBaseCamera(arg1, arg2) -- Line 125
+	local GetSubjectPosition_2 = arg2.GetSubjectPosition
+	arg1.GetBaseSubjectPosition = GetSubjectPosition_2
+	if GetSubjectPosition_2 then
+		arg2.GetBaseSubjectPosition = GetSubjectPosition_2
+		arg2.GetSubjectPosition = arg1.GetSubjectPosition
+	else
+		arg1:Warn("MountBaseCamera - Could not find BaseCamera:GetSubjectPosition()!")
+	end
+end
+function module_upvr.SetVisualTransparency(arg1, arg2) -- Line 137
+	if arg1:IsA("BasePart") then
+		arg1.LocalTransparencyModifier = arg2
+	else
+		if arg1:IsA("Decal") or arg1:IsA("Texture") then
+			arg1.Transparency = arg2
+			return
+		end
+		if arg1:IsA("Beam") or arg1:IsA("Trail") or arg1:IsA("ParticleEmitter") then
+			arg1.Transparency = NumberSequence.new(arg2)
+			return
+		end
+		if arg1:IsA("Fire") then
+			arg1.Transparency = arg2
+			return
+		end
+		if arg1:IsA("Smoke") then
+			arg1.Opacity = 1 - arg2
+			return
+		end
+		local children = arg1:IsA("Sparkles")
+		if children then
+			if arg2 ~= 0 then
+				children = false
+			else
+				children = true
+			end
+			arg1.Enabled = children
+		end
+	end
+end
+function module_upvr.UpdateTransparency(arg1, ...) -- Line 153
+	--[[ Upvalues[2]:
+		[1]: module_upvr (readonly)
+		[2]: Players_upvr (readonly)
+	]]
+	-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+	local var107
+	if arg1 == module_upvr then
+		var107 = false
+	else
+		var107 = true
+	end
+	assert(var107)
+	arg1:BaseUpdate(...)
+	if arg1.ForceRefresh then
+		arg1.ForceRefresh = false
+		if arg1.SetSubject then
+			var107 = workspace
+			var107 = arg1:SetSubject
+			var107(var107.CurrentCamera.CameraSubject)
+		end
+	end
+	local any_IsInFirstPerson_result1 = module_upvr:IsInFirstPerson()
+	var107 = Players_upvr.LocalPlayer
+	local var109 = var107
+	if var109 then
+		var109 = var107.Character
+	end
+	if not var109 then
+	else
+		if var109:FindFirstChildOfClass("Tool") == nil then
+			local _ = false
+			-- KONSTANTWARNING: Skipped task `defvar` above
+		else
+		end
+		if any_IsInFirstPerson_result1 and true then
+			local var111
+			-- KONSTANTWARNING: GOTO [72] #57
+		end
+		if any_IsInFirstPerson_result1 and not var109:GetAttribute("VisibleArms") then
+			var111 = 1
+		elseif not any_IsInFirstPerson_result1 then
+			var111 = 0
+		elseif any_IsInFirstPerson_result1 then
+			-- KONSTANTERROR: Expression was reused, decompilation is incorrect
+			if not true then
+				var111 = 0
+			end
+		end
+		for i, _ in pairs(module_upvr.ArmParts) do
+			local var115
+			if var115 then
+				var115 = var109:FindFirstChild(i)
+			end
+			if var115 and var115:IsA("BasePart") then
+				var115.LocalTransparencyModifier = var111
+			end
+		end
+		if any_IsInFirstPerson_result1 then
+		else
+		end
+		if var109 then
+			local ipairs_result1_2, ipairs_result2_4, ipairs_result3_3 = ipairs(var109:GetChildren())
+			for _, v_2 in ipairs_result1_2, ipairs_result2_4, ipairs_result3_3 do
+				if v_2:IsA("Accessory") or v_2:IsA("Accoutrement") or v_2:IsA("Model") then
+					for _, v_3 in ipairs(v_2:GetDescendants()) do
+						module_upvr.SetVisualTransparency(v_3, 0)
+					end
+				end
+			end
+			ipairs_result3_3 = "Head"
+			if var109:FindFirstChild(ipairs_result3_3) then
+				ipairs_result3_3 = var109:FindFirstChild(ipairs_result3_3):GetDescendants()
+				for _, v_4 in ipairs(ipairs_result3_3) do
+					-- KONSTANTERROR: Expression was reused, decompilation is incorrect
+					module_upvr.SetVisualTransparency(v_4, 0)
+				end
+			end
+		end
+	end
+end
+function module_upvr.SetupTransparency(arg1, arg2, ...) -- Line 209
+	--[[ Upvalues[1]:
+		[1]: module_upvr (readonly)
+	]]
+	local var126
+	if arg1 == module_upvr then
+		var126 = false
+	else
+		var126 = true
+	end
+	assert(var126)
+	arg1:BaseSetupTransparency(arg2, ...)
+	if arg1.AttachmentListener then
+		arg1.AttachmentListener:Disconnect()
+	end
+	if arg1.ToolListener then
+		arg1.ToolListener:Disconnect()
+	end
+	if arg1.ToolRemoveListener then
+		arg1.ToolRemoveListener:Disconnect()
+	end
+	arg1.AttachmentListener = arg2.DescendantAdded:Connect(function(arg1_2) -- Line 225
+		--[[ Upvalues[2]:
+			[1]: arg1 (readonly)
+			[2]: arg2 (readonly)
+		]]
+		local var129
+		if var129 then
+			var129 = arg1.HeadAttachments[arg1_2.Name]
+			if var129 then
+				var129 = typeof(arg1.cachedParts)
+				if var129 == "table" then
+					var129 = arg1.cachedParts
+					var129[arg1_2.Parent] = true
+				end
+			end
+		end
+		var129 = nil
+		if arg1_2:IsA("BasePart") or arg1_2:IsA("Decal") or arg1_2:IsA("Texture") or arg1_2:IsA("Beam") or arg1_2:IsA("Trail") or arg1_2:IsA("ParticleEmitter") or arg1_2:IsA("Fire") or arg1_2:IsA("Smoke") or arg1_2:IsA("Sparkles") then
+			if arg1_2:IsA("BasePart") then
+				var129 = arg1_2
+			else
+				var129 = arg1_2.Parent
+			end
+		else
+			return
+		end
+		if var129 and (arg1:IsValidPartToModify(var129) or var129.Name == "Head" and var129.Parent == arg2) then
+			if arg1.transparencyDirty ~= nil then
+				arg1.transparencyDirty = true
+			end
+		end
+	end)
+	arg1.ToolListener = arg2.ChildAdded:Connect(function(arg1_3) -- Line 246
+		--[[ Upvalues[1]:
+			[1]: arg1 (readonly)
+		]]
+		if arg1_3:IsA("Tool") then
+			if arg1.transparencyDirty ~= nil then
+				arg1.transparencyDirty = true
+			end
+			arg1.ForceRefresh = true
+		end
+	end)
+	arg1.ToolRemoveListener = arg2.ChildRemoved:Connect(function(arg1_4) -- Line 255
+		--[[ Upvalues[1]:
+			[1]: arg1 (readonly)
+		]]
+		if arg1_4:IsA("Tool") then
+			if arg1.transparencyDirty ~= nil then
+				arg1.transparencyDirty = true
+			end
+			arg1.ForceRefresh = true
+		end
+	end)
+end
+function module_upvr.MountTransparency(arg1, arg2) -- Line 265
+	local Update = arg2.Update
+	if Update then
+		arg2.BaseUpdate = Update
+		arg2.Update = arg1.UpdateTransparency
+	else
+		arg1:Warn("MountTransparency - Could not find Transparency:Update()!")
+	end
+	if arg2.IsValidPartToModify then
+		arg2.IsValidPartToModify = arg1.IsValidPartToModify
+		arg2.HeadAttachments = arg1.HeadAttachments
+		arg2.ForceRefresh = true
+	else
+		arg1:Warn("MountTransparency - Could not find Transparency:IsValidPartToModify(part)!")
+	end
+	if arg2.SetupTransparency then
+		arg2.BaseSetupTransparency = arg2.SetupTransparency
+		arg2.SetupTransparency = arg1.SetupTransparency
+	else
+		arg1:Warn("MountTransparency - Could not find Transparency:SetupTransparency(character)!")
+	end
+end
+local Lighting_upvr = game:GetService("Lighting")
+function module_upvr.GetShadowAngle(arg1) -- Line 291
+	--[[ Upvalues[1]:
+		[1]: Lighting_upvr (readonly)
+	]]
+	local any_GetSunDirection_result1 = Lighting_upvr:GetSunDirection()
+	if any_GetSunDirection_result1.Y < -0.3 then
+		any_GetSunDirection_result1 = Lighting_upvr:GetMoonDirection()
+	end
+	return any_GetSunDirection_result1
+end
+local RunService_upvr = game:GetService("RunService")
+function module_upvr.OnRotationTypeChanged(arg1) -- Line 301
+	--[[ Upvalues[2]:
+		[1]: UserGameSettings_upvr (readonly)
+		[2]: RunService_upvr (readonly)
+	]]
+	local CurrentCamera_2_upvr = workspace.CurrentCamera
+	local var137_upvr
+	if var137_upvr then
+		var137_upvr = CurrentCamera_2_upvr.CameraSubject
+	end
+	if var137_upvr and var137_upvr:IsA("Humanoid") then
+		if UserGameSettings_upvr.RotationType == Enum.RotationType.CameraRelative then
+			RunService_upvr:UnbindFromRenderStep("FpsCameraV2")
+			RunService_upvr:BindToRenderStep("FpsCameraV2", 998, function(arg1_5) -- Line 310
+				--[[ Upvalues[4]:
+					[1]: var137_upvr (readonly)
+					[2]: RunService_upvr (copied, readonly)
+					[3]: CurrentCamera_2_upvr (readonly)
+					[4]: arg1 (readonly)
+				]]
+				local var147
+				local function INLINED_3() -- Internal function, doesn't exist in bytecode
+					var147 = var137_upvr
+					return var147.SeatPart
+				end
+				local function INLINED_4() -- Internal function, doesn't exist in bytecode
+					var147 = var137_upvr
+					return var147.SeatPart:IsA("VehicleSeat")
+				end
+				if not var137_upvr:IsDescendantOf(game) or INLINED_3() and INLINED_4() then
+					RunService_upvr:UnbindFromRenderStep("FpsCameraV2")
+				else
+					var147 = CurrentCamera_2_upvr.CameraType
+					if var147.Name == "Scriptable" then return end
+					var147 = var137_upvr
+					local RootPart_2 = var147.RootPart
+					var147 = RootPart_2
+					if var147 then
+						var147 = RootPart_2:IsGrounded()
+					end
+					if RootPart_2 and not var147 then
+						if arg1.InvalidRotationStates[var137_upvr:GetState().Name] then
+						end
+						local var149
+						if var137_upvr.Sit and var137_upvr.SeatPart and RootPart_2:GetRootPart() ~= RootPart_2 then
+							var149 = false
+						end
+						if not var149 then
+						end
+					end
+					if arg1:IsInFirstPerson() then
+						local CFrame = CurrentCamera_2_upvr.CFrame
+						local any_GetSubjectPosition_result1_2, any_GetSubjectPosition_result2_2 = arg1:GetSubjectPosition()
+						if any_GetSubjectPosition_result1_2 and any_GetSubjectPosition_result2_2 then
+							local var153 = any_GetSubjectPosition_result1_2 - CFrame.Position
+							CurrentCamera_2_upvr.CFrame = CFrame + var153
+							local var154 = CurrentCamera_2_upvr
+							var154.Focus += var153
+						end
+					end
+				end
+			end)
+			return
+		end
+		RunService_upvr:UnbindFromRenderStep("FpsCameraV2")
+	end
+end
+function module_upvr.OnCharacterAdded(arg1, arg2) -- Line 354
+end
+local var155_upvw = false
+function module_upvr.Start(arg1) -- Line 360
+	--[[ Upvalues[3]:
+		[1]: var155_upvw (read and write)
+		[2]: Players_upvr (readonly)
+		[3]: UserGameSettings_upvr (readonly)
+	]]
+	if var155_upvw then
+	else
+		var155_upvw = true
+		local LocalPlayer = Players_upvr.LocalPlayer
+		local Character = LocalPlayer.Character
+		local PlayerModule = LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("PlayerModule")
+		local BaseCamera = PlayerModule:FindFirstChild("BaseCamera", true)
+		local TransparencyController = PlayerModule:FindFirstChild("TransparencyController", true)
+		if BaseCamera and BaseCamera:IsA("ModuleScript") then
+			arg1:MountBaseCamera(require(BaseCamera))
+		else
+			arg1:Warn("Start - Could not find BaseCamera module!")
+		end
+		if TransparencyController and TransparencyController:IsA("ModuleScript") then
+			arg1:MountTransparency(require(TransparencyController))
+		else
+			arg1:Warn("Start - Could not find TransparencyController module!")
+		end
+		arg1:Connect("OnRotationTypeChanged", UserGameSettings_upvr:GetPropertyChangedSignal("RotationType"))
+		if Character then
+			arg1:OnCharacterAdded(Character)
+		end
+		arg1:Connect("OnCharacterAdded", LocalPlayer.CharacterAdded)
+	end
+end
+return module_upvr
