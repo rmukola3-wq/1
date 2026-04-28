@@ -1,0 +1,645 @@
+-- Saved by UniversalSynSaveInstance (Join to Copy Games) https://discord.gg/wx4ThpAsmw
+
+-- Decompiled with Konstant V2.1, a fast Luau decompiler made in Luau by plusgiant5 (https://discord.gg/brNTY8nX8t)
+-- Decompiled on 2026-02-15 12:34:39
+-- Luau version 6, Types version 3
+-- Time taken: 0.051689 seconds
+
+local module = {}
+local function _(arg1, arg2, arg3) -- Line 6
+	return arg1 + (arg2 - arg1) * arg3
+end
+local clock_upvr = os.clock
+local setmetatable_result1_upvr = setmetatable({}, {
+	__mode = 'v';
+})
+local TweenService_upvr = game:GetService("TweenService")
+local TweenInfo_new_result1_upvr_2 = TweenInfo.new(0.1)
+local TweenInfo_new_result1_upvr = TweenInfo.new(0.1)
+local CollectionService_upvr = game:GetService("CollectionService")
+local round_upvr = math.round
+local clamp_upvr = math.clamp
+function module.new(arg1, arg2) -- Line 18
+	--[[ Upvalues[8]:
+		[1]: clock_upvr (readonly)
+		[2]: setmetatable_result1_upvr (readonly)
+		[3]: TweenService_upvr (readonly)
+		[4]: TweenInfo_new_result1_upvr_2 (readonly)
+		[5]: TweenInfo_new_result1_upvr (readonly)
+		[6]: CollectionService_upvr (readonly)
+		[7]: round_upvr (readonly)
+		[8]: clamp_upvr (readonly)
+	]]
+	local module_upvr = {
+		enabled = false;
+		parts = {};
+		order = {};
+		key = nil;
+		cur = nil;
+		AimPart = "yes";
+		target = nil;
+		_tau = 0.18;
+		alterSens = false;
+		sMin = 0.7;
+		sMax = 1;
+		_sfxGap = 0.06;
+		_lastZoomSfx = 0;
+		_lastSwitchSfx = 0;
+		zoomSound = "LPVOZoom";
+		switchSound = "LPVOSwitch";
+		_prevAiming = nil;
+		_bound = false;
+		_wheelConn = nil;
+		_keyConn = nil;
+		_sensConn = nil;
+	}
+	local var13_upvw
+	local function _() -- Line 46, Named "getCamera"
+		--[[ Upvalues[2]:
+			[1]: var13_upvw (read and write)
+			[2]: arg2 (readonly)
+		]]
+		if not var13_upvw or not var13_upvw.Parent then
+			local Camera_3 = arg2.Camera
+			if not Camera_3 then
+				Camera_3 = workspace.CurrentCamera
+			end
+			var13_upvw = Camera_3
+		end
+		return var13_upvw
+	end
+	local var15_upvw = 0
+	local function setFov_upvr(arg1_2) -- Line 53, Named "setFov"
+		--[[ Upvalues[7]:
+			[1]: var13_upvw (read and write)
+			[2]: arg2 (readonly)
+			[3]: clock_upvr (copied, readonly)
+			[4]: var15_upvw (read and write)
+			[5]: setmetatable_result1_upvr (copied, readonly)
+			[6]: TweenService_upvr (copied, readonly)
+			[7]: TweenInfo_new_result1_upvr_2 (copied, readonly)
+		]]
+		if not var13_upvw or not var13_upvw.Parent then
+			local Camera = arg2.Camera
+			if not Camera then
+				Camera = workspace.CurrentCamera
+			end
+			var13_upvw = Camera
+		end
+		local var17 = var13_upvw
+		if not var17 then
+		else
+			local var4_result1_2 = clock_upvr()
+			if var4_result1_2 - var15_upvw < 0.05 then
+				var17.FieldOfView = arg1_2
+				return
+			end
+			var15_upvw = var4_result1_2
+			local fov_upvr = setmetatable_result1_upvr.fov
+			if fov_upvr then
+				pcall(function() -- Line 66
+					--[[ Upvalues[1]:
+						[1]: fov_upvr (readonly)
+					]]
+					fov_upvr:Cancel()
+				end)
+			end
+			local tbl_3 = {}
+			tbl_3.FieldOfView = arg1_2
+			local any_Create_result1 = TweenService_upvr:Create(var17, TweenInfo_new_result1_upvr_2, tbl_3)
+			setmetatable_result1_upvr.fov = any_Create_result1
+			any_Create_result1:Play()
+		end
+	end
+	local function _() -- Line 74, Named "baseADSfov"
+		--[[ Upvalues[1]:
+			[1]: module_upvr (readonly)
+		]]
+		if module_upvr.AimPart and typeof(module_upvr.AimPart) == "Instance" then
+			local LPVO_3 = module_upvr.AimPart:FindFirstChild("LPVO")
+			if LPVO_3 then
+				local FOV_5 = LPVO_3:FindFirstChild("FOV")
+				if FOV_5 then
+					return FOV_5.Value
+				end
+			end
+		end
+		return 70
+	end
+	local function _() -- Line 85, Named "partCfg"
+		--[[ Upvalues[1]:
+			[1]: module_upvr (readonly)
+		]]
+		return module_upvr.parts[module_upvr.key]
+	end
+	local function _() -- Line 89, Named "applySens"
+	end
+	local function setPart_upvr(arg1_3, arg2_2) -- Line 92, Named "setPart"
+		--[[ Upvalues[3]:
+			[1]: module_upvr (readonly)
+			[2]: arg2 (readonly)
+			[3]: setFov_upvr (readonly)
+		]]
+		-- KONSTANTERROR: [0] 1. Error Block 56 start (CF ANALYSIS FAILED)
+		if not module_upvr.parts[arg1_3] then return end
+		module_upvr.key = arg1_3
+		local var47 = module_upvr.parts[arg1_3]
+		if arg2.Aiming then
+			if var47.lpvo then
+				if var47.fieldOV then
+					local _1 = var47.fieldOV[1]
+					local _2_3 = var47.fieldOV[2]
+					if _2_3 < _1 then
+						_2_3 = _1
+					end
+					module_upvr.cur = _2_3
+					module_upvr.target = _2_3
+					arg2._lpvoDriving = false
+					setFov_upvr(module_upvr.cur)
+					return var47
+				end
+			end
+			if module_upvr.AimPart then
+				if typeof(module_upvr.AimPart) == "Instance" then
+					local LPVO_9 = module_upvr.AimPart:FindFirstChild("LPVO")
+					if LPVO_9 then
+						if LPVO_9:FindFirstChild("FOV") then
+							-- KONSTANTWARNING: GOTO [80] #60
+						end
+					end
+				end
+			end
+			local var52 = 70
+			module_upvr.cur = var52
+			module_upvr.target = var52
+			arg2._lpvoDriving = false
+			setFov_upvr(module_upvr.cur)
+			return var47
+		end
+		if var47.lpvo then
+			if var47.fieldOV then
+				local _1_2 = var47.fieldOV[1]
+				local _2 = var47.fieldOV[2]
+				if _2 < _1_2 then
+					_2 = _1_2
+				end
+				module_upvr.cur = _2
+				module_upvr.target = _2
+				-- KONSTANTWARNING: GOTO [156] #115
+			end
+		end
+		if module_upvr.AimPart and typeof(module_upvr.AimPart) == "Instance" then
+			local LPVO_5 = module_upvr.AimPart:FindFirstChild("LPVO")
+			if LPVO_5 then
+				if LPVO_5:FindFirstChild("FOV") then
+					-- KONSTANTWARNING: GOTO [150] #111
+				end
+			end
+		end
+		local var57 = 70
+		module_upvr.cur = var57
+		module_upvr.target = var57
+		-- KONSTANTERROR: [0] 1. Error Block 56 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [156] 115. Error Block 31 start (CF ANALYSIS FAILED)
+		arg2._lpvoDriving = false
+		do
+			return var47
+		end
+		-- KONSTANTERROR: [156] 115. Error Block 31 end (CF ANALYSIS FAILED)
+	end
+	function module_upvr.InitFromGun(arg1_4) -- Line 129
+		--[[ Upvalues[1]:
+			[1]: setPart_upvr (readonly)
+		]]
+		-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+		local tbl_6 = {
+			enabled = true;
+			alterSens = true;
+		}
+		local tbl_2 = {
+			AimPart1 = {
+				lpvo = true;
+				fieldOV = {20, 60};
+				magStep = 2;
+				stepTime = 0.18;
+				sensAtMin = 0.6;
+				sensAtMax = 1;
+				mode = 1;
+				zoomSound = "LPVOZoom";
+			};
+		}
+		tbl_6.aimParts = tbl_2
+		tbl_2 = "LPVOSwitch"
+		local var82 = tbl_2
+		tbl_6.switchSound = var82
+		if tbl_6.enabled ~= true then
+			var82 = false
+		else
+			var82 = true
+		end
+		arg1_4.enabled = var82
+		var82 = arg1_4.enabled
+		if not var82 then
+		else
+			if tbl_6.alterSens ~= true then
+				var82 = false
+			else
+				var82 = true
+			end
+			arg1_4.alterSens = var82
+			var82 = table.clear
+			var82(arg1_4.parts)
+			var82 = table.clear
+			var82(arg1_4.order)
+			var82 = typeof(tbl_6.aimParts)
+			if var82 == "table" then
+				var82 = pairs(tbl_6.aimParts)
+				local pairs_result1_2, pairs_result2, pairs_result3_2 = pairs(tbl_6.aimParts)
+				for i, v in pairs_result1_2, pairs_result2, pairs_result3_2 do
+					local tbl = {}
+					local var87
+					if v.lpvo ~= true then
+						var87 = false
+					else
+						var87 = true
+					end
+					tbl.lpvo = var87
+					local function INLINED() -- Internal function, doesn't exist in bytecode
+						var87[2] = v.fieldOV[2]
+						var87[1] = v.fieldOV[1]
+						var87 = {}
+						return var87
+					end
+					if not v.fieldOV or not INLINED() then
+						var87 = nil
+					end
+					tbl.fieldOV = var87
+					var87 = v.sensAtMin or 0.7
+					tbl.sensAtMin = var87
+					var87 = v.sensAtMax or 1
+					tbl.sensAtMax = var87
+					var87 = v.magStep or 2
+					tbl.magStep = var87
+					var87 = v.stepTime or 0.18
+					tbl.stepTime = var87
+					var87 = v.zoomSound or "LPVOZoom"
+					tbl.zoomSound = var87
+					var87 = v.mode
+					tbl.mode = var87
+					arg1_4.parts[i] = tbl
+				end
+			end
+			pairs_result1_2 = typeof(tbl_6.order)
+			if pairs_result1_2 == "table" then
+				pairs_result1_2 = #tbl_6.order
+				for i_2 = 1, pairs_result1_2 do
+					arg1_4.order[#arg1_4.order + 1] = tbl_6.order[i_2]
+				end
+			else
+				pairs_result1_2 = pairs(arg1_4.parts)
+				local pairs_result1, pairs_result2_2, pairs_result3 = pairs(arg1_4.parts)
+				for i_3 in pairs_result1, pairs_result2_2, pairs_result3 do
+					var87 = #arg1_4.order
+					arg1_4.order[var87 + 1] = i_3
+				end
+			end
+			pairs_result1 = 1
+			for i_4 = #arg1_4.order, pairs_result1, -1 do
+				if not arg1_4.parts[arg1_4.order[i_4]] then
+					table.remove(arg1_4.order, i_4)
+				end
+			end
+			pairs_result1 = tbl_6.switchSound
+			if not pairs_result1 then
+				pairs_result1 = arg1_4.switchSound
+			end
+			arg1_4.switchSound = pairs_result1
+			arg1_4.key = arg1_4.order[1]
+			setPart_upvr(arg1_4.key, false)
+		end
+	end
+	function module_upvr.ResetZoomToDefault(arg1_5) -- Line 191
+		--[[ Upvalues[3]:
+			[1]: module_upvr (readonly)
+			[2]: arg2 (readonly)
+			[3]: setFov_upvr (readonly)
+		]]
+		local var102 = module_upvr.parts[module_upvr.key]
+		if not var102 then
+		else
+			if var102.lpvo then
+				if var102.fieldOV then
+					local _1_8 = var102.fieldOV[1]
+					local _2_6 = var102.fieldOV[2]
+					if _2_6 < _1_8 then
+						_2_6 = _1_8
+					end
+					arg1_5.cur = _2_6
+					arg1_5.target = _2_6
+					-- KONSTANTWARNING: GOTO [65] #47
+				end
+			end
+			if module_upvr.AimPart then
+				if typeof(module_upvr.AimPart) == "Instance" then
+					local LPVO_11 = module_upvr.AimPart:FindFirstChild("LPVO")
+					if LPVO_11 then
+						if LPVO_11:FindFirstChild("FOV") then
+							-- KONSTANTWARNING: GOTO [61] #45
+						end
+					end
+				end
+			end
+			local var107 = 70
+			arg1_5.cur = var107
+			arg1_5.target = var107
+			if arg2.Aiming then
+				setFov_upvr(arg1_5.cur)
+			end
+		end
+	end
+	function module_upvr._scroll(arg1_6, arg2_3) -- Line 211
+		--[[ Upvalues[7]:
+			[1]: arg2 (readonly)
+			[2]: TweenService_upvr (copied, readonly)
+			[3]: TweenInfo_new_result1_upvr (copied, readonly)
+			[4]: CollectionService_upvr (copied, readonly)
+			[5]: setFov_upvr (readonly)
+			[6]: module_upvr (readonly)
+			[7]: clock_upvr (copied, readonly)
+		]]
+		-- KONSTANTWARNING: Variable analysis failed. Output will have some incorrect variable assignments
+		local var129
+		if not arg1_6.enabled then
+		else
+			if not arg2.equipped then return end
+			if not arg2.Aiming then return end
+			if type(arg1_6.AimPart) == "string" then return end
+			if not arg1_6.AimPart or not arg1_6.AimPart:IsA("BasePart") then return end
+			local LPVO_12 = arg1_6.AimPart:FindFirstChild("LPVO")
+			if not LPVO_12 then return end
+			local UIValues_2 = LPVO_12:FindFirstChild("UIValues")
+			local ScopeWeld = LPVO_12:FindFirstChild("ScopeWeld")
+			local ScopeWeldPath_2 = LPVO_12:FindFirstChild("ScopeWeldPath")
+			local FOV = LPVO_12:FindFirstChild("FOV")
+			local Scope_2 = LPVO_12:FindFirstChild("Scope")
+			if not UIValues_2 or not ScopeWeld or not ScopeWeldPath_2 or not FOV then return end
+			local Value_3 = ScopeWeldPath_2.Value
+			if Scope_2 then
+				local Value_2 = Scope_2.Value
+			end
+			var129 = 5
+			local Add = LPVO_12:FindFirstChild("Add")
+			if Add then
+				var129 = Add.Value
+			end
+			local var139 = FOV.MaxValue - FOV.MinValue
+			if var139 == 0 then
+				var139 = 1
+			end
+			if arg2_3 < 0 then
+				ScopeWeld.Value -= (ScopeWeld.MaxValue) / (var139 / var129)
+				UIValues_2.Value -= (UIValues_2.MaxValue - UIValues_2.MinValue) / (var139 / var129)
+				FOV.Value += var129
+			elseif 0 < arg2_3 then
+				-- KONSTANTERROR: Expression was reused, decompilation is incorrect
+				ScopeWeld.Value += (ScopeWeld.MaxValue) / (var139 / var129)
+				-- KONSTANTERROR: Expression was reused, decompilation is incorrect
+				UIValues_2.Value += (UIValues_2.MaxValue - UIValues_2.MinValue) / (var139 / var129)
+				FOV.Value -= var129
+			end
+			if Value_3 then
+				local Vector = Value_3:GetAttribute("Vector")
+				if Vector then
+					TweenService_upvr:Create(Value_3, TweenInfo_new_result1_upvr, {
+						C1 = CFrame.new(ScopeWeld.Value * Vector.X, ScopeWeld.Value * Vector.Y, ScopeWeld.Value * Vector.Z);
+					}):Play()
+				end
+			end
+			if Value_2 then
+				local Value_5 = UIValues_2.Value
+				local var143
+				if CollectionService_upvr:HasTag(UIValues_2, "Scale") then
+					local var144 = Value_5 / 100
+					var143 = UDim2.new(var144, 0, var144, 0)
+				else
+					var143 = UDim2.new(0, Value_5, 0, Value_5)
+				end
+				TweenService_upvr:Create(Value_2, TweenInfo_new_result1_upvr, {
+					Size = var143;
+				}):Play()
+			end
+			arg1_6.cur = FOV.Value
+			setFov_upvr(arg1_6.cur)
+			local var146 = module_upvr.parts[module_upvr.key]
+			local var147_upvr
+			if not var146 or not var146.lpvo or not var146.fieldOV then return end
+			local clock_upvr_result1 = clock_upvr()
+			var147_upvr = clock_upvr_result1 - arg1_6._lastZoomSfx
+			if arg1_6._sfxGap <= var147_upvr then
+				var147_upvr = var146.zoomSound
+				if not var147_upvr then
+					var147_upvr = arg1_6.zoomSound
+				end
+				if arg2.Modules and arg2.Modules.SystemSFX and arg2.Assets and arg2.Assets.GunModel then
+					pcall(function() -- Line 297
+						--[[ Upvalues[2]:
+							[1]: arg2 (copied, readonly)
+							[2]: var147_upvr (readonly)
+						]]
+						arg2.Modules.SystemSFX.Play(var147_upvr, arg2.Assets.GunModel)
+					end)
+				end
+				arg1_6._lastZoomSfx = clock_upvr_result1
+			end
+		end
+	end
+	function module_upvr.OnAimEdge(arg1_7, arg2_4) -- Line 305
+		--[[ Upvalues[4]:
+			[1]: module_upvr (readonly)
+			[2]: setFov_upvr (readonly)
+			[3]: arg2 (readonly)
+			[4]: arg1 (readonly)
+		]]
+		-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [3] 3. Error Block 2 start (CF ANALYSIS FAILED)
+		do
+			return
+		end
+		-- KONSTANTERROR: [3] 3. Error Block 2 end (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [4] 4. Error Block 3 start (CF ANALYSIS FAILED)
+		-- KONSTANTERROR: [4] 4. Error Block 3 end (CF ANALYSIS FAILED)
+	end
+	function module_upvr.Attach(arg1_8) -- Line 334
+		--[[ Upvalues[1]:
+			[1]: arg1 (readonly)
+		]]
+		if not arg1_8.enabled then
+		else
+			if arg1_8._bound then return end
+			arg1_8._bound = true
+			arg1_8._wheelConn = arg1.UserInputService.InputChanged:Connect(function(arg1_9, arg2_5) -- Line 339
+				--[[ Upvalues[1]:
+					[1]: arg1_8 (readonly)
+				]]
+				if arg1_9.UserInputType == Enum.UserInputType.MouseWheel then
+					arg1_8:_scroll(arg1_9.Position.Z)
+				end
+			end)
+		end
+	end
+	function module_upvr.Detach(arg1_10) -- Line 346
+		--[[ Upvalues[1]:
+			[1]: arg2 (readonly)
+		]]
+		if arg1_10._wheelConn then
+			arg1_10._wheelConn:Disconnect()
+			arg1_10._wheelConn = nil
+		end
+		if arg1_10._keyConn then
+			arg1_10._keyConn:Disconnect()
+			arg1_10._keyConn = nil
+		end
+		if arg1_10._sensConn then
+			arg1_10._sensConn:Disconnect()
+			arg1_10._sensConn = nil
+		end
+		arg1_10._bound = false
+		arg2._lpvoDriving = false
+	end
+	function module_upvr.ChangeSens(arg1_11) -- Line 363
+		--[[ Upvalues[4]:
+			[1]: arg1 (readonly)
+			[2]: arg2 (readonly)
+			[3]: round_upvr (copied, readonly)
+			[4]: clamp_upvr (copied, readonly)
+		]]
+		if arg1_11._sensConn then
+			arg1_11._sensConn:Disconnect()
+		end
+		arg1_11._sensConn = arg1.UserInputService.InputChanged:Connect(function(arg1_12, arg2_6) -- Line 368
+			--[[ Upvalues[5]:
+				[1]: arg2 (copied, readonly)
+				[2]: arg1 (copied, readonly)
+				[3]: arg1_11 (readonly)
+				[4]: round_upvr (copied, readonly)
+				[5]: clamp_upvr (copied, readonly)
+			]]
+			if arg2_6 then
+			else
+				if arg1_12.UserInputType ~= Enum.UserInputType.MouseWheel then return end
+				if arg2.enabled then return end
+				if not arg2.Aiming then
+					arg1.UserInputService.MouseDeltaSensitivity = arg2.Settings.NormalMouseSensitivity
+					return
+				end
+				if typeof(arg1_11.AimPart) == "Instance" then
+					if arg1_11.AimPart:FindFirstChild("LPVO") then return end
+				end
+				local var11_result1 = clamp_upvr(arg1.UserInputService.MouseDeltaSensitivity + round_upvr(arg1_12.Position.Z) / 10, 0.1, 1)
+				local currentTool = arg2.currentTool
+				if currentTool then
+					currentTool = arg2.currentTool:FindFirstChild("WeaponModules")
+				end
+				local var158 = currentTool
+				if var158 then
+					var158 = currentTool:FindFirstChild("Variables")
+				end
+				local var159 = var158
+				if not var159 then return end
+				if not var159:FindFirstChild("Sens") then
+					local NumberValue_2 = Instance.new("NumberValue")
+					NumberValue_2.Name = "Sens"
+					NumberValue_2.Parent = var159
+				end
+				NumberValue_2.Value = var11_result1
+				arg1.UserInputService.MouseDeltaSensitivity = var11_result1
+			end
+		end)
+	end
+	function module_upvr.Tick(arg1_13, arg2_7) -- Line 402
+		--[[ Upvalues[4]:
+			[1]: arg2 (readonly)
+			[2]: var13_upvw (read and write)
+			[3]: arg1 (readonly)
+			[4]: setFov_upvr (readonly)
+		]]
+		local var167
+		if arg2.Aiming ~= true then
+			var167 = false
+		else
+			var167 = true
+		end
+		if var167 ~= arg1_13._prevAiming then
+			arg1_13._prevAiming = var167
+			arg1_13:OnAimEdge(var167)
+		end
+		if not var167 then
+		else
+			if typeof(arg1_13.AimPart) == "Instance" then
+				local LPVO_6 = arg1_13.AimPart:FindFirstChild("LPVO")
+				if LPVO_6 then
+					local FOV_3 = LPVO_6:FindFirstChild("FOV")
+					if FOV_3 then
+						arg1_13.cur = FOV_3.Value
+					end
+				end
+			end
+			if not var13_upvw or not var13_upvw.Parent then
+				local Camera_2 = arg2.Camera
+				if not Camera_2 then
+					Camera_2 = workspace.CurrentCamera
+				end
+				var13_upvw = Camera_2
+			end
+			local var171 = var13_upvw
+			if not var171 then return end
+			if arg2.Aiming then
+				local var172
+				if var172 then
+					var172 = arg1.UserInputService
+					var172.MouseDeltaSensitivity = var171.FieldOfView * 0.005
+				else
+					var172 = arg2.currentTool
+					if var172 then
+						var172 = arg2.currentTool:FindFirstChild("WeaponModules")
+					end
+					local var173 = var172
+					if var173 then
+						var173 = var172:FindFirstChild("Variables")
+					end
+					var172 = var173
+					var173 = var172
+					local var174 = var173
+					if var174 then
+						var174 = var172:FindFirstChild("Sens")
+					end
+					if var174 then
+						arg1.UserInputService.MouseDeltaSensitivity = var174.Value
+						-- KONSTANTWARNING: GOTO [121] #87
+					end
+				end
+			else
+				var172 = arg1.UserInputService
+				var172.MouseDeltaSensitivity = arg2.Settings.NormalMouseSensitivity
+			end
+			if arg2._lpvoDriving == true then
+				setFov_upvr(arg1_13.cur)
+			end
+		end
+	end
+	function module_upvr.IsDriving(arg1_14) -- Line 447
+		--[[ Upvalues[1]:
+			[1]: arg2 (readonly)
+		]]
+		local var175
+		if arg2._lpvoDriving ~= true then
+			var175 = false
+		else
+			var175 = true
+		end
+		return var175
+	end
+	return module_upvr
+end
+return module
