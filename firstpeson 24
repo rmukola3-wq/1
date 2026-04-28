@@ -1,0 +1,278 @@
+-- Saved by UniversalSynSaveInstance (Join to Copy Games) https://discord.gg/wx4ThpAsmw
+
+-- Decompiled with Konstant V2.1, a fast Luau decompiler made in Luau by plusgiant5 (https://discord.gg/brNTY8nX8t)
+-- Decompiled on 2026-02-14 12:36:34
+-- Luau version 6, Types version 3
+-- Time taken: 0.025832 seconds
+
+local module = {}
+local TweenService_upvr = game:GetService("TweenService")
+local ReplicatedStorage_upvr = game:GetService("ReplicatedStorage")
+local Modules = ReplicatedStorage_upvr.SPH_Assets.Modules
+local GameConfig_upvr = require(Modules.Parent.GameConfig)
+local var6_upvw
+local Suppression_upvr = ReplicatedStorage_upvr:WaitForChild("Suppression", 100)
+local Bullet_upvr = script.Bullet
+local any_new_result1_upvr_2 = require(Modules.PartCache).new(Bullet_upvr:Clone(), GameConfig_upvr.maxBullets or 300, workspace.SPH_Workspace:WaitForChild("Cache"))
+local FastCast = require(Modules.FastCast)
+local RaycastParams_new_result1_upvr = RaycastParams.new()
+RaycastParams_new_result1_upvr.IgnoreWater = true
+RaycastParams_new_result1_upvr.RespectCanCollide = true
+RaycastParams_new_result1_upvr.FilterType = Enum.RaycastFilterType.Exclude
+local any_newBehavior_result1_upvw = FastCast.newBehavior()
+any_newBehavior_result1_upvw.RaycastParams = RaycastParams_new_result1_upvr
+any_newBehavior_result1_upvw.MaxDistance = GameConfig_upvr.maxBulletDistance
+any_newBehavior_result1_upvw.AutoIgnoreContainer = true
+any_newBehavior_result1_upvw.CosmeticBulletContainer = workspace:WaitForChild("SPH_Workspace"):WaitForChild("Projectiles")
+any_newBehavior_result1_upvw.HighFidelityBehavior = FastCast.HighFidelityBehavior.Default
+any_newBehavior_result1_upvw.CosmeticBulletProvider = any_new_result1_upvr_2
+any_newBehavior_result1_upvw.CanPierceFunction = require(Modules.PierceMod).CanPierce
+local any_new_result1_upvr = FastCast.new()
+FastCast.VisualizeCasts = false
+local var14_upvw
+local var16_upvw
+local BridgeNet_upvr = require(ReplicatedStorage_upvr.SPH_Assets.Modules.BridgeNet)
+function module.Initialize(arg1) -- Line 47
+	--[[ Upvalues[5]:
+		[1]: var14_upvw (read and write)
+		[2]: var16_upvw (read and write)
+		[3]: var6_upvw (read and write)
+		[4]: BridgeNet_upvr (readonly)
+		[5]: RaycastParams_new_result1_upvr (readonly)
+	]]
+	var14_upvw = arg1
+	var16_upvw = arg1.Character
+	var6_upvw = BridgeNet_upvr.CreateBridge("BulletHit")
+	RaycastParams_new_result1_upvr.FilterDescendantsInstances = {var16_upvw, workspace.CurrentCamera}
+end
+local function ResetBullet_upvr(arg1) -- Line 54, Named "ResetBullet"
+	--[[ Upvalues[1]:
+		[1]: Bullet_upvr (readonly)
+	]]
+	arg1.BulletSmoke.Enabled = false
+	arg1.PointLight.Enabled = false
+	arg1.Color = Bullet_upvr.Color
+	arg1.BeamLong.Color = Bullet_upvr.BeamLong.Color
+	arg1.BeamLong.Enabled = false
+	arg1.Transparency = 1
+	arg1.PointLight.Enabled = false
+	arg1.PointLight.Color = Bullet_upvr.PointLight.Color
+	arg1.DistanceEffect.Enabled = false
+	arg1.DistanceEffect.Dot.ImageColor3 = Bullet_upvr.DistanceEffect.Dot.ImageColor3
+	arg1.DistanceEffect.Flare.ImageColor3 = arg1.DistanceEffect.Flare.ImageColor3
+	if arg1:FindFirstChild("FakeBullet") then
+		arg1.FakeBullet:Destroy()
+	end
+end
+local Debris_upvr = game:GetService("Debris")
+local function PlaySFX_upvr(arg1, arg2) -- Line 71, Named "PlaySFX"
+	--[[ Upvalues[3]:
+		[1]: GameConfig_upvr (readonly)
+		[2]: var14_upvw (read and write)
+		[3]: Debris_upvr (readonly)
+	]]
+	for _, v in ipairs(arg1:GetChildren()) do
+		if v:IsA("Sound") and (v.Name == "Fire" or v.Name == "Echo" and (GameConfig_upvr.firstPersonEcho or arg2 ~= var14_upvw)) then
+			if not v.Looped then
+				local clone = v:Clone()
+				local fireSoundVariation = GameConfig_upvr.fireSoundVariation
+				clone.PlaybackSpeed += math.random(-10, 10) / fireSoundVariation
+				clone.Name ..= "_Playing"
+				clone.Parent = arg1
+				clone:Play()
+				if clone.TimeLength == 0 then
+					fireSoundVariation = 5
+				else
+					fireSoundVariation = clone.TimeLength
+				end
+				Debris_upvr:AddItem(clone, fireSoundVariation)
+			else
+				v:Play()
+			end
+		end
+	end
+end
+function module.FireBullet(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9) -- Line 88
+	--[[ Upvalues[6]:
+		[1]: any_newBehavior_result1_upvw (read and write)
+		[2]: GameConfig_upvr (readonly)
+		[3]: any_new_result1_upvr (readonly)
+		[4]: ResetBullet_upvr (readonly)
+		[5]: ReplicatedStorage_upvr (readonly)
+		[6]: TweenService_upvr (readonly)
+	]]
+	local var50
+	if arg9 then
+		var50 = require(arg1.Parent.TurretModule).guns[arg5]
+	else
+		var50 = require(arg5.SPH_Weapon.WeaponStats)
+	end
+	any_newBehavior_result1_upvw.Acceleration = GameConfig_upvr.bulletAcceleration
+	if not var50.bulletDrop then
+		any_newBehavior_result1_upvw.Acceleration = Vector3.new(0, 0, 0)
+	end
+	local any_Fire_result1_2 = any_new_result1_upvr:Fire(arg2, arg3, arg4, any_newBehavior_result1_upvw)
+	local tbl_3 = {}
+	tbl_3.Player = arg6
+	tbl_3.TracerColor = arg7
+	tbl_3.Tool = arg5
+	tbl_3.IgnoreModel = arg1
+	tbl_3.FakeBullet = arg8
+	tbl_3.Visible = false
+	tbl_3.Origin = arg2
+	tbl_3.SuppressionLevel = var50.suppressionLevel or 1
+	tbl_3.TurretFired = arg9
+	local CosmeticBulletObject = any_Fire_result1_2.RayInfo.CosmeticBulletObject
+	if CosmeticBulletObject and CosmeticBulletObject.Transparency == 0 then
+		ResetBullet_upvr(CosmeticBulletObject)
+	end
+	local SOME_2 = ReplicatedStorage_upvr.SPH_Assets.Projectiles:FindFirstChild(var50.projectile)
+	if SOME_2 and not arg7 then
+		local clone_2 = SOME_2:Clone()
+		clone_2.Anchored = false
+		clone_2.CanCollide = false
+		clone_2.Name = "FakeBullet"
+		clone_2.Parent = CosmeticBulletObject
+		tbl_3.Visible = true
+	end
+	any_Fire_result1_2.UserData = tbl_3
+	if var50.serverOffset then
+		arg1.BaseWeld.C0 = var50.serverOffset * CFrame.new(0, 0, 0.17) * CFrame.Angles(0.03490658503988659, math.rad(math.random(-10, 10) / 10), 0)
+		TweenService_upvr:Create(arg1.BaseWeld, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
+			C0 = var50.serverOffset;
+		}):Play()
+	end
+	if arg1:FindFirstChild("Weapon") then
+		local class_Model = arg1.Weapon:FindFirstChildWhichIsA("Model")
+		if class_Model and class_Model:FindFirstChild(var50.projectile) then
+			local SOME = class_Model:FindFirstChild(var50.projectile)
+			SOME.LocalTransparencyModifier = 1
+			for _, v_2 in ipairs(SOME:GetDescendants()) do
+				if v_2:IsA("BasePart") then
+					v_2.LocalTransparencyModifier = 1
+				end
+			end
+		end
+	end
+end
+function module.FireFX(arg1, arg2, arg3, arg4, arg5) -- Line 155
+	--[[ Upvalues[2]:
+		[1]: GameConfig_upvr (readonly)
+		[2]: PlaySFX_upvr (readonly)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 1 start (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [0] 1. Error Block 1 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [5] 5. Error Block 2 start (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [5] 5. Error Block 2 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [9] 8. Error Block 3 start (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [9] 8. Error Block 3 end (CF ANALYSIS FAILED)
+end
+function module.MoveBolt(arg1, arg2, arg3, arg4) -- Line 223
+	--[[ Upvalues[1]:
+		[1]: TweenService_upvr (readonly)
+	]]
+	-- KONSTANTERROR: [0] 1. Error Block 19 start (CF ANALYSIS FAILED)
+	if not arg1 or not arg1:FindFirstChild("Grip") then return end
+	local _, _, _ = ipairs(arg1.Grip:GetChildren())
+	-- KONSTANTERROR: [0] 1. Error Block 19 end (CF ANALYSIS FAILED)
+	-- KONSTANTERROR: [16] 13. Error Block 6 start (CF ANALYSIS FAILED)
+	local _, _, _ = ipairs(arg2.fireMoveParts)
+	-- KONSTANTERROR: [16] 13. Error Block 6 end (CF ANALYSIS FAILED)
+end
+any_new_result1_upvr.LengthChanged:Connect(function(arg1, arg2, arg3, arg4, arg5, arg6) -- Line 249
+	--[[ Upvalues[3]:
+		[1]: GameConfig_upvr (readonly)
+		[2]: var14_upvw (read and write)
+		[3]: Suppression_upvr (readonly)
+	]]
+	if not arg6 then
+	else
+		if GameConfig_upvr.suppressionEffects and var14_upvw ~= arg1.UserData.Player and not arg1.UserData.Cracked and (workspace.CurrentCamera.CFrame.Position - arg6.Position).Magnitude <= 60 and 60 <= (workspace.CurrentCamera.CFrame.Position - arg1.UserData.Origin).Magnitude then
+			if not GameConfig_upvr.teamSuppression and var14_upvw.Team and arg1.UserData.Player.Team and var14_upvw.Team == arg1.UserData.Player.Team then return end
+			Suppression_upvr:Fire(arg1.UserData.SuppressionLevel)
+			arg1.UserData.Cracked = true
+		end
+		local function INLINED() -- Internal function, doesn't exist in bytecode
+			arg6.DistanceEffect.Enabled = true
+			arg6.PointLight.Enabled = true
+			arg6.BulletSmoke.Enabled = true
+			arg6.BeamLong.Enabled = true
+			arg6.Transparency = 0
+			arg1.UserData.Visible = true
+			return arg1.UserData.TracerColor
+		end
+		if not arg1.UserData.Visible and (GameConfig_upvr.arcadeBullets or arg1.UserData.TracerColor) or GameConfig_upvr.tracerStartDistance < (arg1.UserData.Origin - arg6.Position).Magnitude and INLINED() then
+			local TracerColor = arg1.UserData.TracerColor
+			if GameConfig_upvr.teamTracers and arg1.UserData.Player.Team then
+				arg6.Color = arg1.UserData.Player.Team.TeamColor.Color
+			else
+				arg6.Color = TracerColor
+			end
+			arg6.BeamLong.Enabled = true
+			arg6.BeamLong.Color = ColorSequence.new(TracerColor)
+			arg6.PointLight.Color = TracerColor
+			arg6.BulletSmoke.Enabled = false
+			arg6.DistanceEffect.Dot.ImageColor3 = TracerColor
+			arg6.DistanceEffect.Flare.ImageColor3 = TracerColor
+		end
+		arg6.CFrame = CFrame.new(arg2, arg2 + arg3) * CFrame.new(0, 0, -(arg4 - arg6.Size.Z / 2))
+		if arg6:FindFirstChild("FakeBullet") then
+			arg6.FakeBullet.CFrame = arg6.CFrame
+		end
+	end
+end)
+local HitFX_upvr = require(Modules.HitFX)
+any_new_result1_upvr.RayHit:Connect(function(arg1, arg2, arg3, arg4) -- Line 299
+	--[[ Upvalues[5]:
+		[1]: HitFX_upvr (readonly)
+		[2]: var6_upvw (read and write)
+		[3]: GameConfig_upvr (readonly)
+		[4]: var14_upvw (read and write)
+		[5]: Suppression_upvr (readonly)
+	]]
+	local Tool = arg1.UserData.Tool
+	if not Tool or not Tool:FindFirstChild("SPH_Weapon") then
+	else
+		if arg1.UserData.TurretFired then
+		else
+		end
+		local var78
+		if not arg1.UserData.FakeBullet then
+			var78 = arg2.Normal
+			HitFX_upvr.HitEffect(arg2.Position, arg2.Instance, var78)
+			local function INLINED_3() -- Internal function, doesn't exist in bytecode
+				var78.index = arg1.UserData.Tool
+				var78.model = arg1.UserData.IgnoreModel
+				var78 = {}
+				return var78
+			end
+			if not arg1.UserData.TurretFired or not INLINED_3() then
+				var78 = arg1.UserData.Tool
+			end
+			var6_upvw:Fire(var78, {
+				Position = arg2.Position;
+				Normal = arg2.Normal;
+				Instance = arg2.Instance;
+			}, arg4.CFrame)
+			if GameConfig_upvr.suppressionEffects then
+				var78 = arg1.UserData
+				if var14_upvw ~= var78.Player and not arg1.UserData.Cracked then
+					var78 = arg1.UserData.SuppressionLevel
+					Suppression_upvr:Fire(var78)
+					arg1.UserData.Cracked = true
+				end
+			end
+		end
+	end
+end)
+any_new_result1_upvr.CastTerminating:Connect(function(arg1) -- Line 331
+	--[[ Upvalues[2]:
+		[1]: ResetBullet_upvr (readonly)
+		[2]: any_new_result1_upvr_2 (readonly)
+	]]
+	if arg1.UserData.Visible then
+		ResetBullet_upvr(arg1.RayInfo.CosmeticBulletObject)
+	end
+	any_new_result1_upvr_2:ReturnPart(arg1.RayInfo.CosmeticBulletObject)
+end)
+return module
