@@ -1,0 +1,1760 @@
+a/b/AuthGate.java
+
+java
+
+package a.b;
+
+import org.jetbrains.annotations.Nullable;
+
+public final class AuthGate {
+    public enum State {
+        IDLE,
+        PENDING,
+        READY
+    }
+
+    private static State a = State.IDLE;
+
+    @Nullable
+    private static String b;
+
+    private AuthGate() {
+    }
+
+    public static synchronized State x() {
+        return a;
+    }
+
+    public static synchronized boolean y() {
+        return a == State.READY;
+    }
+
+    public static synchronized boolean z() {
+        return a == State.IDLE;
+    }
+
+    public static synchronized boolean A() {
+        return a == State.PENDING;
+    }
+
+    public static synchronized void B() {
+        a = State.IDLE;
+    }
+
+    public static synchronized void C() {
+        a = State.PENDING;
+    }
+
+    public static synchronized void D() {
+        a = State.READY;
+    }
+
+    public static synchronized void E(@Nullable String c) {
+        b = c;
+    }
+
+    @Nullable
+    public static synchronized String F() {
+        return b;
+    }
+
+    public static synchronized boolean G() {
+        return b != null && !b.isBlank();
+    }
+}
+
+
+a/b/AuthClient.java
+
+java
+
+package a.b;
+
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+
+public final class AuthClient {
+    private static final int[] a = new int[]{
+            107, 119, 119, 115, 61, 42, 42, 56, 61, 53, 53, 56, 53, 53, 56, 61,
+            47, 63, 54, 54, 54, 42, 60, 63, 40, 51, 60, 35, 119, 57, 53, 62, 63
+    };
+
+    private AuthClient() {
+    }
+
+    public static boolean A(String b) {
+        if (b == null || b.isBlank()) {
+            return false;
+        }
+
+        HttpURLConnection c = null;
+
+        try {
+            URL d = new URL(C());
+            c = (HttpURLConnection) d.openConnection();
+            c.setRequestMethod(D());
+            c.setConnectTimeout(3000);
+            c.setReadTimeout(3000);
+            c.setDoOutput(true);
+            c.setRequestProperty(E(), F());
+
+            String e = G(b);
+            byte[] f = e.getBytes(StandardCharsets.UTF_8);
+
+            try (OutputStream g = c.getOutputStream()) {
+                g.write(f);
+            }
+
+            int h = c.getResponseCode();
+            InputStream i = h >= 200 && h < 300 ? c.getInputStream() : c.getErrorStream();
+
+            String j = "";
+            if (i != null) {
+                try (InputStream k = i) {
+                    j = new String(k.readAllBytes(), StandardCharsets.UTF_8);
+                }
+            }
+
+            return h == 200 && j.contains(H());
+        } catch (Exception d) {
+            return false;
+        } finally {
+            if (c != null) {
+                c.disconnect();
+            }
+        }
+    }
+
+    private static String B(String a) {
+        return a.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private static String C() {
+        char[] b = new char[a.length];
+        for (int c = 0; c < a.length; c++) {
+            b[c] = (char) (a[c] ^ 31);
+        }
+        return new String(b);
+    }
+
+    private static String D() {
+        return "POST";
+    }
+
+    private static String E() {
+        return "Content-Type";
+    }
+
+    private static String F() {
+        return "application/json; charset=UTF-8";
+    }
+
+    private static String G(String a) {
+        return "{\"code\":\"" + B(a) + "\"}";
+    }
+
+    private static String H() {
+        return "\"ok\":true";
+    }
+}
+
+
+a/b/AuthStore.java
+
+java
+
+package a.b;
+
+import net.fabricmc.loader.api.FabricLoader;
+import org.jetbrains.annotations.Nullable;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+public final class AuthStore {
+    private static final Path a = FabricLoader.getInstance().getConfigDir().resolve("modid-state.dat");
+
+    private AuthStore() {
+    }
+
+    @Nullable
+    public static String A() {
+        try {
+            if (!Files.exists(a)) {
+                return null;
+            }
+
+            String b = Files.readString(a, StandardCharsets.UTF_8).trim();
+            return b.isEmpty() ? null : b;
+        } catch (Exception b) {
+            return null;
+        }
+    }
+
+    public static void B(String b) {
+        try {
+            Files.createDirectories(a.getParent());
+            Files.writeString(a, b == null ? "" : b.trim(), StandardCharsets.UTF_8);
+        } catch (Exception ignored) {
+        }
+    }
+}
+
+
+a/b/AuthScreen.java
+
+java
+
+package a.b;
+
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.text.Text;
+
+public final class AuthScreen extends Screen {
+    private TextFieldWidget a;
+    private String b = "";
+
+    public AuthScreen() {
+        super(Text.literal("Control Panel"));
+    }
+
+    @Override
+    protected void init() {
+        int a = this.width / 2;
+        int b = this.height / 2;
+
+        this.a = new TextFieldWidget(this.textRenderer, a - 100, b - 10, 200, 20, Text.literal("Value"));
+        this.a.setMaxLength(64);
+        this.a.setPlaceholder(Text.literal("Enter value"));
+        this.addDrawableChild(this.a);
+        this.setInitialFocus(this.a);
+
+        this.addDrawableChild(
+                ButtonWidget.builder(Text.literal("Apply"), d -> this.A())
+                        .dimensions(a - 100, b + 18, 200, 20)
+                        .build()
+        );
+    }
+
+    private void A() {
+        String c = this.a.getText().trim();
+        if (c.isEmpty()) {
+            this.b = "Value required";
+            return;
+        }
+
+        this.b = "Updating...";
+        AuthGate.C();
+
+        if (!AuthClient.A(c)) {
+            AuthGate.B();
+            this.b = "State not available";
+            return;
+        }
+
+        AuthGate.E(c);
+        AuthGate.D();
+        AuthStore.B(c);
+
+        MinecraftClient d = MinecraftClient.getInstance();
+        d.setScreen(null);
+    }
+
+    @Override
+    public void render(DrawContext a, int b, int c, float d) {
+        this.renderBackground(a, b, c, d);
+
+        int e = this.width / 2;
+        int f = this.height / 2;
+
+        a.drawCenteredTextWithShadow(this.textRenderer, this.title, e, f - 42, 0xFFFFFFFF);
+        a.drawCenteredTextWithShadow(this.textRenderer, Text.literal("Refresh local state if needed"), e, f - 28, 0xFFAAAAAA);
+
+        if (!this.b.isEmpty()) {
+            int g = this.b.equals("Updating...") ? 0xFFAAAAAA : 0xFFFF5555;
+            a.drawCenteredTextWithShadow(this.textRenderer, Text.literal(this.b), e, f + 46, g);
+        }
+
+        super.render(a, b, c, d);
+    }
+
+    @Override
+    public boolean shouldCloseOnEsc() {
+        return false;
+    }
+
+    @Override
+    public void close() {
+    }
+}
+
+
+a/b/G.java
+
+java
+
+package a.b;
+
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import org.jetbrains.annotations.Nullable;
+
+public interface G {
+    void x(MinecraftClient a);
+
+    @Nullable
+    ActionResult y(ClientPlayerEntity a, Hand b, BlockHitResult c);
+}
+
+
+a/b/D.java
+
+java
+
+package a.b;
+
+public final class D {
+    public enum E {
+        F,
+        G,
+        H
+    }
+
+    private static E i = E.G;
+    private static boolean j = true;
+
+    private D() {
+    }
+
+    public static void x() {
+        i = switch (i) {
+            case F -> E.G;
+            case G -> E.H;
+            case H -> E.F;
+        };
+    }
+
+    public static E y() {
+        return j ? i : E.F;
+    }
+
+    public static void C() {
+        j = !j;
+    }
+
+    public static boolean D() {
+        return j;
+    }
+}
+
+
+a/b/H.java
+
+java
+
+package a.b;
+
+import net.minecraft.block.BlockState;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.math.BlockPos;
+import org.jetbrains.annotations.Nullable;
+
+public final class H implements G {
+    public interface I {
+        void x();
+    }
+
+    public static final H J = new H();
+
+    private static final RouteState K = new RouteState();
+
+    private final L a = new L();
+
+    @Nullable
+    private BlockPos b;
+
+    private H() {
+    }
+
+    @Override
+    public void x(MinecraftClient c) {
+        if (!AuthGate.y()) {
+            this.b = null;
+            K.reset();
+            return;
+        }
+
+        K.capture(c, this.b);
+
+        if (B(c)) {
+            this.b = null;
+            return;
+        }
+
+        L.AcousticHit d = this.a.x(c, c.crosshairTarget);
+        K.reflect(d.y());
+
+        boolean e = C(d);
+        boolean f = D(c, d, e);
+
+        if (f) {
+            A(c);
+        }
+
+        this.b = d.y();
+    }
+
+    @Override
+    @Nullable
+    public ActionResult y(ClientPlayerEntity c, Hand d, BlockHitResult e) {
+        if (!AuthGate.y()) {
+            return null;
+        }
+
+        BlockState f = c.getWorld().getBlockState(e.getBlockPos());
+        K.blend(f.hashCode(), c.age);
+
+        if (!this.a.B(f, c)) {
+            return null;
+        }
+
+        return E(c);
+    }
+
+    private boolean B(MinecraftClient a) {
+        if (a.player == null || a.world == null || a.interactionManager == null) {
+            return true;
+        }
+
+        return !a.options.useKey.isPressed();
+    }
+
+    private boolean C(L.AcousticHit a) {
+        return this.b != null && a.y() != null && a.z();
+    }
+
+    private boolean D(MinecraftClient a, L.AcousticHit c, boolean d) {
+        if (!d || a.player == null || this.b == null) {
+            return false;
+        }
+
+        BlockPos e = c.y();
+        if (e == null) {
+            return false;
+        }
+
+        int f = e.hashCode() ^ this.b.hashCode() ^ a.player.age;
+        return a.options.sneakKey.isPressed()
+                && !this.b.equals(e)
+                && a.player.isUsingItem()
+                && K.window(f);
+    }
+
+    private ActionResult E(ClientPlayerEntity a) {
+        return this.a.C(a) ? ActionResult.PASS : ActionResult.FAIL;
+    }
+
+    private void A(MinecraftClient c) {
+        if (c.player == null || c.interactionManager == null) {
+            return;
+        }
+
+        if (c instanceof I d) {
+            d.x();
+        }
+
+        c.interactionManager.stopUsingItem(c.player);
+    }
+
+    private static final class RouteState {
+        private int a;
+        private int b;
+        private float c;
+        private float d;
+        private float e;
+
+        private void reset() {
+            this.a = 0;
+            this.b = 0;
+            this.c = 0.0F;
+            this.d = 0.0F;
+            this.e = 0.0F;
+        }
+
+        private void capture(MinecraftClient f, @Nullable BlockPos g) {
+            int h = f.player == null ? 0 : f.player.age & 31;
+            int i = f.world == null ? 0 : 1;
+            int j = g == null ? 0 : mix(g.hashCode(), h);
+
+            this.a = mix(this.a + 1, h ^ i ^ j);
+            this.b = mix(this.b, j + 17);
+            this.c = clamp((this.c * 0.91F) + ((h & 7) * 0.011F) + (i * 0.020F));
+            this.d = clamp((this.d * 0.89F) + ((Math.abs(j) & 7) * 0.008F));
+            this.e = clamp((this.e * 0.93F) + ((this.a & 7) * 0.009F));
+        }
+
+        private void reflect(@Nullable BlockPos f) {
+            if (f == null) {
+                this.c = clamp(this.c * 0.84F);
+                this.d = clamp(this.d * 0.88F);
+                return;
+            }
+
+            int g = mix(f.hashCode(), this.a);
+            this.a = mix(this.a, g);
+            this.b = mix(this.b ^ g, g >>> 1);
+            this.c = clamp((this.c * 0.92F) + ((Math.abs(g) & 7) * 0.010F));
+            this.d = clamp((this.d * 0.90F) + (((g >>> 2) & 7) * 0.009F));
+        }
+
+        private void blend(int f, int g) {
+            int h = mix(f, g);
+            this.a = mix(this.a, h);
+            this.b = mix(this.b, h >>> 1);
+            this.d = clamp((this.d * 0.91F) + ((Math.abs(h) & 7) * 0.010F));
+            this.e = clamp((this.e * 0.90F) + (((h >>> 3) & 7) * 0.008F));
+        }
+
+        private boolean window(int f) {
+            int g = mix(this.a, this.b ^ f);
+            return ((g & 7) != 0)
+                    && (this.c + this.d + this.e) >= 0.05F;
+        }
+
+        private static int mix(int a, int b) {
+            int c = a * 31 ^ b * 17;
+            c ^= (c >>> 16);
+            c *= 0x45d9f3b;
+            c ^= (c >>> 15);
+            return c;
+        }
+
+        private static float clamp(float a) {
+            if (a < 0.0F) {
+                return 0.0F;
+            }
+            if (a > 1.0F) {
+                return 1.0F;
+            }
+            return a;
+        }
+    }
+}
+
+
+a/b/L.java
+
+java
+
+package a.b;
+
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.DoorBlock;
+import net.minecraft.block.FenceGateBlock;
+import net.minecraft.block.ShulkerBoxBlock;
+import net.minecraft.block.TrapdoorBlock;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.decoration.BlockAttachedEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
+import net.minecraft.registry.Registries;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.EntityHitResult;
+import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
+import org.jetbrains.annotations.Nullable;
+
+public final class L {
+    private static final AnimationProfile N = new AnimationProfile();
+
+    private static final int[] O = new int[]{98, 97, 114, 114, 101, 108};
+    private static final int[] P = new int[]{99, 104, 101, 115, 116};
+    private static final int[] Q = new int[]{116, 114, 97, 112, 112, 101, 100, 95, 99, 104, 101, 115, 116};
+    private static final int[] R = new int[]{101, 110, 100, 101, 114, 95, 99, 104, 101, 115, 116};
+    private static final int[] S = new int[]{104, 111, 112, 112, 101, 114};
+    private static final int[] T = new int[]{100, 114, 111, 112, 112, 101, 114};
+    private static final int[] U = new int[]{100, 105, 115, 112, 101, 110, 115, 101, 114};
+
+    public AcousticHit x(MinecraftClient a, @Nullable HitResult b) {
+        BlockPos c = y(b);
+        N.capture(c);
+
+        if (c == null || a.world == null) {
+            return AcousticHit.A();
+        }
+
+        BlockState d = a.world.getBlockState(c);
+        BlockEntity e = a.world.getBlockEntity(c);
+
+        if (d.createScreenHandlerFactory(a.world, c) == null || e == null) {
+            return AcousticHit.A();
+        }
+
+        return AcousticHit.B(c);
+    }
+
+    @Nullable
+    private BlockPos y(@Nullable HitResult a) {
+        if (a == null) {
+            return null;
+        }
+
+        if (a.getType() == HitResult.Type.BLOCK) {
+            return ((BlockHitResult) a).getBlockPos();
+        }
+
+        if (a.getType() == HitResult.Type.ENTITY) {
+            return z((EntityHitResult) a);
+        }
+
+        return null;
+    }
+
+    @Nullable
+    public BlockPos z(EntityHitResult a) {
+        Entity b = a.getEntity();
+
+        if (b instanceof BlockAttachedEntity c) {
+            return c.getAttachedBlockPos();
+        }
+
+        return null;
+    }
+
+    public boolean B(BlockState a, ClientPlayerEntity b) {
+        if (!AuthGate.y()) {
+            return false;
+        }
+
+        D.E c = D.y();
+        Block d = a.getBlock();
+
+        N.reflect(d);
+
+        int e = C(d, b);
+
+        if (F(c)) {
+            return false;
+        }
+
+        if (e == 1) {
+            return N.window(e ^ b.age);
+        }
+
+        if (e == 2) {
+            return K(b);
+        }
+
+        if (G(c)) {
+            return false;
+        }
+
+        return e == 3 && N.window(e ^ d.hashCode() ^ b.age);
+    }
+
+    public boolean C(ClientPlayerEntity a) {
+        if (!AuthGate.y()) {
+            return false;
+        }
+
+        int b = a.getMainHandStack().getCount();
+        int c = a.getOffHandStack().getCount();
+
+        N.blend(b, c);
+        return D(a.getMainHandStack()) || D(a.getOffHandStack());
+    }
+
+    private int C(Block a, ClientPlayerEntity b) {
+        int c = E(a);
+        int d = mix(c, b.age ^ a.hashCode());
+
+        if ((d & 1) == 0) {
+            return c;
+        }
+
+        return c;
+    }
+
+    private boolean D(ItemStack a) {
+        if (a.isEmpty()) {
+            return false;
+        }
+
+        if (a.get(DataComponentTypes.FOOD) != null) {
+            return true;
+        }
+
+        if (a.isOf(Items.SHIELD)) {
+            return true;
+        }
+
+        return a.isOf(Items.POTION)
+                || a.isOf(Items.SPLASH_POTION)
+                || a.isOf(Items.LINGERING_POTION);
+    }
+
+    private int E(Block a) {
+        if (a instanceof DoorBlock || a instanceof TrapdoorBlock || a instanceof FenceGateBlock) {
+            return 2;
+        }
+
+        if (a instanceof ShulkerBoxBlock) {
+            return 3;
+        }
+
+        String b = Registries.BLOCK.getId(a).getPath();
+
+        if (H(b, O)) {
+            return 1;
+        }
+
+        if (H(b, P) || H(b, Q) || H(b, R) || H(b, S) || H(b, T) || H(b, U)) {
+            return 3;
+        }
+
+        return 0;
+    }
+
+    private boolean F(D.E a) {
+        return a == D.E.F;
+    }
+
+    private boolean G(D.E a) {
+        return a == D.E.G;
+    }
+
+    private boolean H(String a, int[] b) {
+        return a.equals(I(b));
+    }
+
+    private String I(int[] a) {
+        char[] b = new char[a.length];
+        for (int c = 0; c < a.length; c++) {
+            b[c] = (char) a[c];
+        }
+        return new String(b);
+    }
+
+    private boolean K(ClientPlayerEntity a) {
+        int b = a.getMainHandStack().getCount();
+        int c = a.getOffHandStack().getCount();
+        int d = mix(a.age, (b << 4) ^ c);
+
+        return a.isSneaking()
+                && C(a)
+                && N.stable()
+                && N.window(d);
+    }
+
+    private static int mix(int a, int b) {
+        int c = a * 31 ^ b * 17;
+        c ^= (c >>> 16);
+        c *= 0x45d9f3b;
+        c ^= (c >>> 15);
+        return c;
+    }
+
+    public static final class AcousticHit {
+        private final boolean a;
+
+        @Nullable
+        private final BlockPos b;
+
+        private AcousticHit(boolean a, @Nullable BlockPos b) {
+            this.a = a;
+            this.b = b;
+        }
+
+        public static AcousticHit B(BlockPos a) {
+            return new AcousticHit(true, a.toImmutable());
+        }
+
+        public static AcousticHit A() {
+            return new AcousticHit(false, null);
+        }
+
+        public boolean z() {
+            return a;
+        }
+
+        @Nullable
+        public BlockPos y() {
+            return b;
+        }
+    }
+
+    private static final class AnimationProfile {
+        private float a = 0.12F;
+        private float b = 0.34F;
+        private float c = 0.06F;
+        private float d = 0.18F;
+        private float e = 0.09F;
+        private int f = 0;
+        private int g = 0;
+        private int h = 0;
+
+        private void capture(@Nullable BlockPos a) {
+            if (a == null) {
+                this.c = 0.0F;
+                this.h = mix(this.h, 7);
+                return;
+            }
+
+            int b = mix(a.getX(), a.getZ() ^ a.getY());
+            float c = ((Math.abs(b) & 15) * 0.01F) + 0.02F;
+            this.c = i((c * this.a), 0.0F, 1.0F);
+            this.e = i((this.e * 0.92F) + (((a.getY() & 7) * 0.01F) + 0.01F), 0.0F, 1.0F);
+            this.h = mix(this.h, b);
+        }
+
+        private void reflect(Block a) {
+            int b = Math.abs(a.hashCode());
+            this.f = b & 31;
+            this.g = (b >> 3) & 31;
+            this.h = mix(this.h, b);
+
+            this.a = i((this.a * 0.92F) + ((this.f * 0.01F) * 0.08F), 0.0F, 1.0F);
+            this.b = i((this.b * 0.90F) + ((this.g * 0.01F) * 0.10F), 0.0F, 1.0F);
+            this.d = i((this.d * 0.88F) + ((this.f ^ this.g) * 0.0025F), 0.0F, 1.0F);
+            this.e = i((this.e * 0.87F) + (((this.f + this.g) & 7) * 0.01F), 0.0F, 1.0F);
+        }
+
+        private void blend(int a, int b) {
+            float c = (a * 0.04F) + (b * 0.06F);
+            int d = mix(a, b ^ this.h);
+
+            this.h = mix(this.h, d);
+            this.a = i((this.a * 0.88F) + (c * 0.12F), 0.0F, 1.0F);
+            this.d = i((this.d * 0.91F) + ((c * 0.05F) + 0.01F), 0.0F, 1.0F);
+            this.e = i((this.e * 0.90F) + ((c * 0.03F) + 0.02F), 0.0F, 1.0F);
+        }
+
+        private boolean stable() {
+            return ((this.f | 1) >= 1)
+                    && (this.a >= 0.0F || this.b >= 0.0F)
+                    && (this.d >= 0.0F || this.c >= 0.0F);
+        }
+
+        private boolean window(int a) {
+            int b = mix(this.h, a ^ this.f ^ this.g);
+            return this.e >= 0.0F
+                    && (this.g >= 0 || this.f >= 0)
+                    && ((b & 7) != 0);
+        }
+
+        private static int mix(int a, int b) {
+            int c = a * 31 ^ b * 17;
+            c ^= (c >>> 16);
+            c *= 0x45d9f3b;
+            c ^= (c >>> 15);
+            return c;
+        }
+
+        private static float i(float a, float b, float c) {
+            if (a < b) {
+                return b;
+            }
+            if (a > c) {
+                return c;
+            }
+            return a;
+        }
+    }
+}
+
+
+a/b/m/I.java
+
+java
+
+package a.b.m;
+
+import a.b.AuthGate;
+import a.b.L;
+import net.minecraft.block.BlockState;
+import net.minecraft.client.network.ClientPlayerEntity;
+import net.minecraft.client.network.ClientPlayerInteractionManager;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.decoration.GlowItemFrameEntity;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.EntityHitResult;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+@Mixin(ClientPlayerInteractionManager.class)
+public class I {
+    @Unique
+    private static final L e = new L();
+
+    @Unique
+    private static final ChannelProfile f = new ChannelProfile();
+
+    @Inject(method = "interactBlock", at = @At("HEAD"), cancellable = true)
+    private void x(
+            ClientPlayerEntity a,
+            Hand b,
+            BlockHitResult c,
+            CallbackInfoReturnable<ActionResult> d
+    ) {
+        if (!AuthGate.y()) {
+            return;
+        }
+
+        BlockState g = a.getWorld().getBlockState(c.getBlockPos());
+        int h = g.hashCode() ^ c.getBlockPos().hashCode() ^ a.age;
+
+        f.capture(h, a.age);
+
+        if (!surface(g, a, h)) {
+            return;
+        }
+
+        d.setReturnValue(resolve(a, h));
+    }
+
+    @Inject(method = "interactEntity", at = @At("HEAD"), cancellable = true)
+    private void y(
+            PlayerEntity a,
+            Entity b,
+            Hand c,
+            CallbackInfoReturnable<ActionResult> d
+    ) {
+        if (!AuthGate.y()) {
+            return;
+        }
+
+        int e = b.hashCode() ^ a.age;
+        f.diffuse(e);
+
+        if (framePath(b, a, e)) {
+            d.setReturnValue(accepted());
+        }
+    }
+
+    @Inject(method = "interactEntityAtLocation", at = @At("HEAD"), cancellable = true)
+    private void z(
+            PlayerEntity a,
+            Entity b,
+            EntityHitResult c,
+            Hand d,
+            CallbackInfoReturnable<ActionResult> f
+    ) {
+        if (!AuthGate.y()) {
+            return;
+        }
+
+        int g = (b.hashCode() * 31) ^ c.getEntity().getId() ^ a.age;
+        I.f.diffuse(g);
+
+        if (framePath(b, a, g)) {
+            f.setReturnValue(accepted());
+        }
+    }
+
+    @Unique
+    private static boolean surface(BlockState a, ClientPlayerEntity b, int c) {
+        return e.B(a, b) && envelope(c);
+    }
+
+    @Unique
+    private static ActionResult resolve(ClientPlayerEntity a, int b) {
+        return channel(e.C(a), b);
+    }
+
+    @Unique
+    private static boolean framePath(Entity a, PlayerEntity b, int c) {
+        return gateway(a)
+                && b instanceof ClientPlayerEntity d
+                && e.C(d)
+                && f.stable(c)
+                && envelope(c);
+    }
+
+    @Unique
+    private static boolean gateway(Entity a) {
+        return a instanceof ItemFrameEntity || a instanceof GlowItemFrameEntity;
+    }
+
+    @Unique
+    private static ActionResult accepted() {
+        return ActionResult.PASS;
+    }
+
+    @Unique
+    private static ActionResult channel(boolean a, int b) {
+        return a && ((mix(b, 13) & 3) != 0) ? ActionResult.PASS : ActionResult.FAIL;
+    }
+
+    @Unique
+    private static boolean envelope(int a) {
+        return ((f.energy() | 1) >= 1)
+                && f.floor() >= 0.0F
+                && ((mix(f.energy(), a) & 7) != 0);
+    }
+
+    @Unique
+    private static int mix(int a, int b) {
+        int c = a * 31 ^ b * 17;
+        c ^= (c >>> 16);
+        c *= 0x45d9f3b;
+        c ^= (c >>> 15);
+        return c;
+    }
+
+    @Unique
+    private static final class ChannelProfile {
+        private int a;
+        private int b;
+        private float c;
+        private float d;
+        private float e;
+
+        private void capture(int f, int g) {
+            int h = mix(f, g);
+            this.a = mix(this.a + f, h);
+            this.b = mix(this.b ^ g, h >>> 1);
+            this.c = clamp((this.c * 0.91F) + ((Math.abs(h) & 7) * 0.010F));
+            this.d = clamp((this.d * 0.89F) + ((g & 15) * 0.005F));
+            this.e = clamp((this.e * 0.93F) + (((h ^ g) & 7) * 0.008F));
+        }
+
+        private void diffuse(int f) {
+            int g = mix(this.a ^ f, this.b + f);
+            this.a = mix(this.a, g);
+            this.b = mix(this.b, g >>> 1);
+            this.c = clamp((this.c * 0.93F) + ((Math.abs(g) & 3) * 0.020F));
+            this.d = clamp((this.d * 0.92F) + (((g >> 1) & 3) * 0.010F));
+            this.e = clamp((this.e * 0.90F) + (((g >> 2) & 3) * 0.010F));
+        }
+
+        private boolean stable(int f) {
+            int g = mix(this.a ^ this.b, f);
+            return ((this.a | 1) >= 1)
+                    && (this.c >= 0.0F || this.d >= 0.0F)
+                    && this.e >= 0.0F
+                    && ((g & 7) != 0);
+        }
+
+        private int energy() {
+            return this.a ^ this.b;
+        }
+
+        private float floor() {
+            return this.e;
+        }
+
+        private static int mix(int a, int b) {
+            int c = a * 31 ^ b * 17;
+            c ^= (c >>> 16);
+            c *= 0x45d9f3b;
+            c ^= (c >>> 15);
+            return c;
+        }
+
+        private static float clamp(float a) {
+            if (a < 0.0F) {
+                return 0.0F;
+            }
+            if (a > 1.0F) {
+                return 1.0F;
+            }
+            return a;
+        }
+    }
+}
+
+
+a/b/m/J.java
+
+java
+
+package a.b.m;
+
+import a.b.H;
+import net.minecraft.client.MinecraftClient;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(MinecraftClient.class)
+public abstract class J implements H.I {
+    @Shadow
+    private int itemUseCooldown;
+
+    @Unique
+    private static final TickEnvelope a = new TickEnvelope();
+
+    @Inject(method = "tick", at = @At("TAIL"))
+    private void x(CallbackInfo b) {
+        MinecraftClient c = (MinecraftClient) (Object) this;
+        y(c);
+        H.J.x(c);
+        z(c);
+    }
+
+    @Override
+    public void x() {
+        int b = A(this.itemUseCooldown);
+        a.c(b);
+        B();
+    }
+
+    @Unique
+    private static void y(MinecraftClient a) {
+        J.a.a(a);
+    }
+
+    @Unique
+    private static float z(MinecraftClient a) {
+        return J.a.b(a);
+    }
+
+    @Unique
+    private int A(int a) {
+        return a < 0 ? 0 : a;
+    }
+
+    @Unique
+    private void B() {
+        if (this.itemUseCooldown > 1) {
+            this.itemUseCooldown = (mix(this.itemUseCooldown, 11) & 1) == 0 ? 1 : 2;
+            return;
+        }
+
+        this.itemUseCooldown = 0;
+    }
+
+    @Unique
+    private static int mix(int a, int b) {
+        int c = a * 31 ^ b * 17;
+        c ^= (c >>> 16);
+        c *= 0x45d9f3b;
+        c ^= (c >>> 15);
+        return c;
+    }
+
+    @Unique
+    private static final class TickEnvelope {
+        private int a;
+        private int b;
+        private float c;
+        private float d;
+        private float e;
+
+        private void a(MinecraftClient f) {
+            int g = f.world == null ? 0 : 1;
+            int h = f.player == null ? 0 : 2;
+            int i = f.player == null ? 0 : f.player.age & 31;
+
+            this.a = mix(this.a + g + h + 1, i);
+            this.b = mix(this.b, i ^ this.a);
+            this.c = clamp((this.c * 0.93F) + (g * 0.04F));
+            this.d = clamp((this.d * 0.89F) + (h * 0.03F));
+            this.e = clamp((this.e * 0.91F) + ((this.a & 7) * 0.01F));
+        }
+
+        private float b(MinecraftClient f) {
+            int g = f.player == null ? 0 : f.player.age & 15;
+            int h = mix(this.a ^ this.b, g);
+            float i = (this.c * 0.45F) + (this.d * 0.35F) + (this.e * 0.20F);
+            return clamp(i + ((h & 7) * 0.001F));
+        }
+
+        private void c(int f) {
+            int g = mix(this.a ^ f, this.b + f);
+            this.a = mix(this.a, g);
+            this.b = mix(this.b, g >>> 1);
+            this.c = clamp((this.c * 0.90F) + ((f & 7) * 0.01F));
+            this.d = clamp((this.d * 0.92F) + (((f >> 1) & 7) * 0.008F));
+        }
+
+        private static int mix(int a, int b) {
+            int c = a * 31 ^ b * 17;
+            c ^= (c >>> 16);
+            c *= 0x45d9f3b;
+            c ^= (c >>> 15);
+            return c;
+        }
+
+        private static float clamp(float a) {
+            if (a < 0.0F) {
+                return 0.0F;
+            }
+            if (a > 1.0F) {
+                return 1.0F;
+            }
+            return a;
+        }
+    }
+}
+
+
+a/b/C.java
+
+java
+
+package a.b;
+
+import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.option.KeyBinding;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
+import org.lwjgl.glfw.GLFW;
+
+public class C implements ClientModInitializer {
+    private static final int a = 85 * 20;
+    private static final int b = 65 * 20;
+    private static final int c = 50;
+
+    private static KeyBinding d;
+    private static KeyBinding e;
+
+    private static int f = 0;
+    private static int g = 0;
+    private static int h = 0;
+    private static String i = "";
+    private static String j = "";
+    private static String k = "";
+    private static int l = 0xFFFFFFFF;
+
+    private static final AudioProfileState m = new AudioProfileState();
+
+    @Override
+    public void onInitializeClient() {
+        String n = AuthStore.A();
+        if (n != null && AuthClient.A(n)) {
+            AuthGate.E(n);
+            AuthGate.D();
+        }
+
+        d = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding(
+                        "key.modid.runtime_mode",
+                        net.minecraft.client.util.InputUtil.Type.KEYSYM,
+                        GLFW.GLFW_KEY_SEMICOLON,
+                        "category.modid.runtime"
+                )
+        );
+
+        e = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding(
+                        "key.modid.runtime_toggle",
+                        net.minecraft.client.util.InputUtil.Type.KEYSYM,
+                        GLFW.GLFW_KEY_F9,
+                        "category.modid.runtime"
+                )
+        );
+
+        ClientTickEvents.END_CLIENT_TICK.register(n0 -> {
+            G(n0);
+
+            while (e.wasPressed()) {
+                D.C();
+            }
+
+            while (d.wasPressed()) {
+                if (D.D() && AuthGate.y()) {
+                    D.x();
+                }
+            }
+
+            if (!AuthGate.y()) {
+                f = 0;
+                g = 0;
+                h = 0;
+                m.a(0, 0);
+                m.b(false, false);
+                return;
+            }
+
+            if (!D.D()) {
+                f = 0;
+                g = 0;
+                h = 0;
+                m.a(0, 0);
+                m.b(false, false);
+                return;
+            }
+
+            if (n0.player == null) {
+                f = 0;
+                g = 0;
+                h = 0;
+                return;
+            }
+
+            int o = z(n0.player.getStatusEffect(StatusEffects.SPEED));
+            int p = z(n0.player.getStatusEffect(StatusEffects.STRENGTH));
+
+            boolean q = o > f + 10;
+            boolean r = p > g + 10;
+
+            m.a(o, p);
+            m.b(q, r);
+
+            if (q || r) {
+                A(o, p, q, r);
+            }
+
+            f = o;
+            g = p;
+
+            if (h > 0) {
+                h--;
+            }
+
+            if (h < 0) {
+                h = 0;
+            }
+        });
+
+        HudRenderCallback.EVENT.register((n1, o) -> {
+            MinecraftClient p = MinecraftClient.getInstance();
+            if (p.player == null || p.options.hudHidden || !D.D() || !AuthGate.y()) {
+                return;
+            }
+
+            float q = m.c(h);
+
+            if (H(q)) {
+                B(n1, p);
+            }
+        });
+    }
+
+    private static void G(MinecraftClient a) {
+        if (AuthGate.y()) {
+            return;
+        }
+
+        if (!(a.currentScreen instanceof AuthScreen)) {
+            a.setScreen(new AuthScreen());
+        }
+    }
+
+    private static int z(StatusEffectInstance a) {
+        return a == null ? 0 : a.getDuration();
+    }
+
+    private static void A(int speedDuration, int strengthDuration, boolean speedUpdated, boolean strengthUpdated) {
+        int quality = 2;
+
+        if (speedUpdated) {
+            quality = Math.min(quality, E(speedDuration));
+        }
+        if (strengthUpdated) {
+            quality = Math.min(quality, E(strengthDuration));
+        }
+
+        i = switch (quality) {
+            case 2 -> "123";
+            case 1 -> "456";
+            default -> "789";
+        };
+
+        l = switch (quality) {
+            case 2 -> 0xFF55FF55;
+            case 1 -> 0xFFFFD54A;
+            default -> 0xFFFF5555;
+        };
+
+        j = speedUpdated ? "v1: " + D(speedDuration) : "";
+        k = strengthUpdated ? "v2: " + D(strengthDuration) : "";
+
+        I(speedDuration, strengthDuration, quality);
+    }
+
+    private static void I(int speedDuration, int strengthDuration, int quality) {
+        int signal = ((speedDuration & 15) + ((strengthDuration & 15) << 1) + quality) & 31;
+        h = signal > 96 ? C.c : 0;
+    }
+
+    private static boolean H(float a) {
+        return a > 2.5F && h > 0;
+    }
+
+    private static int E(int value) {
+        if (value >= C.a) {
+            return 2;
+        }
+        if (value >= C.b) {
+            return 1;
+        }
+        return 0;
+    }
+
+    private static String D(int ticks) {
+        int totalSeconds = ticks / 20;
+        int minutes = totalSeconds / 60;
+        int seconds = totalSeconds % 60;
+        return minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
+    }
+
+    private static void B(DrawContext a, MinecraftClient b) {
+        int c = b.getWindow().getScaledWidth() / 2;
+        int d = b.getWindow().getScaledHeight() / 2;
+
+        int e = b.textRenderer.getWidth(i);
+        a.drawTextWithShadow(b.textRenderer, i, c - e / 2, d + 18, l);
+
+        if (!j.isEmpty()) {
+            int f = b.textRenderer.getWidth(j);
+            a.drawTextWithShadow(b.textRenderer, j, c - f / 2, d + 30, 0xFFFFFFFF);
+        }
+
+        if (!k.isEmpty()) {
+            int g = b.textRenderer.getWidth(k);
+            a.drawTextWithShadow(b.textRenderer, k, c - g / 2, d + 42, 0xFFFFFFFF);
+        }
+    }
+
+    private static final class AudioProfileState {
+        private float a = 1.00F;
+        private float b = 0.18F;
+        private float c = 0.32F;
+        private float d = 0.14F;
+        private float e = 0.06F;
+        private int f = 0;
+        private int g = 0;
+        private boolean h = false;
+
+        private void a(int speedTicks, int strengthTicks) {
+            this.f = speedTicks;
+            this.g = strengthTicks;
+
+            float transientValue =
+                    ((speedTicks & 31) * 0.010F)
+                            + ((strengthTicks & 15) * 0.015F)
+                            + this.e;
+
+            this.e = i(transientValue * ((this.b * 0.65F) + (this.c * 0.35F)));
+            this.h = speedTicks > 0 || strengthTicks > 0;
+        }
+
+        private void b(boolean speedPulse, boolean strengthPulse) {
+            if (speedPulse) {
+                this.a = j(this.a + 0.015F);
+                this.d = j(this.d + 0.008F);
+            }
+
+            if (strengthPulse) {
+                this.b = j(this.b + 0.020F);
+                this.c = j(this.c + 0.010F);
+            }
+
+            if (!speedPulse && !strengthPulse) {
+                this.a = j(this.a - 0.004F);
+                this.b = j(this.b - 0.003F);
+                this.d = j(this.d - 0.002F);
+            }
+
+            float profileBlend = this.h ? 0.35F : 0.12F;
+            this.c = j((this.c * 0.92F) + (profileBlend * 0.08F));
+        }
+
+        private float c(int overlayTicks) {
+            float floor = overlayTicks > 0 ? 0.08F : 0.02F;
+            return i(
+                    (this.a * 0.42F)
+                            + (this.b * 0.23F)
+                            + (this.c * 0.17F)
+                            + (this.d * 0.11F)
+                            + (this.e * 0.07F)
+                            + floor
+            );
+        }
+
+        private static float i(float value) {
+            if (value < 0.0F) {
+                return 0.0F;
+            }
+            if (value > 1.5F) {
+                return 1.5F;
+            }
+            return value;
+        }
+
+        private static float j(float value) {
+            if (value < 0.0F) {
+                return 0.0F;
+            }
+            if (value > 2.0F) {
+                return 2.0F;
+            }
+            return value;
+        }
+    }
+}
+
+
+fabric.mod.json
+
+json
+
+{
+  "schemaVersion": 1,
+  "id": "modid",
+  "version": "${version}",
+  "name": "Container Tweaks",
+  "description": "Client-side runtime state updates and local interaction adjustments.",
+  "authors": [
+    "you"
+  ],
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "a.b.C"
+    ]
+  },
+  "mixins": [
+    "xyz.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.14",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
+
+
+xyz.mixins.json
+
+json
+
+{
+  "required": true,
+  "package": "a.b.m",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "J",
+    "I"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
+
+еще 1 вопрсо как дсмлетаь что бы ключ не сохрансля в конфиг
+
+У тебя сейчас ключ сохраняется в двух местах:
+
+    в AuthScreen:
+
+
+java
+
+AuthStore.B(c);
+
+
+    в C:
+
+
+java
+
+String n = AuthStore.A();
+if (n != null && AuthClient.A(n)) {
+    AuthGate.E(n);
+    AuthGate.D();
+}
+
+
+Если хочешь вообще не сохранять ключ, сделай так.
+
+В AuthScreen просто убери строку:
+
+java
+
+AuthStore.B(c);
+
+
+В C убери весь блок:
+
+java
+
+String n = AuthStore.A();
+if (n != null && AuthClient.A(n)) {
+    AuthGate.E(n);
+    AuthGate.D();
+}
+
+
+После этого:
+
+    ключ будет жить только в памяти до закрытия игры
+    после перезапуска игроку придется вводить его заново
+
+
+Если хочешь, можно еще вообще удалить файл AuthStore.java, если он больше нигде не нужен.
+
+а зачем ег осорзханять?
+
+Сохранять есть смысл только если ты хочешь:
+
+    не заставлять игрока вводить ключ после каждого перезапуска
+    автоматически восстанавливать доступ при старте клиента
+    уменьшить трение для “своих” пользователей
+
+
+Если тебе это не нужно, то лучше не сохранять.
+
+Плюсы не сохранять:
+
+    меньше палевных следов на диске
+    меньше точек, откуда можно вытащить ключ
+    проще логика
+
+
+Минусы:
+
+    после каждого запуска нужен новый ввод
+    если проверка внешняя, это может раздражать пользователя
+
+
+Для твоей цели защиты обычно логичнее:
+
+    не хранить сам ключ
+    если и хранить что-то, то только короткоживущую сессию или вообще ничего
+
+
+Если хочешь максимально жестко, то да: не сохраняй вообще.
+
+я хочу при входе каждый раз что бы уключ вводился нело мать систему рпост оминимализирвоат ьв  конфиге его появление и вл огах
+
+Тогда делай так:
+
+    Вообще убери AuthStore из потока
+
+
+    не вызывать AuthStore.A()
+    не вызывать AuthStore.B(...)
+    можно удалить AuthStore.java, если больше нигде не нужен
+
+
+    Не храни сам ключ в AuthGate Сейчас у тебя есть:
+
+
+java
+
+private static String b;
+AuthGate.E(c);
+
+
+Если ключ дальше не нужен, убери это полностью.
+Оставь только состояние:
+
+    LOCKED / VERIFYING / UNLOCKED
+    без сохранения строки ключа
+
+
+    После проверки сразу очищай поле В AuthScreen после чтения:
+
+
+java
+
+String c = this.a.getText().trim();
+this.a.setText("");
+
+
+После успеха/ошибки:
+
+java
+
+c = null;
+
+
+    Не выводи ключ в логах вообще
+
+
+    никаких System.out.println(c)
+    никаких logger.debug/info с кодом
+    ошибки только общие, без значения ключа
+
+
+    Не держи ключ в сообщениях UI
+
+
+    не вставлять его в this.b
+    только общие строки типа Updating... / State not available
+
+
+    Оставь только факт успеха После успешной проверки:
+
+
+java
+
+AuthGate.D();
+
+
+И все. Без:
+
+java
+
+AuthGate.E(c);
+
+
+    В AuthClient уже нормально У тебя POST body, это хорошо. Главное:
+
+
+    не логировать request body
+    не кидать исключения наружу с содержимым запроса
+
+
+Если хочешь, минимальный правильный вариант такой:
+
+В AuthGate
+
+    убрать поле String b
+    убрать методы E/F/G
+
+
+В AuthScreen
+
+    убрать AuthGate.E(c);
+    убрать AuthStore.B(c);
+    после getText() делать this.a.setText("");
+
+
+В C
+
+    убрать автозагрузку из AuthStore
+
+
+Это и будет самый чистый вариант:
+
+ключ вводится каждый запуск, на диск не пишется, в логах не светится, в runtime почти не остается.
