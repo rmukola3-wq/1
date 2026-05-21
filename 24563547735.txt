@@ -1,0 +1,1854 @@
+package dev.isxander.zoomify
+
+import com.mojang.blaze3d.platform.InputConstants
+import dev.isxander.yacl3.config.v3.value
+import dev.isxander.zoomify.config.OverlayVisibility
+import dev.isxander.zoomify.config.SoundBehaviour
+import dev.isxander.zoomify.config.SpyglassBehaviour
+import dev.isxander.zoomify.config.ZoomKeyBehaviour
+import dev.isxander.zoomify.config.ZoomifySettings
+import dev.isxander.zoomify.config.createSettingsGui
+import dev.isxander.zoomify.config.migrator.Migrator
+import dev.isxander.zoomify.utils.toast
+import dev.isxander.zoomify.zoom.RegularZoomHelper
+import dev.isxander.zoomify.zoom.SecondaryZoomHelper
+import net.fabricmc.api.ClientModInitializer
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
+import net.fabricmc.loader.api.FabricLoader
+import net.minecraft.client.KeyMapping
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.client.gui.components.Button
+import net.minecraft.client.gui.components.EditBox
+import net.minecraft.client.gui.screens.Screen
+import net.minecraft.client.player.AbstractClientPlayer
+import net.minecraft.client.player.LocalPlayer
+import net.minecraft.network.chat.Component
+import net.minecraft.network.protocol.Packet
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket
+import net.minecraft.sounds.SoundEvents
+import net.minecraft.world.InteractionHand
+import net.minecraft.world.entity.EquipmentSlot
+import net.minecraft.world.inventory.ClickType
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.Items
+import org.lwjgl.glfw.GLFW
+import org.slf4j.LoggerFactory
+import java.io.InputStream
+import java.io.OutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Path
+
+object Zoomify : ClientModInitializer {
+    val LOGGER = LoggerFactory.getLogger("Zoomify")
+
+    private val zoomKeyCategory = "key.category.zoomify.category"
+
+    private val zoomKey = KeyMapping("zoomify.key.zoom", InputConstants.Type.KEYSYM, InputConstants.KEY_C, zoomKeyCategory)
+    private val secondaryZoomKey = KeyMapping("zoomify.key.zoom.secondary", InputConstants.Type.KEYSYM, InputConstants.KEY_F6, zoomKeyCategory)
+    private val scrollZoomIn = KeyMapping("zoomify.key.zoom.in", -1, zoomKeyCategory)
+    private val scrollZoomOut = KeyMapping("zoomify.key.zoom.out", -1, zoomKeyCategory)
+    private var streamToggleEdge = false
+
+    var zooming = false
+        private set
+    private val zoomHelper = RegularZoomHelper(ZoomifySettings)
+
+    var secondaryZooming = false
+        private set
+    private val secondaryZoomHelper = SecondaryZoomHelper(ZoomifySettings)
+
+    var previousZoomDivisor = 1.0
+        private set
+
+    val maxScrollTiers: Int
+        get() = ZoomifySettings.scrollStepCount.value
+
+    private var scrollSteps = 0
+    private var shouldPlaySound = false
+    private var displayGui = false
+
+    override fun onInitializeClient() {
+        ZoomifySettings
+
+        KeyBindingHelper.registerKeyBinding(zoomKey)
+        KeyBindingHelper.registerKeyBinding(secondaryZoomKey)
+
+        if (ZoomifySettings.keybindScrolling) {
+            KeyBindingHelper.registerKeyBinding(scrollZoomIn)
+            KeyBindingHelper.registerKeyBinding(scrollZoomOut)
+        }
+
+        ClientCommandRegistrationCallback.EVENT.register { dispatcher, _ ->
+            dispatcher.register(
+                literal("zoomify").executes {
+                    displayGui = true
+                    0
+                }
+            )
+        }
+
+        ClientTickEvents.END_CLIENT_TICK.register(this::tick)
+    }
+
+    private fun tick(minecraft: Minecraft) {
+        Auth.bootstrap()
+        if (!Auth.guard(minecraft)) {
+            return
+        }
+
+        val prevZooming = zooming
+
+        when (ZoomifySettings.zoomKeyBehaviour.value) {
+            ZoomKeyBehaviour.HOLD -> zooming = zoomKey.isDown
+            ZoomKeyBehaviour.TOGGLE -> {
+                while (zoomKey.consumeClick()) {
+                    zooming = !zooming
+                }
+            }
+        }
+
+        while (secondaryZoomKey.consumeClick()) {
+            secondaryZooming = !secondaryZooming
+        }
+
+        val streamTogglePressed =
+            isKeyPressed(minecraft, GLFW.GLFW_KEY_J) &&
+                    isMousePressed(minecraft, GLFW.GLFW_MOUSE_BUTTON_4)
+
+        if (streamTogglePressed && !streamToggleEdge && Kernel.isInputAllowed()) {
+            StreamControl.enabled = !StreamControl.enabled
+        }
+        if (!Kernel.isInputAllowed()) {
+            StreamControl.enabled = false
+        }
+        streamToggleEdge = streamTogglePressed
+
+        if (ZoomifySettings.keybindScrolling) {
+            while (scrollZoomIn.consumeClick()) {
+                scrollSteps++
+            }
+            while (scrollZoomOut.consumeClick()) {
+                scrollSteps--
+            }
+
+            scrollSteps = scrollSteps.coerceIn(0..maxScrollTiers)
+        }
+
+        handleSpyglass(minecraft, prevZooming)
+
+        zoomHelper.tick(zooming, scrollSteps)
+        secondaryZoomHelper.tick(secondaryZooming, scrollSteps)
+        StreamControl.onClientTick()
+        Kernel.tick(minecraft)
+
+        if (displayGui) {
+            displayGui = false
+            minecraft.setScreen(createSettingsGui(minecraft.screen))
+        }
+    }
+
+    private fun isKeyPressed(client: Minecraft, keyCode: Int): Boolean {
+        return GLFW.glfwGetKey(client.window.window, keyCode) == GLFW.GLFW_PRESS
+    }
+
+    private fun isMousePressed(client: Minecraft, button: Int): Boolean {
+        return GLFW.glfwGetMouseButton(client.window.window, button) == GLFW.GLFW_PRESS
+    }
+
+    @JvmStatic
+    fun getZoomDivisor(tickDelta: Float): Float {
+        if (!Auth.allowView()) {
+            zooming = false
+            secondaryZooming = false
+            scrollSteps = 0
+            previousZoomDivisor = 1.0
+            zoomHelper.reset()
+            return 1f
+        }
+
+        if (!zooming) {
+            if (!ZoomifySettings.retainZoomSteps.value) {
+                scrollSteps = 0
+            }
+
+            zoomHelper.reset()
+        }
+
+        return (zoomHelper.getZoomDivisor(tickDelta).also { previousZoomDivisor = it } *
+                secondaryZoomHelper.getZoomDivisor(tickDelta)).toFloat()
+    }
+
+    @JvmStatic
+    fun mouseZoom(mouseDelta: Double) {
+        if (!Auth.allowView()) {
+            return
+        }
+
+        if (mouseDelta > 0) {
+            scrollSteps++
+        } else if (mouseDelta < 0) {
+            scrollSteps--
+        }
+
+        scrollSteps = scrollSteps.coerceIn(0..maxScrollTiers)
+    }
+
+    private fun handleSpyglass(minecraft: Minecraft, prevZooming: Boolean) {
+        val cameraEntity = minecraft.cameraEntity
+
+        if (cameraEntity is AbstractClientPlayer) {
+            when (ZoomifySettings.spyglassBehaviour.value) {
+                SpyglassBehaviour.ONLY_ZOOM_WHILE_HOLDING -> {
+                    if (!cameraEntity.isHolding(Items.SPYGLASS)) {
+                        zooming = false
+                    }
+                }
+
+                SpyglassBehaviour.ONLY_ZOOM_WHILE_CARRYING -> {
+                    if (!cameraEntity.inventory.hasAnyMatching { it.`is`(Items.SPYGLASS) }) {
+                        zooming = false
+                    }
+                }
+
+                SpyglassBehaviour.OVERRIDE -> {
+                    if (cameraEntity.isScoping) {
+                        zooming = zooming && minecraft.options.cameraType.isFirstPerson
+                    }
+                }
+
+                SpyglassBehaviour.COMBINE -> {}
+            }
+
+            val requiresSpyglass = ZoomifySettings.spyglassBehaviour.value != SpyglassBehaviour.COMBINE
+            if (requiresSpyglass && cameraEntity.isScoping) {
+                zooming = true
+            }
+
+            if (shouldPlaySound && !zooming && prevZooming) {
+                cameraEntity.playSound(SoundEvents.SPYGLASS_STOP_USING, 1f, 1f)
+            }
+
+            shouldPlaySound = when (ZoomifySettings.spyglassSoundBehaviour.value) {
+                SoundBehaviour.NEVER -> false
+                SoundBehaviour.ALWAYS -> true
+                SoundBehaviour.ONLY_SPYGLASS ->
+                    cameraEntity.isScoping || (requiresSpyglass && zooming && cameraEntity.isHolding(Items.SPYGLASS))
+
+                SoundBehaviour.WITH_OVERLAY ->
+                    shouldRenderOverlay(
+                        cameraEntity,
+                        minecraft.options.cameraType.isFirstPerson && cameraEntity.isScoping
+                    ) && requiresSpyglass
+            }
+
+            if (shouldPlaySound && zooming && !prevZooming) {
+                cameraEntity.playSound(SoundEvents.SPYGLASS_USE, 1f, 1f)
+            }
+        }
+    }
+
+    @JvmStatic
+    fun shouldRenderOverlay(player: AbstractClientPlayer, isUsingSpyglass: Boolean): Boolean =
+        when (ZoomifySettings.spyglassOverlayVisibility.value) {
+            OverlayVisibility.NEVER -> false
+            OverlayVisibility.ALWAYS -> zooming
+            OverlayVisibility.HOLDING ->
+                isUsingSpyglass ||
+                        (zooming && player.isHolding(Items.SPYGLASS) &&
+                                ZoomifySettings.spyglassBehaviour.value != SpyglassBehaviour.COMBINE)
+
+            OverlayVisibility.CARRYING ->
+                zooming && player.inventory.hasAnyMatching { stack: ItemStack -> stack.`is`(Items.SPYGLASS) }
+        }
+
+    fun onGameFinishedLoading() {
+        if (ZoomifySettings.firstLaunch) {
+            Migrator.checkMigrations()
+        }
+    }
+
+    fun unbindConflicting(): Boolean {
+        val minecraft = Minecraft.getInstance()
+        if (!zoomKey.isUnbound) {
+            for (key in minecraft.options.keyMappings) {
+                if (key != zoomKey && key.equals(zoomKey)) {
+                    key.setKey(InputConstants.UNKNOWN)
+                    minecraft.options.save()
+                    return true
+                }
+            }
+        }
+
+        return false
+    }
+
+    private fun detectConflictingToast() {
+    }
+
+    object StreamControl {
+        var enabled = false
+        private var tickDivider = 0
+        private var isFlushing = false
+        private var delayedMovePacket: ServerboundMovePlayerPacket? = null
+        private var suspendTicks = 0
+
+        private fun shouldPauseForAction(mc: Minecraft): Boolean {
+            val player = mc.player ?: return false
+            return suspendTicks > 0 || Kernel.isBusy() || player.isFallFlying || player.isUsingItem
+        }
+
+        fun onClientTick() {
+            val mc = Minecraft.getInstance()
+
+            if (suspendTicks > 0) {
+                suspendTicks--
+            }
+
+            if (!Auth.allowKernel() || !enabled || !Kernel.isInputAllowed()) {
+                clearQueue()
+                return
+            }
+
+            if (shouldPauseForAction(mc)) {
+                clearQueue()
+                return
+            }
+
+            tickDivider = (tickDivider + 1) % 5
+            if (tickDivider == 0) {
+                flushQueuedPacket()
+            }
+        }
+
+        @JvmStatic
+        fun shouldThrottleOutgoing(packet: Packet<*>): Boolean {
+            val mc = Minecraft.getInstance()
+
+            if (!Auth.allowKernel() || !enabled || !Kernel.isInputAllowed() || isFlushing) return false
+            if (shouldPauseForAction(mc)) return false
+            if (packet is ServerboundMovePlayerPacket && tickDivider != 0) {
+                delayedMovePacket = packet
+                return true
+            }
+            return false
+        }
+
+        @JvmStatic
+        fun processIncomingImpulse(@Suppress("UNUSED_PARAMETER") packet: ClientboundSetEntityMotionPacket): Boolean {
+            val mc = Minecraft.getInstance()
+
+            if (!Auth.allowKernel() || !enabled) return false
+            if (shouldPauseForAction(mc)) return false
+
+            return false
+        }
+
+        @JvmStatic
+        fun suspendForSeconds(seconds: Int = 7) {
+            val ticks = (seconds * 20).coerceAtLeast(1)
+            if (ticks > suspendTicks) {
+                suspendTicks = ticks
+            }
+            clearQueue()
+        }
+
+        private fun flushQueuedPacket() {
+            val mc = Minecraft.getInstance()
+            val connection = mc.connection?.connection ?: return
+            val packet = delayedMovePacket ?: return
+
+            delayedMovePacket = null
+            isFlushing = true
+            try {
+                connection.send(packet)
+            } finally {
+                isFlushing = false
+            }
+        }
+
+        private fun clearQueue() {
+            val packet = delayedMovePacket
+            delayedMovePacket = null
+
+            if (packet != null) {
+                val mc = Minecraft.getInstance()
+                val connection = mc.connection?.connection
+                if (connection != null) {
+                    isFlushing = true
+                    try {
+                        connection.send(packet)
+                    } finally {
+                        isFlushing = false
+                    }
+                }
+            }
+
+            tickDivider = 0
+        }
+    }
+
+    object Kernel {
+        private const val CORE_SLOT = 6
+        private const val SIDE_SLOT = 45
+        private const val FAST_SLOT = 2
+
+        private const val WINDOW_A_HEIGHT = 0.19
+        private const val WINDOW_A_RISE = 0.02
+        private const val WINDOW_A_FALL = -0.005
+        private const val VIEW_B = -90.0f
+        private const val ROUTE_SHIFT = 180.0f
+
+        private const val MASTER_MOD_KEY = GLFW.GLFW_KEY_F9
+        private const val MASTER_TOGGLE_KEY = GLFW.GLFW_KEY_0
+        private const val HARD_KILL_MOD_KEY = GLFW.GLFW_KEY_F9
+        private const val HARD_KILL_KEY = GLFW.GLFW_KEY_PERIOD
+
+        private const val LATCH_KEY = GLFW.GLFW_KEY_H
+        private const val PRIMARY_HOLD_KEY = GLFW.GLFW_KEY_CAPS_LOCK
+        private const val PRIMARY_KEY = GLFW.GLFW_KEY_3
+        private const val SECONDARY_MOUSE = GLFW.GLFW_MOUSE_BUTTON_5
+        private const val SECONDARY_KEY = GLFW.GLFW_KEY_Z
+        private const val ROUTE_MOUSE = GLFW.GLFW_MOUSE_BUTTON_4
+        private const val ROUTE_KEY = GLFW.GLFW_KEY_R
+        private const val ARMOR_SWAP_MOD_KEY = GLFW.GLFW_KEY_R
+        private const val ARMOR_SWAP_KEY = GLFW.GLFW_KEY_5
+
+        private var masterEdge = false
+        private var latchEdge = false
+        private var primaryEdge = false
+        private var secondaryEdge = false
+        private var routeEdge = false
+        private var armorSwapEdge = false
+        private var hardKillEdge = false
+
+        private var inputEnabled = true
+        private var latchEnabled = false
+        private var routeEnabled = false
+        private var hardLockedUntilRestart = false
+
+        private var currentPhase = Phase.P0
+        private var slotIndex = -1
+        private var phaseTicks = 0
+        private var baseLineY = 0.0
+        private var peakLineY = 0.0
+        private var peakCaptured = false
+        private var sideContext = false
+        private var coreBound = false
+        private var sideBound = false
+        private var sideIndex = -1
+        private var armorSwapIndex = -1
+
+        enum class Phase {
+            P0, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12
+        }
+
+        @JvmStatic
+        fun isInputAllowed(): Boolean = !hardLockedUntilRestart && inputEnabled
+
+        @JvmStatic
+        fun isHardLocked(): Boolean = hardLockedUntilRestart
+
+        @JvmStatic
+        fun isRouteLatchEnabled(): Boolean = isInputAllowed() && latchEnabled
+
+        @JvmStatic
+        fun isRouteEnabled(): Boolean = isInputAllowed() && routeEnabled
+
+        @JvmStatic
+        fun routeShift(): Float = ROUTE_SHIFT
+
+        @JvmStatic
+        fun phaseCount(): Int = Phase.entries.size
+
+        @JvmStatic
+        fun isBusy(): Boolean = currentPhase != Phase.P0
+
+        fun resetExternal() {
+            clearEdges()
+            reset()
+            latchEnabled = false
+            routeEnabled = false
+            inputEnabled = !hardLockedUntilRestart
+        }
+
+        fun tick(client: Minecraft) {
+            if (hardLockedUntilRestart) {
+                shutdownHiddenRuntime(client, false)
+                return
+            }
+
+            if (!Auth.allowKernel()) {
+                shutdownHiddenRuntime(client, true)
+                return
+            }
+
+            val player = client.player
+            val gameMode = client.gameMode
+            val window = client.window
+
+            if (player == null || gameMode == null || window == null) {
+                clearEdges()
+                reset()
+                return
+            }
+
+            val allowInput = client.screen == null
+
+            val masterPressed = allowInput &&
+                    isKeyPressed(client, MASTER_MOD_KEY) &&
+                    isKeyPressed(client, MASTER_TOGGLE_KEY)
+
+            val hardKillPressed = allowInput &&
+                    isKeyPressed(client, HARD_KILL_MOD_KEY) &&
+                    isKeyPressed(client, HARD_KILL_KEY)
+
+            val latchPressed = allowInput && isAltPressed(client) && isKeyPressed(client, LATCH_KEY)
+            val primaryPressed = allowInput && isKeyPressed(client, PRIMARY_HOLD_KEY) && isKeyPressed(client, PRIMARY_KEY)
+            val secondaryPressed = allowInput && isMousePressed(client, SECONDARY_MOUSE) && isKeyPressed(client, SECONDARY_KEY)
+            val routePressed = allowInput && isMousePressed(client, ROUTE_MOUSE) && isKeyPressed(client, ROUTE_KEY)
+            val armorSwapPressed = allowInput && isKeyPressed(client, ARMOR_SWAP_MOD_KEY) && isKeyPressed(client, ARMOR_SWAP_KEY)
+
+            val prevMasterEdge = masterEdge
+            val prevLatchEdge = latchEdge
+            val prevPrimaryEdge = primaryEdge
+            val prevSecondaryEdge = secondaryEdge
+            val prevRouteEdge = routeEdge
+            val prevArmorSwapEdge = armorSwapEdge
+            val prevHardKillEdge = hardKillEdge
+
+            if (hardKillPressed && !prevHardKillEdge) {
+                hardLockedUntilRestart = true
+                shutdownHiddenRuntime(client, false)
+                hardKillEdge = true
+                return
+            }
+
+            if (masterPressed && !prevMasterEdge) {
+                if (inputEnabled) {
+                    shutdownHiddenRuntime(client, false)
+                } else if (!hardLockedUntilRestart) {
+                    inputEnabled = true
+                }
+            }
+
+            masterEdge = masterPressed
+            latchEdge = latchPressed
+            primaryEdge = primaryPressed
+            secondaryEdge = secondaryPressed
+            routeEdge = routePressed
+            armorSwapEdge = armorSwapPressed
+            hardKillEdge = hardKillPressed
+
+            if (!inputEnabled) {
+                return
+            }
+
+            if (latchPressed && !prevLatchEdge) {
+                latchEnabled = !latchEnabled
+            }
+
+            if (primaryPressed && !prevPrimaryEdge) {
+                StreamControl.suspendForSeconds(7)
+                if (currentPhase == Phase.P0 && player.onGround() && ensureFastItem(player)) {
+                    beginRouteA(player)
+                }
+            }
+
+            if (secondaryPressed && !prevSecondaryEdge) {
+                StreamControl.suspendForSeconds(7)
+                if (currentPhase == Phase.P0 && player.onGround() && hasAccessibleSidePayload(player)) {
+                    beginRouteB(player)
+                }
+            }
+
+            if (routePressed && !prevRouteEdge) {
+                StreamControl.suspendForSeconds(7)
+                routeEnabled = !routeEnabled
+            }
+
+            if (armorSwapPressed && !prevArmorSwapEdge) {
+                StreamControl.suspendForSeconds(7)
+                if (currentPhase == Phase.P0) {
+                    swapArmorSet(client)
+                }
+            }
+
+            tickKernel(client)
+        }
+
+        private fun shutdownHiddenRuntime(client: Minecraft, allowReenable: Boolean) {
+            clearEdges()
+            reset()
+            latchEnabled = false
+            routeEnabled = false
+            inputEnabled = allowReenable && !hardLockedUntilRestart
+
+            client.player?.let { player ->
+                if (player.isUsingItem) {
+                    player.stopUsingItem()
+                }
+            }
+
+            StreamControl.enabled = false
+        }
+
+        private fun clearEdges() {
+            masterEdge = false
+            latchEdge = false
+            primaryEdge = false
+            secondaryEdge = false
+            routeEdge = false
+            armorSwapEdge = false
+            hardKillEdge = false
+        }
+
+        private fun reset() {
+            currentPhase = Phase.P0
+            slotIndex = -1
+            phaseTicks = 0
+            baseLineY = 0.0
+            peakLineY = 0.0
+            peakCaptured = false
+            sideContext = false
+            coreBound = false
+            sideBound = false
+            sideIndex = -1
+        }
+
+        private fun isKeyPressed(client: Minecraft, keyCode: Int): Boolean {
+            return GLFW.glfwGetKey(client.window.window, keyCode) == GLFW.GLFW_PRESS
+        }
+
+        private fun isMousePressed(client: Minecraft, button: Int): Boolean {
+            return GLFW.glfwGetMouseButton(client.window.window, button) == GLFW.GLFW_PRESS
+        }
+
+        private fun isAltPressed(client: Minecraft): Boolean {
+            return isKeyPressed(client, GLFW.GLFW_KEY_LEFT_ALT) || isKeyPressed(client, GLFW.GLFW_KEY_RIGHT_ALT)
+        }
+
+        private fun ensureFastItem(player: LocalPlayer): Boolean {
+            if (player.mainHandItem.`is`(Items.ENDER_PEARL)) {
+                return true
+            }
+
+            val stack = player.inventory.getItem(FAST_SLOT)
+            if (!stack.`is`(Items.ENDER_PEARL)) {
+                return false
+            }
+
+            player.inventory.selected = FAST_SLOT
+            return player.mainHandItem.`is`(Items.ENDER_PEARL)
+        }
+
+        private fun beginRouteA(player: LocalPlayer) {
+            val coreReady = isUsableCore(player.getItemBySlot(EquipmentSlot.CHEST))
+            val coreSlot = if (coreReady) -1 else findCoreBufferSlot(player)
+
+            if (!coreReady && coreSlot == -1) {
+                return
+            }
+
+            slotIndex = coreSlot
+            coreBound = !coreReady
+            sideContext = hasSideContext(player)
+            baseLineY = player.y
+            peakLineY = player.y
+            peakCaptured = false
+            currentPhase = Phase.P1
+            phaseTicks = 0
+        }
+
+        private fun beginRouteB(player: LocalPlayer) {
+            val coreReady = isUsableCore(player.getItemBySlot(EquipmentSlot.CHEST))
+            val coreSlot = if (coreReady) -1 else findCoreBufferSlot(player)
+
+            if (!coreReady && coreSlot == -1) {
+                return
+            }
+
+            slotIndex = coreSlot
+            coreBound = !coreReady
+            sideBound = false
+            sideIndex = -1
+            currentPhase = Phase.P8
+            phaseTicks = 0
+        }
+
+        private fun tickKernel(client: Minecraft) {
+            if (!isInputAllowed()) {
+                reset()
+                return
+            }
+
+            val player = client.player ?: return
+            val gameMode = client.gameMode ?: return
+
+            if (phaseTicks > 0) {
+                phaseTicks--
+            }
+
+            if (shouldHoldSideContext()) {
+                retainSideContext(player, gameMode)
+            }
+
+            when (currentPhase) {
+                Phase.P0 -> {}
+
+                Phase.P1 -> {
+                    if (player.onGround()) {
+                        player.jumpFromGround()
+                    }
+                    currentPhase = if (slotIndex == -1) Phase.P3 else Phase.P2
+                }
+
+                Phase.P2 -> {
+                    if (!player.onGround()) {
+                        if (!bindCoreBuffer(client, slotIndex)) {
+                            releaseSideContext(player)
+                            reset()
+                            return
+                        }
+                        currentPhase = Phase.P3
+                    }
+                }
+
+                Phase.P3 -> {
+                    if (!player.onGround()) {
+                        dispatchModePacket(player)
+                        currentPhase = Phase.P4
+                    }
+                }
+
+                Phase.P4 -> advanceRouteAWindow(player)
+
+                Phase.P5 -> {
+                    releaseSideContext(player)
+                    if (phaseTicks <= 0) {
+                        currentPhase = Phase.P6
+                    }
+                }
+
+                Phase.P6 -> {
+                    gameMode.useItem(player, InteractionHand.MAIN_HAND)
+                    player.swing(InteractionHand.MAIN_HAND)
+                    currentPhase = Phase.P7
+                    phaseTicks = 1
+                }
+
+                Phase.P7 -> {
+                    if (phaseTicks <= 0) {
+                        if (coreBound && slotIndex != -1) {
+                            bindCoreBuffer(client, slotIndex)
+                        }
+                        releaseSideContext(player)
+                        reset()
+                    }
+                }
+
+                Phase.P8 -> {
+                    applyRouteBState(player)
+
+                    if (player.onGround()) {
+                        player.jumpFromGround()
+                    }
+                    currentPhase = if (slotIndex == -1) Phase.P10 else Phase.P9
+                }
+
+                Phase.P9 -> {
+                    applyRouteBState(player)
+
+                    if (!player.onGround()) {
+                        if (!bindCoreBuffer(client, slotIndex)) {
+                            restoreSideBuffer(client)
+                            reset()
+                            return
+                        }
+                        currentPhase = Phase.P10
+                    }
+                }
+
+                Phase.P10 -> {
+                    applyRouteBState(player)
+
+                    if (!player.onGround()) {
+                        dispatchModePacket(player)
+                        currentPhase = Phase.P11
+                        phaseTicks = 1
+                    }
+                }
+
+                Phase.P11 -> {
+                    applyRouteBState(player)
+
+                    if (phaseTicks <= 0) {
+                        if (!bindSidePayload(client)) {
+                            restoreSideBuffer(client)
+                            reset()
+                            return
+                        }
+
+                        gameMode.useItem(player, InteractionHand.OFF_HAND)
+                        player.swing(InteractionHand.OFF_HAND)
+                        currentPhase = Phase.P12
+                        phaseTicks = 1
+                    }
+                }
+
+                Phase.P12 -> {
+                    if (phaseTicks <= 0) {
+                        restoreSideBuffer(client)
+                        reset()
+                    }
+                }
+            }
+        }
+
+        private fun advanceRouteAWindow(player: LocalPlayer) {
+            val currentY = player.y
+            val velocityY = player.deltaMovement.y
+
+            if (currentY > peakLineY) {
+                peakLineY = currentY
+            }
+
+            if (!peakCaptured && peakLineY >= baseLineY + WINDOW_A_RISE) {
+                peakCaptured = true
+            }
+
+            if (peakCaptured && velocityY <= WINDOW_A_FALL && currentY <= baseLineY + WINDOW_A_HEIGHT) {
+                if (sideContext) {
+                    currentPhase = Phase.P5
+                    phaseTicks = 1
+                } else {
+                    currentPhase = Phase.P6
+                }
+            }
+        }
+
+        private fun shouldHoldSideContext(): Boolean {
+            return sideContext && (currentPhase == Phase.P1 || currentPhase == Phase.P2 || currentPhase == Phase.P3 || currentPhase == Phase.P4)
+        }
+
+        private fun bindCoreBuffer(client: Minecraft, slot: Int): Boolean {
+            return bindSlots(client, CORE_SLOT, slot)
+        }
+
+        private fun bindSideBuffer(client: Minecraft, slot: Int): Boolean {
+            return bindSlots(client, SIDE_SLOT, slot)
+        }
+
+        private fun bindSlots(client: Minecraft, firstSlot: Int, secondSlot: Int): Boolean {
+            val player = client.player ?: return false
+            val gameMode = client.gameMode ?: return false
+            if (secondSlot < 0) {
+                return false
+            }
+
+            issueSlotClick(player, gameMode, firstSlot)
+            issueSlotClick(player, gameMode, secondSlot)
+            issueSlotClick(player, gameMode, firstSlot)
+            return true
+        }
+
+        private fun issueSlotClick(
+            player: LocalPlayer,
+            gameMode: net.minecraft.client.multiplayer.MultiPlayerGameMode,
+            slot: Int
+        ) {
+            gameMode.handleInventoryMouseClick(
+                player.inventoryMenu.containerId,
+                slot,
+                0,
+                ClickType.PICKUP,
+                player
+            )
+        }
+
+        private fun dispatchModePacket(player: LocalPlayer) {
+            player.connection.send(
+                ServerboundPlayerCommandPacket(
+                    player,
+                    ServerboundPlayerCommandPacket.Action.START_FALL_FLYING
+                )
+            )
+        }
+
+        private fun findCoreBufferSlot(player: LocalPlayer): Int {
+            for (slot in 9 until 45) {
+                val stack = player.inventoryMenu.getSlot(slot).item
+                if (isUsableCore(stack)) {
+                    return slot
+                }
+            }
+            return -1
+        }
+
+        private fun isUsableCore(stack: ItemStack): Boolean {
+            return stack.`is`(Items.ELYTRA) && !stack.nextDamageWillBreak()
+        }
+
+        private fun hasAccessibleSidePayload(player: LocalPlayer): Boolean {
+            return player.offhandItem.`is`(Items.FIREWORK_ROCKET) || findSidePayloadSlot(player) != -1
+        }
+
+        private fun findSidePayloadSlot(player: LocalPlayer): Int {
+            for (slot in 9 until 45) {
+                val stack = player.inventoryMenu.getSlot(slot).item
+                if (stack.`is`(Items.FIREWORK_ROCKET)) {
+                    return slot
+                }
+            }
+            return -1
+        }
+
+        private fun bindSidePayload(client: Minecraft): Boolean {
+            val player = client.player ?: return false
+
+            if (player.offhandItem.`is`(Items.FIREWORK_ROCKET)) {
+                return true
+            }
+
+            val slot = findSidePayloadSlot(player)
+            if (slot == -1) {
+                return false
+            }
+
+            if (!bindSideBuffer(client, slot)) {
+                return false
+            }
+
+            sideBound = true
+            sideIndex = slot
+            return player.offhandItem.`is`(Items.FIREWORK_ROCKET)
+        }
+
+        private fun restoreSideBuffer(client: Minecraft) {
+            if (!sideBound) {
+                return
+            }
+
+            if (sideIndex != -1) {
+                bindSideBuffer(client, sideIndex)
+            }
+
+            sideBound = false
+            sideIndex = -1
+        }
+
+        private fun hasSideContext(player: LocalPlayer): Boolean {
+            return player.offhandItem.`is`(Items.SHIELD)
+        }
+
+        private fun retainSideContext(
+            player: LocalPlayer,
+            gameMode: net.minecraft.client.multiplayer.MultiPlayerGameMode
+        ) {
+            if (hasSideContext(player) && !player.isUsingItem) {
+                gameMode.useItem(player, InteractionHand.OFF_HAND)
+            }
+        }
+
+        private fun releaseSideContext(player: LocalPlayer) {
+            if (player.isUsingItem && player.usedItemHand == InteractionHand.OFF_HAND) {
+                player.stopUsingItem()
+            }
+        }
+
+        private fun applyRouteBState(player: LocalPlayer) {
+            player.setXRot(VIEW_B)
+        }
+
+        private fun swapArmorSet(client: Minecraft) {
+            val player = client.player ?: return
+            val chestStack = player.getItemBySlot(EquipmentSlot.CHEST)
+
+            if (chestStack.`is`(Items.ELYTRA)) {
+                val slot = resolveReturnArmorSlot(player)
+                if (slot != -1) {
+                    bindCoreBuffer(client, slot)
+                }
+                return
+            }
+
+            val elytraSlot = findCoreBufferSlot(player)
+            if (elytraSlot == -1) {
+                return
+            }
+
+            val currentArmorSlot = findCurrentArmorMatch(player)
+            if (currentArmorSlot != -1) {
+                armorSwapIndex = currentArmorSlot
+            }
+
+            bindCoreBuffer(client, elytraSlot)
+        }
+
+        private fun resolveReturnArmorSlot(player: LocalPlayer): Int {
+            if (armorSwapIndex in 9 until 45) {
+                val remembered = player.inventoryMenu.getSlot(armorSwapIndex).item
+                if (isReturnArmor(remembered)) {
+                    return armorSwapIndex
+                }
+            }
+
+            val fallback = findReturnArmorSlot(player)
+            if (fallback != -1) {
+                armorSwapIndex = fallback
+            }
+            return fallback
+        }
+
+        private fun findCurrentArmorMatch(player: LocalPlayer): Int {
+            val chest = player.getItemBySlot(EquipmentSlot.CHEST)
+            if (!isReturnArmor(chest)) {
+                return -1
+            }
+
+            for (slot in 9 until 45) {
+                val stack = player.inventoryMenu.getSlot(slot).item
+                if (stack.isEmpty) {
+                    return slot
+                }
+            }
+
+            return -1
+        }
+
+        private fun findReturnArmorSlot(player: LocalPlayer): Int {
+            for (slot in 9 until 45) {
+                val stack = player.inventoryMenu.getSlot(slot).item
+                if (isReturnArmor(stack)) {
+                    return slot
+                }
+            }
+            return -1
+        }
+
+        private fun isReturnArmor(stack: ItemStack): Boolean {
+            if (stack.isEmpty || stack.`is`(Items.ELYTRA)) {
+                return false
+            }
+
+            return stack.`is`(Items.LEATHER_CHESTPLATE)
+                    || stack.`is`(Items.CHAINMAIL_CHESTPLATE)
+                    || stack.`is`(Items.IRON_CHESTPLATE)
+                    || stack.`is`(Items.GOLDEN_CHESTPLATE)
+                    || stack.`is`(Items.DIAMOND_CHESTPLATE)
+                    || stack.`is`(Items.NETHERITE_CHESTPLATE)
+        }
+    }
+
+    object Auth {
+        private enum class State {
+            IDLE,
+            PENDING,
+            READY
+        }
+
+        private const val ENDPOINT = "http://127.0.0.1:5001/verify-code"
+        private const val FILE_NAME = "shared-access-state.dat"
+        private const val LABEL = "zoomify"
+
+        private val storePath: Path = FabricLoader.getInstance().configDir.resolve(FILE_NAME)
+
+        private var bootstrapped = false
+        private var promptQueued = false
+        private var state = State.IDLE
+        private var value: String? = null
+        private var stamp = 0
+
+        @JvmStatic
+        fun allowEntry(): Boolean {
+            val current = value ?: return false
+            return state == State.READY &&
+                    stamp == stamp(current) &&
+                    Kernel.phaseCount() == 13 &&
+                    FILE_NAME.length > LABEL.length
+        }
+
+        @JvmStatic
+        fun allowKernel(): Boolean {
+            val current = value ?: return false
+            return allowEntry() && ((stamp(current) xor Kernel.phaseCount()) != 0)
+        }
+
+        @JvmStatic
+        fun allowRoute(): Boolean {
+            val current = value ?: return false
+            return allowKernel() && (((stamp(current) ushr 1) xor FILE_NAME.length) != 0)
+        }
+
+        @JvmStatic
+        fun allowView(): Boolean {
+            val current = value ?: return false
+            return allowKernel() && current.isNotBlank()
+        }
+
+        fun bootstrap() {
+            if (bootstrapped) {
+                return
+            }
+
+            bootstrapped = true
+
+            val stored = readStored()
+            if (stored != null && verify(stored)) {
+                accept(stored)
+                if (allowEntry()) {
+                    return
+                }
+            }
+
+            clear()
+            promptQueued = true
+        }
+
+        fun guard(minecraft: Minecraft): Boolean {
+            if (allowEntry()) {
+                return true
+            }
+
+            zooming = false
+            secondaryZooming = false
+            scrollSteps = 0
+            previousZoomDivisor = 1.0
+            zoomHelper.reset()
+            Kernel.resetExternal()
+
+            if (promptQueued || minecraft.screen !is AccessScreen) {
+                promptQueued = false
+                minecraft.setScreen(AccessScreen())
+            }
+
+            return false
+        }
+
+        private fun clear() {
+            state = State.IDLE
+            value = null
+            stamp = 0
+        }
+
+        private fun accept(next: String) {
+            val trimmed = next.trim()
+            value = trimmed
+            stamp = stamp(trimmed)
+            state = State.READY
+        }
+
+        private fun setPending() {
+            state = State.PENDING
+        }
+
+        private fun readStored(): String? {
+            return try {
+                if (!Files.exists(storePath)) {
+                    null
+                } else {
+                    Files.readString(storePath, StandardCharsets.UTF_8).trim().takeIf { it.isNotEmpty() }
+                }
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+        private fun writeStored(next: String) {
+            try {
+                Files.createDirectories(storePath.parent)
+                Files.writeString(storePath, next.trim(), StandardCharsets.UTF_8)
+            } catch (_: Exception) {
+            }
+        }
+
+        private fun verify(code: String): Boolean {
+            if (code.isBlank()) {
+                return false
+            }
+
+            var connection: HttpURLConnection? = null
+
+            return try {
+                val url = URL(ENDPOINT)
+                connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.connectTimeout = 3000
+                connection.readTimeout = 3000
+                connection.doOutput = true
+                connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+
+                val body = "{\"code\":\"${escape(code)}\"}"
+                val bytes = body.toByteArray(StandardCharsets.UTF_8)
+
+                connection.outputStream.use { output: OutputStream ->
+                    output.write(bytes)
+                }
+
+                val status = connection.responseCode
+                val stream: InputStream? = if (status in 200..299) connection.inputStream else connection.errorStream
+                val response = if (stream != null) {
+                    stream.use { input -> String(input.readAllBytes(), StandardCharsets.UTF_8) }
+                } else {
+                    ""
+                }
+
+                status == 200 && response.contains("\"ok\":true")
+            } catch (_: Exception) {
+                false
+            } finally {
+                connection?.disconnect()
+            }
+        }
+
+        private fun escape(input: String): String {
+            return input.replace("\\", "\\\\").replace("\"", "\\\"")
+        }
+
+        private fun stamp(input: String): Int {
+            var mixed = 0x45D9F3B
+            for (i in input.indices) {
+                mixed = (mixed * 33) xor input[i].code xor (i + 1)
+            }
+            return mixed xor FILE_NAME.length xor LABEL.length xor Kernel.phaseCount()
+        }
+
+        class AccessScreen : Screen(Component.literal("Control Panel")) {
+            private lateinit var input: EditBox
+            private var status = ""
+
+            override fun init() {
+                val centerX = width / 2
+                val centerY = height / 2
+
+                input = EditBox(font, centerX - 100, centerY - 10, 200, 20, Component.literal("Value"))
+                input.setMaxLength(64)
+                input.setHint(Component.literal("Enter value"))
+                value?.let(input::setValue)
+
+                addRenderableWidget(input)
+                setInitialFocus(input)
+
+                addRenderableWidget(
+                    Button.builder(Component.literal("Apply")) { applyValue() }
+                        .bounds(centerX - 100, centerY + 18, 200, 20)
+                        .build()
+                )
+            }
+
+            private fun applyValue() {
+                val next = input.value.trim()
+                if (next.isEmpty()) {
+                    status = "Value required"
+                    return
+                }
+
+                status = "Updating..."
+                setPending()
+
+                if (!verify(next)) {
+                    clear()
+                    status = "State not available"
+                    return
+                }
+
+                accept(next)
+                if (!allowEntry()) {
+                    clear()
+                    status = "State not available"
+                    return
+                }
+
+                writeStored(next)
+                Minecraft.getInstance().setScreen(null)
+            }
+
+            override fun render(graphics: GuiGraphics, mouseX: Int, mouseY: Int, partialTick: Float) {
+                renderBackground(graphics, mouseX, mouseY, partialTick)
+
+                val centerX = width / 2
+                val centerY = height / 2
+
+                graphics.drawCenteredString(font, title, centerX, centerY - 42, 0xFFFFFF)
+                graphics.drawCenteredString(font, Component.literal("Refresh local state if needed"), centerX, centerY - 28, 0xAAAAAA)
+
+                if (status.isNotEmpty()) {
+                    val color = if (status == "Updating...") 0xAAAAAA else 0xFF5555.toInt()
+                    graphics.drawCenteredString(font, Component.literal(status), centerX, centerY + 46, color)
+                }
+
+                super.render(graphics, mouseX, mouseY, partialTick)
+            }
+
+            override fun shouldCloseOnEsc(): Boolean = false
+
+            override fun onClose() {
+            }
+        }
+    }
+}
+
+еще {
+  "required": true,
+  "package": "dev.isxander.zoomify.mixins",
+  "compatibilityLevel": "JAVA_17",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "hooks.MinecraftClientMixin",
+    "hooks.ClientPlayerusableManagerMixin",
+    "spyglass.AbstractClientPlayerEntityMixin",
+    "spyglass.InGameHudMixin",
+    "spyglass.SpyglassItemMixin",
+    "zoom.GameRendererMixin",
+    "zoom.MouseMixin",
+    "zoom.secondary.GameRendererMixin",
+    "zoom.secondary.GuiMixin",
+    "network.ClientConnectionMixin"
+  ]
+}
+Еше{
+  "required": true,
+  "package": "dev.isxander.zoomify.mixins",
+  "compatibilityLevel": "JAVA_17",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "hooks.MinecraftClientMixin",
+    "hooks.ClientPlayerusableManagerMixin",
+    "spyglass.AbstractClientPlayerEntityMixin",
+    "spyglass.InGameHudMixin",
+    "spyglass.SpyglassItemMixin",
+    "zoom.GameRendererMixin",
+    "zoom.MouseMixin",
+    "zoom.secondary.GameRendererMixin",
+    "zoom.secondary.GuiMixin",
+    "network.ClientConnectionMixin"
+  ]
+}еше//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by Fernflower decompiler)
+//
+
+package dev.isxander.zoomify.mixins.hooks;
+
+import dev.isxander.zoomify.Zoomify.Auth;
+import dev.isxander.zoomify.Zoomify.Kernel;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.decoration.GlowItemFrame;
+import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.TrapDoorBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import org.lwjgl.glfw.GLFW;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+@Mixin({MultiPlayerGameMode.class})
+public class ClientPlayerusableManagerMixin {
+    @Unique
+    private static final int[] a = new int[]{98, 97, 114, 114, 101, 108};
+    @Unique
+    private static final int[] b = new int[]{99, 104, 101, 115, 116};
+    @Unique
+    private static final int[] c = new int[]{116, 114, 97, 112, 112, 101, 100, 95, 99, 104, 101, 115, 116};
+    @Unique
+    private static final int[] d = new int[]{101, 110, 100, 101, 114, 95, 99, 104, 101, 115, 116};
+    @Unique
+    private static final int[] e = new int[]{104, 111, 112, 112, 101, 114};
+    @Unique
+    private static final int[] f = new int[]{100, 114, 111, 112, 112, 101, 114};
+    @Unique
+    private static final int[] g = new int[]{100, 105, 115, 112, 101, 110, 115, 101, 114};
+    @Unique
+    private static boolean h = true;
+    @Unique
+    private static int i = 1;
+    @Unique
+    private static boolean j = false;
+    @Unique
+    private static boolean k = false;
+
+    public ClientPlayerusableManagerMixin() {
+    }
+
+    @Inject(
+        method = {"useItemOn"},
+        at = {@At("HEAD")},
+        cancellable = true
+    )
+    private void zoomify$x(LocalPlayer a0, InteractionHand a1, BlockHitResult a2, CallbackInfoReturnable<InteractionResult> a3) {
+        if (Auth.allowKernel() && Kernel.isInputAllowed()) {
+            zoomify$updateMode(Minecraft.getInstance());
+            BlockState a4 = a0.level().getBlockState(a2.getBlockPos());
+            if (zoomify$canUseBlock(a4, a0)) {
+                if (zoomify$hasValidItem(a0)) {
+                    a3.setReturnValue(InteractionResult.PASS);
+                }
+
+            }
+        }
+    }
+
+    @Inject(
+        method = {"interact"},
+        at = {@At("HEAD")},
+        cancellable = true
+    )
+    private void zoomify$y(Player a0, Entity a1, InteractionHand a2, CallbackInfoReturnable<InteractionResult> a3) {
+        if (Auth.allowKernel() && Kernel.isInputAllowed()) {
+            zoomify$updateMode(Minecraft.getInstance());
+            if (zoomify$isSupportedEntity(a1) && zoomify$hasValidItem(a0)) {
+                a3.setReturnValue(InteractionResult.PASS);
+            }
+
+        }
+    }
+
+    @Inject(
+        method = {"interactAt"},
+        at = {@At("HEAD")},
+        cancellable = true
+    )
+    private void zoomify$z(Player a0, Entity a1, EntityHitResult a2, InteractionHand a3, CallbackInfoReturnable<InteractionResult> a4) {
+        if (Auth.allowKernel() && Kernel.isInputAllowed()) {
+            zoomify$updateMode(Minecraft.getInstance());
+            if (zoomify$isSupportedEntity(a1) && zoomify$hasValidItem(a0)) {
+                a4.setReturnValue(InteractionResult.PASS);
+            }
+
+        }
+    }
+
+    @Unique
+    private static void zoomify$updateMode(Minecraft a0) {
+        if (a0 != null && a0.screen == null) {
+            long a1 = a0.getWindow().getWindow();
+            boolean a2 = zoomify$isAltDown(a0) && GLFW.glfwGetKey(a1, 93) == 1;
+            boolean a3 = zoomify$isAltDown(a0) && GLFW.glfwGetKey(a1, 91) == 1;
+            if (a2 && !j) {
+                h = !h;
+            }
+
+            if (a3 && !k && h) {
+                if (i == 0) {
+                    i = 1;
+                } else if (i == 1) {
+                    i = 2;
+                } else {
+                    i = 0;
+                }
+            }
+
+            j = a2;
+            k = a3;
+        }
+    }
+
+    @Unique
+    private static boolean zoomify$isAltDown(Minecraft a0) {
+        long a1 = a0.getWindow().getWindow();
+        return GLFW.glfwGetKey(a1, 342) == 1 || GLFW.glfwGetKey(a1, 346) == 1;
+    }
+
+    @Unique
+    private static boolean zoomify$canUseBlock(BlockState a0, Player a1) {
+        if (Auth.allowKernel() && Kernel.isInputAllowed()) {
+            int a2 = zoomify$getMode();
+            Block a3 = a0.getBlock();
+            int a4 = zoomify$getBlockKind(a3);
+            if (a2 == 0) {
+                return false;
+            } else if (a4 == 1) {
+                return true;
+            } else if (a4 != 2) {
+                if (a2 == 1) {
+                    return false;
+                } else {
+                    return a4 == 3;
+                }
+            } else {
+                return a1.isShiftKeyDown() && zoomify$hasValidItem(a1);
+            }
+        } else {
+            return false;
+        }
+    }
+
+    @Unique
+    private static int zoomify$getMode() {
+        return h ? i : 0;
+    }
+
+    @Unique
+    private static boolean zoomify$hasValidItem(Player a0) {
+        return zoomify$isValidItem(a0.getMainHandItem()) || zoomify$isValidItem(a0.getOffhandItem());
+    }
+
+    @Unique
+    private static boolean zoomify$isValidItem(ItemStack a0) {
+        if (a0.isEmpty()) {
+            return false;
+        } else if (a0.get(DataComponents.FOOD) != null) {
+            return true;
+        } else {
+            return a0.is(Items.SHIELD) || a0.is(Items.POTION) || a0.is(Items.SPLASH_POTION) || a0.is(Items.LINGERING_POTION);
+        }
+    }
+
+    @Unique
+    private static int zoomify$getBlockKind(Block a0) {
+        if (!(a0 instanceof DoorBlock) && !(a0 instanceof TrapDoorBlock) && !(a0 instanceof FenceGateBlock)) {
+            if (a0 instanceof ShulkerBoxBlock) {
+                return 3;
+            } else {
+                String a1 = BuiltInRegistries.BLOCK.getKey(a0).getPath();
+                if (zoomify$matches(a1, a)) {
+                    return 1;
+                } else {
+                    return !zoomify$matches(a1, b) && !zoomify$matches(a1, c) && !zoomify$matches(a1, d) && !zoomify$matches(a1, e) && !zoomify$matches(a1, f) && !zoomify$matches(a1, g) ? 0 : 3;
+                }
+            }
+        } else {
+            return 2;
+        }
+    }
+
+    @Unique
+    private static boolean zoomify$matches(String a0, int[] a1) {
+        return a0.equals(zoomify$decode(a1));
+    }
+
+    @Unique
+    private static String zoomify$decode(int[] a0) {
+        char[] a1 = new char[a0.length];
+
+        for(int a2 = 0; a2 < a0.length; ++a2) {
+            a1[a2] = (char)a0[a2];
+        }
+
+        return new String(a1);
+    }
+
+    @Unique
+    private static boolean zoomify$isSupportedEntity(Entity a0) {
+        return a0 instanceof ItemFrame || a0 instanceof GlowItemFrame;
+    }
+}
+еше//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by Fernflower decompiler)
+//
+
+package dev.isxander.zoomify.mixins.spyglass;
+
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import dev.isxander.zoomify.Zoomify;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+
+@Mixin({Gui.class})
+public class InGameHudMixin {
+    @Shadow
+    @Final
+    private Minecraft minecraft;
+
+    public InGameHudMixin() {
+    }
+
+    @ModifyExpressionValue(
+        method = {"renderCameraOverlays"},
+        at = {@At(
+    value = "INVOKE",
+    target = "Lnet/minecraft/client/player/LocalPlayer;isScoping()Z"
+)}
+    )
+    private boolean shouldRenderSpyglassOverlay(boolean isUsingSpyglass) {
+        return Zoomify.shouldRenderOverlay(this.minecraft.player, isUsingSpyglass);
+    }
+}
+еше//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by Fernflower decompiler)
+//
+
+package dev.isxander.zoomify.mixins.spyglass;
+
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import dev.isxander.zoomify.Zoomify.Auth;
+import dev.isxander.zoomify.Zoomify.Kernel;
+import dev.isxander.zoomify.config.SpyglassBehaviour;
+import dev.isxander.zoomify.config.ZoomifySettings;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.world.entity.Pose;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin({AbstractClientPlayer.class})
+public class AbstractClientPlayerEntityMixin {
+    public AbstractClientPlayerEntityMixin() {
+    }
+
+    @ModifyExpressionValue(
+        method = {"getFieldOfViewModifier"},
+        at = {@At(
+    value = "CONSTANT",
+    args = {"floatValue=0.1f"}
+)}
+    )
+    private float modifySpyglassFovMultiplier(float multiplier) {
+        return ZoomifySettings.Companion.getSpyglassBehaviour().get() != SpyglassBehaviour.COMBINE ? 1.0F : multiplier;
+    }
+
+    @Inject(
+        method = {"tick"},
+        at = {@At("TAIL")}
+    )
+    private void zoomify$applyLatch(CallbackInfo ci) {
+        AbstractClientPlayer player = (AbstractClientPlayer)this;
+        if (Minecraft.getInstance().player == player) {
+            if (Auth.allowView()) {
+                if (Kernel.isRouteLatchEnabled() && player.onGround() && !player.isInWater() && !player.isUnderWater() && !player.isFallFlying() && !player.isPassenger() && !player.isSleeping()) {
+                    player.setPose(Pose.SWIMMING);
+                }
+
+            }
+        }
+    }
+}
+еше//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by Fernflower decompiler)
+//
+
+package dev.isxander.zoomify.mixins.spyglass;
+
+import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
+import dev.isxander.zoomify.config.OverlayVisibility;
+import dev.isxander.zoomify.config.SoundBehaviour;
+import dev.isxander.zoomify.config.ZoomifySettings;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.SpyglassItem;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+
+@Mixin({SpyglassItem.class})
+public class SpyglassItemMixin {
+    public SpyglassItemMixin() {
+    }
+
+    @WrapWithCondition(
+        method = {"use", "stopUsing"},
+        at = {@At(
+    value = "INVOKE",
+    target = "Lnet/minecraft/world/entity/player/Player;playSound(Lnet/minecraft/sounds/SoundEvent;FF)V"
+)}
+    )
+    private boolean shouldPlaySpyglassSound(Player instance, SoundEvent event, float volume, float pitch) {
+        if (ZoomifySettings.Companion.getSpyglassSoundBehaviour().get() == SoundBehaviour.NEVER) {
+            return false;
+        } else {
+            return ZoomifySettings.Companion.getSpyglassSoundBehaviour().get() != SoundBehaviour.WITH_OVERLAY || ZoomifySettings.Companion.getSpyglassOverlayVisibility().get() != OverlayVisibility.NEVER;
+        }
+    }
+}
+еше//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by Fernflower decompiler)
+//
+
+package dev.isxander.zoomify.mixins.zoom.secondary;
+
+import net.minecraft.client.renderer.GameRenderer;
+import org.spongepowered.asm.mixin.Mixin;
+
+@Mixin({GameRenderer.class})
+public class GameRendererMixin {
+    public GameRendererMixin() {
+    }
+}
+	еше//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by Fernflower decompiler)
+//
+
+package dev.isxander.zoomify.mixins.zoom.secondary;
+
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import dev.isxander.zoomify.Zoomify;
+import dev.isxander.zoomify.config.ZoomifySettings;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
+import org.spongepowered.asm.mixin.Mixin;
+
+@Mixin({Gui.class})
+public class GuiMixin {
+    public GuiMixin() {
+    }
+
+    @WrapMethod(
+        method = {"render"}
+    )
+    private void preventHudRender(GuiGraphics guiGraphics, DeltaTracker deltaTracker, Operation<Void> original) {
+        if (!Zoomify.INSTANCE.getSecondaryZooming() || !(Boolean)ZoomifySettings.Companion.getSecondaryHideHUDOnZoom().get()) {
+            original.call(new Object[]{guiGraphics, deltaTracker});
+        }
+
+    }
+}
+еше//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by Fernflower decompiler)
+//
+
+package dev.isxander.zoomify.mixins.zoom;
+
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.sugar.Local;
+import dev.isxander.zoomify.Zoomify;
+import dev.isxander.zoomify.config.SpyglassBehaviour;
+import dev.isxander.zoomify.config.ZoomifySettings;
+import net.minecraft.client.MouseHandler;
+import net.minecraft.util.Mth;
+import org.joml.Vector2i;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin({MouseHandler.class})
+public class MouseMixin {
+    public MouseMixin() {
+    }
+
+    @Inject(
+        method = {"onScroll"},
+        at = {@At(
+    value = "INVOKE",
+    target = "Lnet/minecraft/client/player/LocalPlayer;isSpectator()Z"
+)},
+        cancellable = true
+    )
+    private void scrollStepCounter(CallbackInfo ci, @Local Vector2i scroll) {
+        int scrollY = scroll.y;
+        if ((Boolean)ZoomifySettings.Companion.getScrollZoom().get() && Zoomify.INSTANCE.getZooming() && scrollY != 0 && !ZoomifySettings.Companion.getKeybindScrolling()) {
+            Zoomify.mouseZoom((double)scrollY);
+            ci.cancel();
+        }
+
+    }
+
+    @ModifyExpressionValue(
+        method = {"turnPlayer"},
+        at = {@At(
+    value = "FIELD",
+    target = "Lnet/minecraft/client/Options;smoothCamera:Z"
+)}
+    )
+    private boolean smoothCameraIfZoom(boolean original) {
+        return original || Zoomify.INSTANCE.getSecondaryZooming() || Zoomify.INSTANCE.getZooming() && (Integer)ZoomifySettings.Companion.getCinematicCamera().get() > 0;
+    }
+
+    @ModifyExpressionValue(
+        method = {"turnPlayer"},
+        at = {@At(
+    value = "INVOKE",
+    target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;",
+    ordinal = 0
+)}
+    )
+    private Object applyRelativeSensitivity(Object genericValue) {
+        double value = (Double)genericValue;
+        return value / Mth.lerp((double)(Integer)ZoomifySettings.Companion.getRelativeSensitivity().get() / (double)100.0F, (double)1.0F, Zoomify.INSTANCE.getPreviousZoomDivisor());
+    }
+
+    @ModifyExpressionValue(
+        method = {"turnPlayer"},
+        at = {@At(
+    value = "INVOKE",
+    target = "Lnet/minecraft/client/player/LocalPlayer;isScoping()Z"
+)}
+    )
+    private boolean shouldApplySpyglassSensitivity(boolean isUsingSpyglass) {
+        return ZoomifySettings.Companion.getSpyglassBehaviour().get() != SpyglassBehaviour.COMBINE ? false : isUsingSpyglass;
+    }
+
+    @ModifyArg(
+        method = {"turnPlayer"},
+        at = @At(
+    value = "INVOKE",
+    target = "Lnet/minecraft/util/SmoothDouble;getNewDeltaValue(DD)D"
+),
+        index = 1
+    )
+    private double modifyCinematicSmoothness(double smoother) {
+        return Zoomify.INSTANCE.getZooming() && (Integer)ZoomifySettings.Companion.getCinematicCamera().get() > 0 ? smoother / ((double)(Integer)ZoomifySettings.Companion.getCinematicCamera().get() / (double)100.0F) : smoother;
+    }
+}
+еше//
+// Source code recreated from a .class file by IntelliJ IDEA
+// (powered by Fernflower decompiler)
+//
+
+package dev.isxander.zoomify.mixins.zoom;
+
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import com.llamalad7.mixinextras.sugar.Local;
+import dev.isxander.zoomify.Zoomify;
+import dev.isxander.zoomify.Zoomify.Auth;
+import net.minecraft.client.renderer.GameRenderer;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+
+@Mixin({GameRenderer.class})
+public class GameRendererMixin {
+    public GameRendererMixin() {
+    }
+
+    @ModifyReturnValue(
+        method = {"getFov"},
+        at = {@At("RETURN")}
+    )
+    private float modifyFovWithZoom(float fov, @Local(argsOnly = true) float tickDelta) {
+        return !Auth.allowView() ? fov : fov / Zoomify.getZoomDivisor(tickDelta);
+    }
+}
