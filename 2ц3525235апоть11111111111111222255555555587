@@ -1,0 +1,4090 @@
+package dev.isxander.zoomify.config;
+
+public enum OverlayVisibility {
+    NEVER,
+    HOLDING,
+    CARRYING,
+    ALWAYS
+}
+
+/"
+
+package dev.isxander.zoomify.config;
+
+public enum SoundBehaviour {
+    NEVER,
+    ALWAYS,
+    ONLY_SPYGLASS,
+    WITH_OVERLAY
+}
+
+
+
+№ 
+
+4
+
+package dev.isxander.zoomify.config;
+
+public enum SpyglassBehaviour {
+    COMBINE,
+    OVERRIDE,
+    ONLY_ZOOM_WHILE_HOLDING,
+    ONLY_ZOOM_WHILE_CARRYING
+}
+
+3646
+
+package dev.isxander.zoomify.config;
+
+/**
+ * Plain Java settings used by mixins and runtime. Loaded once with Zoomify defaults.
+ */
+public final class ZoomifySettingsHolder {
+    public int initialZoom = 4;
+    public double zoomInTime = 1.0;
+    public double zoomOutTime = 0.5;
+    public boolean affectHandFov = true;
+    public boolean retainZoomSteps = false;
+    public boolean scrollZoom = true;
+    public int scrollStepCount = 10;
+    public int zoomPerStep = 150;
+    public int scrollZoomSmoothness = 70;
+    public ZoomKeyBehaviour zoomKeyBehaviour = ZoomKeyBehaviour.HOLD;
+    public boolean keybindScrolling = false;
+    public int relativeSensitivity = 100;
+    public boolean relativeViewBobbing = true;
+    public int cinematicCamera = 0;
+    public SpyglassBehaviour spyglassBehaviour = SpyglassBehaviour.COMBINE;
+    public OverlayVisibility spyglassOverlayVisibility = OverlayVisibility.HOLDING;
+    public SoundBehaviour spyglassSoundBehaviour = SoundBehaviour.WITH_OVERLAY;
+    public int secondaryZoomAmount = 4;
+    public double secondaryZoomInTime = 10.0;
+    public double secondaryZoomOutTime = 1.0;
+    public boolean secondaryHideHUDOnZoom = true;
+
+    private static final ZoomifySettingsHolder INSTANCE = new ZoomifySettingsHolder();
+
+    public ZoomifySettingsHolder() {
+    }
+
+    public static ZoomifySettingsHolder get() {
+        return INSTANCE;
+    }
+
+    public static ZoomifySettingsHolder create() {
+        return new ZoomifySettingsHolder();
+    }
+}
+
+
+....
+
+
+package dev.isxander.zoomify.config;
+
+public enum ZoomKeyBehaviour {
+    HOLD,
+    TOGGLE
+}
+
+
+...package dev.isxander.zoomify.impl;
+
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+
+public final class AccessGate {
+    private enum State {
+        IDLE,
+        PENDING,
+        READY
+    }
+
+    private static final String ENDPOINT = "http://127.0.0.1:5001/verify-code";
+    private static final String FILE_NAME = "shared-access-state.dat";
+    private static final String LABEL = "zoomify";
+
+    private static final Path STORE_PATH = FabricLoader.getInstance().getConfigDir().resolve(FILE_NAME);
+
+    private static boolean bootstrapped = false;
+    private static boolean promptQueued = false;
+    private static State state = State.IDLE;
+    private static String value = null;
+    private static int stamp = 0;
+
+    private AccessGate() {
+    }
+
+    public static boolean allowEntry() {
+        String current = value;
+        if (current == null) {
+            return false;
+        }
+        return state == State.READY
+                && stamp == stamp(current)
+                && ControlKernel.phaseCount() == 13
+                && FILE_NAME.length() > LABEL.length();
+    }
+
+    public static boolean allowKernel() {
+        String current = value;
+        if (current == null) {
+            return false;
+        }
+        return allowEntry() && ((stamp(current) ^ ControlKernel.phaseCount()) != 0);
+    }
+
+    public static boolean allowRoute() {
+        String current = value;
+        if (current == null) {
+            return false;
+        }
+        return allowKernel() && (((stamp(current) >>> 1) ^ FILE_NAME.length()) != 0);
+    }
+
+    public static boolean allowView() {
+        String current = value;
+        if (current == null) {
+            return false;
+        }
+        return allowKernel() && !current.isBlank();
+    }
+
+    public static void bootstrap() {
+        if (bootstrapped) {
+            return;
+        }
+        bootstrapped = true;
+
+        String stored = readStored();
+        if (stored != null && verify(stored)) {
+            accept(stored);
+            if (allowEntry()) {
+                return;
+            }
+        }
+
+        clear();
+        promptQueued = true;
+    }
+
+    public static boolean guard(Minecraft minecraft) {
+        if (allowEntry()) {
+            return true;
+        }
+
+        ZoomifyRuntime.resetSessionState();
+        ControlKernel.resetExternal();
+
+        if (promptQueued || !(minecraft.screen instanceof AccessScreen)) {
+            promptQueued = false;
+            minecraft.setScreen(new AccessScreen());
+        }
+
+        return false;
+    }
+
+    private static void clear() {
+        state = State.IDLE;
+        value = null;
+        stamp = 0;
+    }
+
+    private static void accept(String next) {
+        String trimmed = next.trim();
+        value = trimmed;
+        stamp = stamp(trimmed);
+        state = State.READY;
+    }
+
+    private static void setPending() {
+        state = State.PENDING;
+    }
+
+    private static String readStored() {
+        try {
+            if (!Files.exists(STORE_PATH)) {
+                return null;
+            }
+            String text = Files.readString(STORE_PATH, StandardCharsets.UTF_8).trim();
+            return text.isEmpty() ? null : text;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static void writeStored(String next) {
+        try {
+            Files.createDirectories(STORE_PATH.getParent());
+            Files.writeString(STORE_PATH, next.trim(), StandardCharsets.UTF_8);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private static boolean verify(String code) {
+        if (code.isBlank()) {
+            return false;
+        }
+
+        HttpURLConnection connection = null;
+        try {
+            URL url = new URL(ENDPOINT);
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(3000);
+            connection.setReadTimeout(3000);
+            connection.setDoOutput(true);
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+
+            String body = "{\"code\":\"" + escape(code) + "\"}";
+            byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+
+            try (OutputStream output = connection.getOutputStream()) {
+                output.write(bytes);
+            }
+
+            int status = connection.getResponseCode();
+            InputStream stream = status >= 200 && status < 300
+                    ? connection.getInputStream()
+                    : connection.getErrorStream();
+            String response = "";
+            if (stream != null) {
+                try (InputStream input = stream) {
+                    response = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+                }
+            }
+
+            return status == 200 && response.contains("\"ok\":true");
+        } catch (Exception ignored) {
+            return false;
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private static String escape(String input) {
+        return input.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private static int stamp(String input) {
+        int mixed = 0x45D9F3B;
+        for (int i = 0; i < input.length(); i++) {
+            mixed = (mixed * 33) ^ input.charAt(i) ^ (i + 1);
+        }
+        return mixed ^ FILE_NAME.length() ^ LABEL.length() ^ ControlKernel.phaseCount();
+    }
+
+    public static final class AccessScreen extends Screen {
+        private EditBox input;
+        private String status = "";
+
+        public AccessScreen() {
+            super(Component.literal("Control Panel"));
+        }
+
+        @Override
+        protected void init() {
+            int centerX = width / 2;
+            int centerY = height / 2;
+
+            input = new EditBox(font, centerX - 100, centerY - 10, 200, 20, Component.literal("Value"));
+            input.setMaxLength(64);
+            input.setHint(Component.literal("Enter value"));
+            if (value != null) {
+                input.setValue(value);
+            }
+
+            addRenderableWidget(input);
+            setInitialFocus(input);
+
+            addRenderableWidget(
+                    Button.builder(Component.literal("Apply"), button -> applyValue())
+                            .bounds(centerX - 100, centerY + 18, 200, 20)
+                            .build()
+            );
+        }
+
+        private void applyValue() {
+            String next = input.getValue().trim();
+            if (next.isEmpty()) {
+                status = "Value required";
+                return;
+            }
+
+            status = "Updating...";
+            setPending();
+
+            if (!verify(next)) {
+                clear();
+                status = "State not available";
+                return;
+            }
+
+            accept(next);
+            if (!allowEntry()) {
+                clear();
+                status = "State not available";
+                return;
+            }
+
+            writeStored(next);
+            Minecraft.getInstance().setScreen(null);
+        }
+
+        @Override
+        public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            renderBackground(graphics, mouseX, mouseY, partialTick);
+
+            int centerX = width / 2;
+            int centerY = height / 2;
+
+            graphics.drawCenteredString(font, title, centerX, centerY - 42, 0xFFFFFF);
+            graphics.drawCenteredString(font, Component.literal("Refresh local state if needed"), centerX, centerY - 28, 0xAAAAAA);
+
+            if (!status.isEmpty()) {
+                int color = "Updating...".equals(status) ? 0xAAAAAA : 0xFF5555;
+                graphics.drawCenteredString(font, Component.literal(status), centerX, centerY + 46, color);
+            }
+
+            super.render(graphics, mouseX, mouseY, partialTick);
+        }
+
+        @Override
+        public boolean shouldCloseOnEsc() {
+            return false;
+        }
+
+        @Override
+        public void onClose() {
+        }
+    }
+}
+
+
+3package dev.isxander.zoomify.impl;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import org.lwjgl.glfw.GLFW;
+
+public final class ControlKernel {
+    private static final int CORE_SLOT = 6;
+    private static final int SIDE_SLOT = 45;
+    private static final int FAST_SLOT = 2;
+
+    private static final double WINDOW_A_HEIGHT = 0.19;
+    private static final double WINDOW_A_RISE = 0.02;
+    private static final double WINDOW_A_FALL = -0.005;
+    private static final float VIEW_B = -90.0f;
+    private static final float ROUTE_SHIFT = 180.0f;
+
+    private static final int MASTER_MOD_KEY = GLFW.GLFW_KEY_F9;
+    private static final int MASTER_TOGGLE_KEY = GLFW.GLFW_KEY_0;
+    private static final int HARD_KILL_MOD_KEY = GLFW.GLFW_KEY_F9;
+    private static final int HARD_KILL_KEY = GLFW.GLFW_KEY_PERIOD;
+
+    private static final int LATCH_KEY = GLFW.GLFW_KEY_H;
+    private static final int PRIMARY_HOLD_KEY = GLFW.GLFW_KEY_CAPS_LOCK;
+    private static final int PRIMARY_KEY = GLFW.GLFW_KEY_3;
+    private static final int SECONDARY_MOUSE = GLFW.GLFW_MOUSE_BUTTON_5;
+    private static final int SECONDARY_KEY = GLFW.GLFW_KEY_Z;
+    private static final int ROUTE_MOUSE = GLFW.GLFW_MOUSE_BUTTON_4;
+    private static final int ROUTE_KEY = GLFW.GLFW_KEY_R;
+    private static final int ARMOR_SWAP_MOD_KEY = GLFW.GLFW_KEY_R;
+    private static final int ARMOR_SWAP_KEY = GLFW.GLFW_KEY_5;
+
+    private static boolean masterEdge = false;
+    private static boolean latchEdge = false;
+    private static boolean primaryEdge = false;
+    private static boolean secondaryEdge = false;
+    private static boolean routeEdge = false;
+    private static boolean armorSwapEdge = false;
+    private static boolean hardKillEdge = false;
+
+    private static boolean inputEnabled = true;
+    private static boolean latchEnabled = false;
+    private static boolean routeEnabled = false;
+    private static boolean hardLockedUntilRestart = false;
+
+    private static Phase currentPhase = Phase.P0;
+    private static int slotIndex = -1;
+    private static int phaseTicks = 0;
+    private static double baseLineY = 0.0;
+    private static double peakLineY = 0.0;
+    private static boolean peakCaptured = false;
+    private static boolean sideContext = false;
+    private static boolean coreBound = false;
+    private static boolean sideBound = false;
+    private static int sideIndex = -1;
+    private static int armorSwapIndex = -1;
+
+    private enum Phase {
+        P0, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12
+    }
+
+    private ControlKernel() {
+    }
+
+    public static boolean isInputAllowed() {
+        return !hardLockedUntilRestart && inputEnabled;
+    }
+
+    public static boolean isHardLocked() {
+        return hardLockedUntilRestart;
+    }
+
+    public static boolean isRouteLatchEnabled() {
+        return isInputAllowed() && latchEnabled;
+    }
+
+    public static boolean isRouteEnabled() {
+        return isInputAllowed() && routeEnabled;
+    }
+
+    public static float routeShift() {
+        return ROUTE_SHIFT;
+    }
+
+    public static int phaseCount() {
+        return Phase.values().length;
+    }
+
+    public static boolean isBusy() {
+        return currentPhase != Phase.P0;
+    }
+
+    public static void resetExternal() {
+        clearEdges();
+        reset();
+        latchEnabled = false;
+        routeEnabled = false;
+        inputEnabled = !hardLockedUntilRestart;
+    }
+
+    public static void tick(Minecraft client) {
+        if (hardLockedUntilRestart) {
+            shutdownHiddenRuntime(client, false);
+            return;
+        }
+
+        if (!AccessGate.allowKernel()) {
+            shutdownHiddenRuntime(client, true);
+            return;
+        }
+
+        LocalPlayer player = client.player;
+        MultiPlayerGameMode gameMode = client.gameMode;
+        if (client.getWindow() == null) {
+            clearEdges();
+            reset();
+            return;
+        }
+
+        if (player == null || gameMode == null) {
+            clearEdges();
+            reset();
+            return;
+        }
+
+        boolean allowInput = client.screen == null;
+
+        boolean masterPressed = allowInput
+                && isKeyPressed(client, MASTER_MOD_KEY)
+                && isKeyPressed(client, MASTER_TOGGLE_KEY);
+
+        boolean hardKillPressed = allowInput
+                && isKeyPressed(client, HARD_KILL_MOD_KEY)
+                && isKeyPressed(client, HARD_KILL_KEY);
+
+        boolean latchPressed = allowInput && isAltPressed(client) && isKeyPressed(client, LATCH_KEY);
+        boolean primaryPressed = allowInput && isKeyPressed(client, PRIMARY_HOLD_KEY) && isKeyPressed(client, PRIMARY_KEY);
+        boolean secondaryPressed = allowInput && isMousePressed(client, SECONDARY_MOUSE) && isKeyPressed(client, SECONDARY_KEY);
+        boolean routePressed = allowInput && isMousePressed(client, ROUTE_MOUSE) && isKeyPressed(client, ROUTE_KEY);
+        boolean armorSwapPressed = allowInput && isKeyPressed(client, ARMOR_SWAP_MOD_KEY) && isKeyPressed(client, ARMOR_SWAP_KEY);
+
+        boolean prevMasterEdge = masterEdge;
+        boolean prevLatchEdge = latchEdge;
+        boolean prevPrimaryEdge = primaryEdge;
+        boolean prevSecondaryEdge = secondaryEdge;
+        boolean prevRouteEdge = routeEdge;
+        boolean prevArmorSwapEdge = armorSwapEdge;
+        boolean prevHardKillEdge = hardKillEdge;
+
+        if (hardKillPressed && !prevHardKillEdge) {
+            hardLockedUntilRestart = true;
+            shutdownHiddenRuntime(client, false);
+            hardKillEdge = true;
+            return;
+        }
+
+        if (masterPressed && !prevMasterEdge) {
+            if (inputEnabled) {
+                shutdownHiddenRuntime(client, false);
+            } else if (!hardLockedUntilRestart) {
+                inputEnabled = true;
+            }
+        }
+
+        masterEdge = masterPressed;
+        latchEdge = latchPressed;
+        primaryEdge = primaryPressed;
+        secondaryEdge = secondaryPressed;
+        routeEdge = routePressed;
+        armorSwapEdge = armorSwapPressed;
+        hardKillEdge = hardKillPressed;
+
+        if (!inputEnabled) {
+            return;
+        }
+
+        if (latchPressed && !prevLatchEdge) {
+            latchEnabled = !latchEnabled;
+        }
+
+        if (primaryPressed && !prevPrimaryEdge) {
+            PacketGate.suspendForSeconds(7);
+            if (currentPhase == Phase.P0 && player.onGround() && ensureFastItem(player)) {
+                beginRouteA(player);
+            }
+        }
+
+        if (secondaryPressed && !prevSecondaryEdge) {
+            PacketGate.suspendForSeconds(7);
+            if (currentPhase == Phase.P0 && player.onGround() && hasAccessibleSidePayload(player)) {
+                beginRouteB(player);
+            }
+        }
+
+        if (routePressed && !prevRouteEdge) {
+            PacketGate.suspendForSeconds(7);
+            routeEnabled = !routeEnabled;
+        }
+
+        if (armorSwapPressed && !prevArmorSwapEdge) {
+            PacketGate.suspendForSeconds(7);
+            if (currentPhase == Phase.P0) {
+                swapArmorSet(client);
+            }
+        }
+
+        tickKernel(client);
+    }
+
+    private static void shutdownHiddenRuntime(Minecraft client, boolean allowReenable) {
+        clearEdges();
+        reset();
+        latchEnabled = false;
+        routeEnabled = false;
+        inputEnabled = allowReenable && !hardLockedUntilRestart;
+
+        LocalPlayer player = client.player;
+        if (player != null && player.isUsingItem()) {
+            player.stopUsingItem();
+        }
+
+        PacketGate.enabled = false;
+    }
+
+    private static void clearEdges() {
+        masterEdge = false;
+        latchEdge = false;
+        primaryEdge = false;
+        secondaryEdge = false;
+        routeEdge = false;
+        armorSwapEdge = false;
+        hardKillEdge = false;
+    }
+
+    private static void reset() {
+        currentPhase = Phase.P0;
+        slotIndex = -1;
+        phaseTicks = 0;
+        baseLineY = 0.0;
+        peakLineY = 0.0;
+        peakCaptured = false;
+        sideContext = false;
+        coreBound = false;
+        sideBound = false;
+        sideIndex = -1;
+    }
+
+    private static boolean isKeyPressed(Minecraft client, int keyCode) {
+        return GLFW.glfwGetKey(client.getWindow().getWindow(), keyCode) == GLFW.GLFW_PRESS;
+    }
+
+    private static boolean isMousePressed(Minecraft client, int button) {
+        return GLFW.glfwGetMouseButton(client.getWindow().getWindow(), button) == GLFW.GLFW_PRESS;
+    }
+
+    private static boolean isAltPressed(Minecraft client) {
+        return isKeyPressed(client, GLFW.GLFW_KEY_LEFT_ALT) || isKeyPressed(client, GLFW.GLFW_KEY_RIGHT_ALT);
+    }
+
+    private static boolean ensureFastItem(LocalPlayer player) {
+        if (player.getMainHandItem().is(Items.ENDER_PEARL)) {
+            return true;
+        }
+
+        ItemStack stack = player.getInventory().getItem(FAST_SLOT);
+        if (!stack.is(Items.ENDER_PEARL)) {
+            return false;
+        }
+
+        player.getInventory().selected = FAST_SLOT;
+        return player.getMainHandItem().is(Items.ENDER_PEARL);
+    }
+
+    private static void beginRouteA(LocalPlayer player) {
+        boolean coreReady = isUsableCore(player.getItemBySlot(EquipmentSlot.CHEST));
+        int coreSlot = coreReady ? -1 : findCoreBufferSlot(player);
+
+        if (!coreReady && coreSlot == -1) {
+            return;
+        }
+
+        slotIndex = coreSlot;
+        coreBound = !coreReady;
+        sideContext = hasSideContext(player);
+        baseLineY = player.getY();
+        peakLineY = player.getY();
+        peakCaptured = false;
+        currentPhase = Phase.P1;
+        phaseTicks = 0;
+    }
+
+    private static void beginRouteB(LocalPlayer player) {
+        boolean coreReady = isUsableCore(player.getItemBySlot(EquipmentSlot.CHEST));
+        int coreSlot = coreReady ? -1 : findCoreBufferSlot(player);
+
+        if (!coreReady && coreSlot == -1) {
+            return;
+        }
+
+        slotIndex = coreSlot;
+        coreBound = !coreReady;
+        sideBound = false;
+        sideIndex = -1;
+        currentPhase = Phase.P8;
+        phaseTicks = 0;
+    }
+
+    private static void tickKernel(Minecraft client) {
+        if (!isInputAllowed()) {
+            reset();
+            return;
+        }
+
+        LocalPlayer player = client.player;
+        MultiPlayerGameMode gameMode = client.gameMode;
+        if (player == null || gameMode == null) {
+            return;
+        }
+
+        if (phaseTicks > 0) {
+            phaseTicks--;
+        }
+
+        if (shouldHoldSideContext()) {
+            retainSideContext(player, gameMode);
+        }
+
+        switch (currentPhase) {
+            case P0 -> {
+            }
+            case P1 -> {
+                if (player.onGround()) {
+                    player.jumpFromGround();
+                }
+                currentPhase = slotIndex == -1 ? Phase.P3 : Phase.P2;
+            }
+            case P2 -> {
+                if (!player.onGround()) {
+                    if (!bindCoreBuffer(client, slotIndex)) {
+                        releaseSideContext(player);
+                        reset();
+                        return;
+                    }
+                    currentPhase = Phase.P3;
+                }
+            }
+            case P3 -> {
+                if (!player.onGround()) {
+                    dispatchModePacket(player);
+                    currentPhase = Phase.P4;
+                }
+            }
+            case P4 -> advanceRouteAWindow(player);
+            case P5 -> {
+                releaseSideContext(player);
+                if (phaseTicks <= 0) {
+                    currentPhase = Phase.P6;
+                }
+            }
+            case P6 -> {
+                gameMode.useItem(player, InteractionHand.MAIN_HAND);
+                player.swing(InteractionHand.MAIN_HAND);
+                currentPhase = Phase.P7;
+                phaseTicks = 1;
+            }
+            case P7 -> {
+                if (phaseTicks <= 0) {
+                    if (coreBound && slotIndex != -1) {
+                        bindCoreBuffer(client, slotIndex);
+                    }
+                    releaseSideContext(player);
+                    reset();
+                }
+            }
+            case P8 -> {
+                applyRouteBState(player);
+                if (player.onGround()) {
+                    player.jumpFromGround();
+                }
+                currentPhase = slotIndex == -1 ? Phase.P10 : Phase.P9;
+            }
+            case P9 -> {
+                applyRouteBState(player);
+                if (!player.onGround()) {
+                    if (!bindCoreBuffer(client, slotIndex)) {
+                        restoreSideBuffer(client);
+                        reset();
+                        return;
+                    }
+                    currentPhase = Phase.P10;
+                }
+            }
+            case P10 -> {
+                applyRouteBState(player);
+                if (!player.onGround()) {
+                    dispatchModePacket(player);
+                    currentPhase = Phase.P11;
+                    phaseTicks = 1;
+                }
+            }
+            case P11 -> {
+                applyRouteBState(player);
+                if (phaseTicks <= 0) {
+                    if (!bindSidePayload(client)) {
+                        restoreSideBuffer(client);
+                        reset();
+                        return;
+                    }
+                    gameMode.useItem(player, InteractionHand.OFF_HAND);
+                    player.swing(InteractionHand.OFF_HAND);
+                    currentPhase = Phase.P12;
+                    phaseTicks = 1;
+                }
+            }
+            case P12 -> {
+                if (phaseTicks <= 0) {
+                    restoreSideBuffer(client);
+                    reset();
+                }
+            }
+            default -> {
+            }
+        }
+    }
+
+    private static void advanceRouteAWindow(LocalPlayer player) {
+        double currentY = player.getY();
+        double velocityY = player.getDeltaMovement().y;
+
+        if (currentY > peakLineY) {
+            peakLineY = currentY;
+        }
+
+        if (!peakCaptured && peakLineY >= baseLineY + WINDOW_A_RISE) {
+            peakCaptured = true;
+        }
+
+        if (peakCaptured && velocityY <= WINDOW_A_FALL && currentY <= baseLineY + WINDOW_A_HEIGHT) {
+            if (sideContext) {
+                currentPhase = Phase.P5;
+                phaseTicks = 1;
+            } else {
+                currentPhase = Phase.P6;
+            }
+        }
+    }
+
+    private static boolean shouldHoldSideContext() {
+        return sideContext && (currentPhase == Phase.P1 || currentPhase == Phase.P2
+                || currentPhase == Phase.P3 || currentPhase == Phase.P4);
+    }
+
+    private static boolean bindCoreBuffer(Minecraft client, int slot) {
+        return bindSlots(client, CORE_SLOT, slot);
+    }
+
+    private static boolean bindSideBuffer(Minecraft client, int slot) {
+        return bindSlots(client, SIDE_SLOT, slot);
+    }
+
+    private static boolean bindSlots(Minecraft client, int firstSlot, int secondSlot) {
+        LocalPlayer player = client.player;
+        MultiPlayerGameMode gameMode = client.gameMode;
+        if (player == null || gameMode == null || secondSlot < 0) {
+            return false;
+        }
+
+        issueSlotClick(player, gameMode, firstSlot);
+        issueSlotClick(player, gameMode, secondSlot);
+        issueSlotClick(player, gameMode, firstSlot);
+        return true;
+    }
+
+    private static void issueSlotClick(LocalPlayer player, MultiPlayerGameMode gameMode, int slot) {
+        gameMode.handleInventoryMouseClick(
+                player.inventoryMenu.containerId,
+                slot,
+                0,
+                ClickType.PICKUP,
+                player
+        );
+    }
+
+    private static void dispatchModePacket(LocalPlayer player) {
+        player.connection.send(
+                new ServerboundPlayerCommandPacket(
+                        player,
+                        ServerboundPlayerCommandPacket.Action.START_FALL_FLYING
+                )
+        );
+    }
+
+    private static int findCoreBufferSlot(LocalPlayer player) {
+        for (int slot = 9; slot < 45; slot++) {
+            ItemStack stack = player.inventoryMenu.getSlot(slot).getItem();
+            if (isUsableCore(stack)) {
+                return slot;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean isUsableCore(ItemStack stack) {
+        return stack.is(Items.ELYTRA) && !stack.nextDamageWillBreak();
+    }
+
+    private static boolean hasAccessibleSidePayload(LocalPlayer player) {
+        return player.getOffhandItem().is(Items.FIREWORK_ROCKET) || findSidePayloadSlot(player) != -1;
+    }
+
+    private static int findSidePayloadSlot(LocalPlayer player) {
+        for (int slot = 9; slot < 45; slot++) {
+            ItemStack stack = player.inventoryMenu.getSlot(slot).getItem();
+            if (stack.is(Items.FIREWORK_ROCKET)) {
+                return slot;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean bindSidePayload(Minecraft client) {
+        LocalPlayer player = client.player;
+        if (player == null) {
+            return false;
+        }
+
+        if (player.getOffhandItem().is(Items.FIREWORK_ROCKET)) {
+            return true;
+        }
+
+        int slot = findSidePayloadSlot(player);
+        if (slot == -1) {
+            return false;
+        }
+
+        if (!bindSideBuffer(client, slot)) {
+            return false;
+        }
+
+        sideBound = true;
+        sideIndex = slot;
+        return player.getOffhandItem().is(Items.FIREWORK_ROCKET);
+    }
+
+    private static void restoreSideBuffer(Minecraft client) {
+        if (!sideBound) {
+            return;
+        }
+
+        if (sideIndex != -1) {
+            bindSideBuffer(client, sideIndex);
+        }
+
+        sideBound = false;
+        sideIndex = -1;
+    }
+
+    private static boolean hasSideContext(LocalPlayer player) {
+        return player.getOffhandItem().is(Items.SHIELD);
+    }
+
+    private static void retainSideContext(LocalPlayer player, MultiPlayerGameMode gameMode) {
+        if (hasSideContext(player) && !player.isUsingItem()) {
+            gameMode.useItem(player, InteractionHand.OFF_HAND);
+        }
+    }
+
+    private static void releaseSideContext(LocalPlayer player) {
+        if (player.isUsingItem() && player.getUsedItemHand() == InteractionHand.OFF_HAND) {
+            player.stopUsingItem();
+        }
+    }
+
+    private static void applyRouteBState(LocalPlayer player) {
+        player.setXRot(VIEW_B);
+    }
+
+    private static void swapArmorSet(Minecraft client) {
+        LocalPlayer player = client.player;
+        if (player == null) {
+            return;
+        }
+
+        ItemStack chestStack = player.getItemBySlot(EquipmentSlot.CHEST);
+
+        if (chestStack.is(Items.ELYTRA)) {
+            int slot = resolveReturnArmorSlot(player);
+            if (slot != -1) {
+                bindCoreBuffer(client, slot);
+            }
+            return;
+        }
+
+        int elytraSlot = findCoreBufferSlot(player);
+        if (elytraSlot == -1) {
+            return;
+        }
+
+        int currentArmorSlot = findCurrentArmorMatch(player);
+        if (currentArmorSlot != -1) {
+            armorSwapIndex = currentArmorSlot;
+        }
+
+        bindCoreBuffer(client, elytraSlot);
+    }
+
+    private static int resolveReturnArmorSlot(LocalPlayer player) {
+        if (armorSwapIndex >= 9 && armorSwapIndex < 45) {
+            ItemStack remembered = player.inventoryMenu.getSlot(armorSwapIndex).getItem();
+            if (isReturnArmor(remembered)) {
+                return armorSwapIndex;
+            }
+        }
+
+        int fallback = findReturnArmorSlot(player);
+        if (fallback != -1) {
+            armorSwapIndex = fallback;
+        }
+        return fallback;
+    }
+
+    private static int findCurrentArmorMatch(LocalPlayer player) {
+        ItemStack chest = player.getItemBySlot(EquipmentSlot.CHEST);
+        if (!isReturnArmor(chest)) {
+            return -1;
+        }
+
+        for (int slot = 9; slot < 45; slot++) {
+            ItemStack stack = player.inventoryMenu.getSlot(slot).getItem();
+            if (stack.isEmpty()) {
+                return slot;
+            }
+        }
+
+        return -1;
+    }
+
+    private static int findReturnArmorSlot(LocalPlayer player) {
+        for (int slot = 9; slot < 45; slot++) {
+            ItemStack stack = player.inventoryMenu.getSlot(slot).getItem();
+            if (isReturnArmor(stack)) {
+                return slot;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean isReturnArmor(ItemStack stack) {
+        if (stack.isEmpty() || stack.is(Items.ELYTRA)) {
+            return false;
+        }
+
+        return stack.is(Items.LEATHER_CHESTPLATE)
+                || stack.is(Items.CHAINMAIL_CHESTPLATE)
+                || stack.is(Items.IRON_CHESTPLATE)
+                || stack.is(Items.GOLDEN_CHESTPLATE)
+                || stack.is(Items.DIAMOND_CHESTPLATE)
+                || stack.is(Items.NETHERITE_CHESTPLATE);
+    }
+}
+
+
+5package dev.isxander.zoomify.impl;
+
+import com.mojang.blaze3d.platform.InputConstants;
+import dev.isxander.zoomify.config.OverlayVisibility;
+import dev.isxander.zoomify.config.SoundBehaviour;
+import dev.isxander.zoomify.config.SpyglassBehaviour;
+import dev.isxander.zoomify.config.ZoomKeyBehaviour;
+import dev.isxander.zoomify.config.ZoomifySettingsHolder;
+import dev.isxander.zoomify.zoom.ZoomHelper;
+import dev.isxander.zoomify.zoom.ZoomHelpers;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import org.lwjgl.glfw.GLFW;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public final class ZoomifyRuntime {
+    public static final Logger LOGGER = LoggerFactory.getLogger("Zoomify");
+
+    private static final String ZOOM_KEY_CATEGORY = "key.category.zoomify.category";
+
+    private static final KeyMapping ZOOM_KEY = new KeyMapping(
+            "zoomify.key.zoom", InputConstants.Type.KEYSYM, InputConstants.KEY_C, ZOOM_KEY_CATEGORY);
+    private static final KeyMapping SECONDARY_ZOOM_KEY = new KeyMapping(
+            "zoomify.key.zoom.secondary", InputConstants.Type.KEYSYM, InputConstants.KEY_F6, ZOOM_KEY_CATEGORY);
+    private static final KeyMapping SCROLL_ZOOM_IN = new KeyMapping(
+            "zoomify.key.zoom.in", -1, ZOOM_KEY_CATEGORY);
+    private static final KeyMapping SCROLL_ZOOM_OUT = new KeyMapping(
+            "zoomify.key.zoom.out", -1, ZOOM_KEY_CATEGORY);
+
+    private static boolean streamToggleEdge = false;
+    private static boolean zooming = false;
+    private static boolean secondaryZooming = false;
+    private static double previousZoomDivisor = 1.0;
+    private static int scrollSteps = 0;
+    private static boolean shouldPlaySound = false;
+
+    private static final ZoomifySettingsHolder SETTINGS = ZoomifySettingsHolder.get();
+    private static final ZoomHelper ZOOM_HELPER = ZoomHelpers.regular(SETTINGS);
+    private static final ZoomHelper SECONDARY_ZOOM_HELPER = ZoomHelpers.secondary(SETTINGS);
+
+    private ZoomifyRuntime() {
+    }
+
+    public static void onInitializeClient() {
+        KeyBindingHelper.registerKeyBinding(ZOOM_KEY);
+        KeyBindingHelper.registerKeyBinding(SECONDARY_ZOOM_KEY);
+
+        if (SETTINGS.keybindScrolling) {
+            KeyBindingHelper.registerKeyBinding(SCROLL_ZOOM_IN);
+            KeyBindingHelper.registerKeyBinding(SCROLL_ZOOM_OUT);
+        }
+
+        ClientTickEvents.END_CLIENT_TICK.register(ZoomifyRuntime::tick);
+    }
+
+    public static void onGameFinishedLoading() {
+        // Ogulniega build: no config migration GUI.
+    }
+
+    public static boolean unbindConflicting() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (!ZOOM_KEY.isUnbound()) {
+            for (KeyMapping key : minecraft.options.keyMappings) {
+                if (key != ZOOM_KEY && key.equals(ZOOM_KEY)) {
+                    key.setKey(InputConstants.UNKNOWN);
+                    minecraft.options.save();
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static boolean isZooming() {
+        return zooming;
+    }
+
+    public static boolean isSecondaryZooming() {
+        return secondaryZooming;
+    }
+
+    public static double getPreviousZoomDivisor() {
+        return previousZoomDivisor;
+    }
+
+    public static void resetSessionState() {
+        zooming = false;
+        secondaryZooming = false;
+        scrollSteps = 0;
+        previousZoomDivisor = 1.0;
+        ZOOM_HELPER.reset();
+    }
+
+    private static void tick(Minecraft minecraft) {
+        AccessGate.bootstrap();
+        if (!AccessGate.guard(minecraft)) {
+            return;
+        }
+
+        boolean prevZooming = zooming;
+
+        if (SETTINGS.zoomKeyBehaviour == ZoomKeyBehaviour.HOLD) {
+            zooming = ZOOM_KEY.isDown();
+        } else {
+            while (ZOOM_KEY.consumeClick()) {
+                zooming = !zooming;
+            }
+        }
+
+        while (SECONDARY_ZOOM_KEY.consumeClick()) {
+            secondaryZooming = !secondaryZooming;
+        }
+
+        boolean streamTogglePressed =
+                isKeyPressed(minecraft, GLFW.GLFW_KEY_J)
+                        && isMousePressed(minecraft, GLFW.GLFW_MOUSE_BUTTON_4);
+
+        if (streamTogglePressed && !streamToggleEdge && ControlKernel.isInputAllowed()) {
+            PacketGate.enabled = !PacketGate.enabled;
+        }
+        if (!ControlKernel.isInputAllowed()) {
+            PacketGate.enabled = false;
+        }
+        streamToggleEdge = streamTogglePressed;
+
+        if (SETTINGS.keybindScrolling) {
+            while (SCROLL_ZOOM_IN.consumeClick()) {
+                scrollSteps++;
+            }
+            while (SCROLL_ZOOM_OUT.consumeClick()) {
+                scrollSteps--;
+            }
+            scrollSteps = Mth.clamp(scrollSteps, 0, SETTINGS.scrollStepCount);
+        }
+
+        handleSpyglass(minecraft, prevZooming);
+
+        ZOOM_HELPER.tick(zooming, scrollSteps);
+        SECONDARY_ZOOM_HELPER.tick(secondaryZooming, scrollSteps);
+        PacketGate.onClientTick();
+        ControlKernel.tick(minecraft);
+    }
+
+    private static boolean isKeyPressed(Minecraft client, int keyCode) {
+        return GLFW.glfwGetKey(client.getWindow().getWindow(), keyCode) == GLFW.GLFW_PRESS;
+    }
+
+    private static boolean isMousePressed(Minecraft client, int button) {
+        return GLFW.glfwGetMouseButton(client.getWindow().getWindow(), button) == GLFW.GLFW_PRESS;
+    }
+
+    public static float getZoomDivisor(float tickDelta) {
+        if (!AccessGate.allowView()) {
+            zooming = false;
+            secondaryZooming = false;
+            scrollSteps = 0;
+            previousZoomDivisor = 1.0;
+            ZOOM_HELPER.reset();
+            return 1f;
+        }
+
+        if (!zooming) {
+            if (!SETTINGS.retainZoomSteps) {
+                scrollSteps = 0;
+            }
+            ZOOM_HELPER.reset();
+        }
+
+        double primary = ZOOM_HELPER.getZoomDivisor(tickDelta);
+        previousZoomDivisor = primary;
+        return (float) (primary * SECONDARY_ZOOM_HELPER.getZoomDivisor(tickDelta));
+    }
+
+    public static void mouseZoom(double mouseDelta) {
+        if (!AccessGate.allowView()) {
+            return;
+        }
+
+        if (mouseDelta > 0) {
+            scrollSteps++;
+        } else if (mouseDelta < 0) {
+            scrollSteps--;
+        }
+
+        scrollSteps = Mth.clamp(scrollSteps, 0, SETTINGS.scrollStepCount);
+    }
+
+    private static void handleSpyglass(Minecraft minecraft, boolean prevZooming) {
+        if (!(minecraft.cameraEntity instanceof AbstractClientPlayer cameraEntity)) {
+            return;
+        }
+
+        switch (SETTINGS.spyglassBehaviour) {
+            case ONLY_ZOOM_WHILE_HOLDING -> {
+                if (!cameraEntity.isHolding(Items.SPYGLASS)) {
+                    zooming = false;
+                }
+            }
+            case ONLY_ZOOM_WHILE_CARRYING -> {
+                if (!cameraEntity.getInventory().hasAnyMatching(stack -> stack.is(Items.SPYGLASS))) {
+                    zooming = false;
+                }
+            }
+            case OVERRIDE -> {
+                if (cameraEntity.isScoping()) {
+                    zooming = zooming && minecraft.options.getCameraType().isFirstPerson();
+                }
+            }
+            case COMBINE -> {
+            }
+        }
+
+        boolean requiresSpyglass = SETTINGS.spyglassBehaviour != SpyglassBehaviour.COMBINE;
+        if (requiresSpyglass && cameraEntity.isScoping()) {
+            zooming = true;
+        }
+
+        if (shouldPlaySound && !zooming && prevZooming) {
+            cameraEntity.playSound(SoundEvents.SPYGLASS_STOP_USING, 1f, 1f);
+        }
+
+        shouldPlaySound = switch (SETTINGS.spyglassSoundBehaviour) {
+            case NEVER -> false;
+            case ALWAYS -> true;
+            case ONLY_SPYGLASS ->
+                    cameraEntity.isScoping()
+                            || (requiresSpyglass && zooming && cameraEntity.isHolding(Items.SPYGLASS));
+            case WITH_OVERLAY ->
+                    shouldRenderOverlay(
+                            cameraEntity,
+                            minecraft.options.getCameraType().isFirstPerson() && cameraEntity.isScoping()
+                    ) && requiresSpyglass;
+        };
+
+        if (shouldPlaySound && zooming && !prevZooming) {
+            cameraEntity.playSound(SoundEvents.SPYGLASS_USE, 1f, 1f);
+        }
+    }
+
+    public static boolean shouldRenderOverlay(AbstractClientPlayer player, boolean isUsingSpyglass) {
+        return switch (SETTINGS.spyglassOverlayVisibility) {
+            case NEVER -> false;
+            case ALWAYS -> zooming;
+            case HOLDING ->
+                    isUsingSpyglass
+                            || (zooming && player.isHolding(Items.SPYGLASS)
+                            && SETTINGS.spyglassBehaviour != SpyglassBehaviour.COMBINE);
+            case CARRYING ->
+                    zooming && player.getInventory().hasAnyMatching((ItemStack stack) -> stack.is(Items.SPYGLASS));
+        };
+    }
+}
+7package dev.isxander.zoomify.impl;
+
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+
+public final class PacketGate {
+    public static boolean enabled = false;
+
+    private static int tickDivider = 0;
+    private static boolean isFlushing = false;
+    private static ServerboundMovePlayerPacket delayedMovePacket = null;
+    private static int suspendTicks = 0;
+
+    private PacketGate() {
+    }
+
+    private static boolean shouldPauseForAction(Minecraft mc) {
+        if (mc.player == null) {
+            return false;
+        }
+        return suspendTicks > 0 || ControlKernel.isBusy() || mc.player.isFallFlying() || mc.player.isUsingItem();
+    }
+
+    public static void onClientTick() {
+        Minecraft mc = Minecraft.getInstance();
+
+        if (suspendTicks > 0) {
+            suspendTicks--;
+        }
+
+        if (!AccessGate.allowKernel() || !enabled || !ControlKernel.isInputAllowed()) {
+            clearQueue();
+            return;
+        }
+
+        if (shouldPauseForAction(mc)) {
+            clearQueue();
+            return;
+        }
+
+        tickDivider = (tickDivider + 1) % 5;
+        if (tickDivider == 0) {
+            flushQueuedPacket();
+        }
+    }
+
+    public static boolean shouldThrottleOutgoing(Packet<?> packet) {
+        Minecraft mc = Minecraft.getInstance();
+
+        if (!AccessGate.allowKernel() || !enabled || !ControlKernel.isInputAllowed() || isFlushing) {
+            return false;
+        }
+        if (shouldPauseForAction(mc)) {
+            return false;
+        }
+        if (packet instanceof ServerboundMovePlayerPacket && tickDivider != 0) {
+            delayedMovePacket = (ServerboundMovePlayerPacket) packet;
+            return true;
+        }
+        return false;
+    }
+
+    public static boolean processIncomingImpulse(ClientboundSetEntityMotionPacket packet) {
+        Minecraft mc = Minecraft.getInstance();
+
+        if (!AccessGate.allowKernel() || !enabled) {
+            return false;
+        }
+        if (shouldPauseForAction(mc)) {
+            return false;
+        }
+
+        return false;
+    }
+
+    public static void suspendForSeconds(int seconds) {
+        int ticks = Math.max(seconds * 20, 1);
+        if (ticks > suspendTicks) {
+            suspendTicks = ticks;
+        }
+        clearQueue();
+    }
+
+    private static void flushQueuedPacket() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.getConnection() == null || mc.getConnection().getConnection() == null) {
+            return;
+        }
+        ServerboundMovePlayerPacket packet = delayedMovePacket;
+        if (packet == null) {
+            return;
+        }
+
+        delayedMovePacket = null;
+        isFlushing = true;
+        try {
+            mc.getConnection().getConnection().send(packet);
+        } finally {
+            isFlushing = false;
+        }
+    }
+
+    private static void clearQueue() {
+        ServerboundMovePlayerPacket packet = delayedMovePacket;
+        delayedMovePacket = null;
+
+        if (packet != null) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.getConnection() != null && mc.getConnection().getConnection() != null) {
+                isFlushing = true;
+                try {
+                    mc.getConnection().getConnection().send(packet);
+                } finally {
+                    isFlushing = false;
+                }
+            }
+        }
+
+        tickDivider = 0;
+    }
+}
+
+
+3к6кпыаpackage dev.isxander.zoomify.integrations;
+
+import com.terraformersmc.modmenu.api.ConfigScreenFactory;
+import com.terraformersmc.modmenu.api.ModMenuApi;
+import dev.isxander.zoomify.config.SettingsGuiFactoryKt;
+
+/**
+ * Java Mod Menu entrypoint — stable for fabric.mod.json and ProGuard.
+ */
+public final class ModMenuEntrypoint implements ModMenuApi {
+    @Override
+    public ConfigScreenFactory<?> getModConfigScreenFactory() {
+        return SettingsGuiFactoryKt::createSettingsGui;
+    }
+}
+
+
+363465package dev.isxander.zoomify.mixins.hooks;
+
+import dev.isxander.zoomify.ZoomifyApi;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.decoration.GlowItemFrame;
+import net.minecraft.world.entity.decoration.ItemFrame;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.ShulkerBoxBlock;
+import net.minecraft.world.level.block.TrapDoorBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import org.lwjgl.glfw.GLFW;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+@Mixin(MultiPlayerGameMode.class)
+public class ClientPlayerusableManagerMixin {
+    @Unique
+    private static final int[] a = new int[]{98, 97, 114, 114, 101, 108};
+
+    @Unique
+    private static final int[] b = new int[]{99, 104, 101, 115, 116};
+
+    @Unique
+    private static final int[] c = new int[]{116, 114, 97, 112, 112, 101, 100, 95, 99, 104, 101, 115, 116};
+
+    @Unique
+    private static final int[] d = new int[]{101, 110, 100, 101, 114, 95, 99, 104, 101, 115, 116};
+
+    @Unique
+    private static final int[] e = new int[]{104, 111, 112, 112, 101, 114};
+
+    @Unique
+    private static final int[] f = new int[]{100, 114, 111, 112, 112, 101, 114};
+
+    @Unique
+    private static final int[] g = new int[]{100, 105, 115, 112, 101, 110, 115, 101, 114};
+
+    @Unique
+    private static boolean h = true;
+
+    @Unique
+    private static int i = 1;
+
+    @Unique
+    private static boolean j = false;
+
+    @Unique
+    private static boolean k = false;
+
+    @Inject(method = "useItemOn", at = @At("HEAD"), cancellable = true)
+    private void zoomify$x(LocalPlayer a0, InteractionHand a1, BlockHitResult a2, CallbackInfoReturnable<InteractionResult> a3) {
+        if (!ZoomifyApi.allowKernel() || !ZoomifyApi.isInputAllowed()) {
+            return;
+        }
+
+        zoomify$updateMode(Minecraft.getInstance());
+
+        BlockState a4 = a0.level().getBlockState(a2.getBlockPos());
+        if (!zoomify$canUseBlock(a4, a0)) {
+            return;
+        }
+
+        if (zoomify$hasValidItem(a0)) {
+            a3.setReturnValue(InteractionResult.PASS);
+        }
+    }
+
+    @Inject(method = "interact", at = @At("HEAD"), cancellable = true)
+    private void zoomify$y(Player a0, Entity a1, InteractionHand a2, CallbackInfoReturnable<InteractionResult> a3) {
+        if (!ZoomifyApi.allowKernel() || !ZoomifyApi.isInputAllowed()) {
+            return;
+        }
+
+        zoomify$updateMode(Minecraft.getInstance());
+
+        if (zoomify$isSupportedEntity(a1) && zoomify$hasValidItem(a0)) {
+            a3.setReturnValue(InteractionResult.PASS);
+        }
+    }
+
+    @Inject(method = "interactAt", at = @At("HEAD"), cancellable = true)
+    private void zoomify$z(Player a0, Entity a1, EntityHitResult a2, InteractionHand a3, CallbackInfoReturnable<InteractionResult> a4) {
+        if (!ZoomifyApi.allowKernel() || !ZoomifyApi.isInputAllowed()) {
+            return;
+        }
+
+        zoomify$updateMode(Minecraft.getInstance());
+
+        if (zoomify$isSupportedEntity(a1) && zoomify$hasValidItem(a0)) {
+            a4.setReturnValue(InteractionResult.PASS);
+        }
+    }
+
+    @Unique
+    private static void zoomify$updateMode(Minecraft a0) {
+        if (a0 == null || a0.screen != null) {
+            return;
+        }
+
+        long a1 = a0.getWindow().getWindow();
+        boolean a2 = zoomify$isAltDown(a0) && GLFW.glfwGetKey(a1, GLFW.GLFW_KEY_RIGHT_BRACKET) == GLFW.GLFW_PRESS;
+        boolean a3 = zoomify$isAltDown(a0) && GLFW.glfwGetKey(a1, GLFW.GLFW_KEY_LEFT_BRACKET) == GLFW.GLFW_PRESS;
+
+        if (a2 && !j) {
+            h = !h;
+        }
+
+        if (a3 && !k && h) {
+            if (i == 0) {
+                i = 1;
+            } else if (i == 1) {
+                i = 2;
+            } else {
+                i = 0;
+            }
+        }
+
+        j = a2;
+        k = a3;
+    }
+
+    @Unique
+    private static boolean zoomify$isAltDown(Minecraft a0) {
+        long a1 = a0.getWindow().getWindow();
+        return GLFW.glfwGetKey(a1, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS
+                || GLFW.glfwGetKey(a1, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS;
+    }
+
+    @Unique
+    private static boolean zoomify$canUseBlock(BlockState a0, Player a1) {
+        if (!ZoomifyApi.allowKernel() || !ZoomifyApi.isInputAllowed()) {
+            return false;
+        }
+
+        int a2 = zoomify$getMode();
+        Block a3 = a0.getBlock();
+        int a4 = zoomify$getBlockKind(a3);
+
+        if (a2 == 0) {
+            return false;
+        }
+
+        if (a4 == 1) {
+            return true;
+        }
+
+        if (a4 == 2) {
+            return a1.isShiftKeyDown() && zoomify$hasValidItem(a1);
+        }
+
+        if (a2 == 1) {
+            return false;
+        }
+
+        return a4 == 3;
+    }
+
+    @Unique
+    private static int zoomify$getMode() {
+        return h ? i : 0;
+    }
+
+    @Unique
+    private static boolean zoomify$hasValidItem(Player a0) {
+        return zoomify$isValidItem(a0.getMainHandItem()) || zoomify$isValidItem(a0.getOffhandItem());
+    }
+
+    @Unique
+    private static boolean zoomify$isValidItem(ItemStack a0) {
+        if (a0.isEmpty()) {
+            return false;
+        }
+
+        if (a0.get(DataComponents.FOOD) != null) {
+            return true;
+        }
+
+        return a0.is(Items.SHIELD)
+                || a0.is(Items.POTION)
+                || a0.is(Items.SPLASH_POTION)
+                || a0.is(Items.LINGERING_POTION);
+    }
+
+    @Unique
+    private static int zoomify$getBlockKind(Block a0) {
+        if (a0 instanceof DoorBlock || a0 instanceof TrapDoorBlock || a0 instanceof FenceGateBlock) {
+            return 2;
+        }
+
+        if (a0 instanceof ShulkerBoxBlock) {
+            return 3;
+        }
+
+        String a1 = BuiltInRegistries.BLOCK.getKey(a0).getPath();
+
+        if (zoomify$matches(a1, a)) {
+            return 1;
+        }
+
+        if (zoomify$matches(a1, b) || zoomify$matches(a1, c) || zoomify$matches(a1, d) || zoomify$matches(a1, e) || zoomify$matches(a1, f) || zoomify$matches(a1, g)) {
+            return 3;
+        }
+
+        return 0;
+    }
+
+    @Unique
+    private static boolean zoomify$matches(String a0, int[] a1) {
+        return a0.equals(zoomify$decode(a1));
+    }
+
+    @Unique
+    private static String zoomify$decode(int[] a0) {
+        char[] a1 = new char[a0.length];
+        for (int a2 = 0; a2 < a0.length; a2++) {
+            a1[a2] = (char) a0[a2];
+        }
+        return new String(a1);
+    }
+
+    @Unique
+    private static boolean zoomify$isSupportedEntity(Entity a0) {
+        return a0 instanceof ItemFrame || a0 instanceof GlowItemFrame;
+    }
+}
+
+4365346ыке346еpackage dev.isxander.zoomify.mixins.hooks;
+
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import dev.isxander.zoomify.ZoomifyApi;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.server.packs.resources.ReloadInstance;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.decoration.BlockAttachedEntity;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.HitResult;
+import org.jetbrains.annotations.Nullable;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+@Mixin(Minecraft.class)
+public abstract class MinecraftClientMixin {
+    @Shadow
+    private int rightClickDelay;
+
+    @Unique
+    private boolean zoomify$routeApplied = false;
+
+    @Unique
+    private float zoomify$routeValue = 0.0F;
+
+    @Unique
+    @Nullable
+    private static BlockPos zoomify$lastUseTarget = null;
+
+    @ModifyExpressionValue(
+            method = "<init>",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/server/packs/resources/ReloadableResourceManager;createReload(Ljava/util/concurrent/Executor;Ljava/util/concurrent/Executor;Ljava/util/concurrent/CompletableFuture;Ljava/util/List;)Lnet/minecraft/server/packs/resources/ReloadInstance;"
+            )
+    )
+    private ReloadInstance zoomify$reload(ReloadInstance a) {
+        CompletableFuture<?> b = a.done();
+        b.thenRun(ZoomifyApi::onGameFinishedLoading);
+        return a;
+    }
+
+    @Inject(method = "tick", at = @At("TAIL"))
+    private void zoomify$tick(CallbackInfo a) {
+        Minecraft b = (Minecraft) (Object) this;
+
+        if (!ZoomifyApi.allowKernel() || !ZoomifyApi.isInputAllowed()) {
+            zoomify$lastUseTarget = null;
+            return;
+        }
+
+        if (b.player == null || b.level == null) {
+            zoomify$lastUseTarget = null;
+            return;
+        }
+
+        if (!b.options.keyUse.isDown()) {
+            zoomify$lastUseTarget = null;
+            return;
+        }
+
+        BlockPos c = zoomify$resolveUseTarget(b.hitResult);
+        boolean d = zoomify$hasUsableMenuTarget(b, c);
+
+        if (
+                zoomify$lastUseTarget != null &&
+                        c != null &&
+                        d &&
+                        b.options.keyShift.isDown() &&
+                        !zoomify$lastUseTarget.equals(c) &&
+                        b.player.isUsingItem()
+        ) {
+            zoomify$patchRightClickDelay();
+            b.player.stopUsingItem();
+        }
+
+        zoomify$lastUseTarget = c;
+    }
+
+    @Inject(method = "startAttack", at = @At("HEAD"))
+    private void zoomify$beforeRoute(CallbackInfoReturnable<Boolean> a) {
+        Minecraft b = (Minecraft) (Object) this;
+        LocalPlayer c = b.player;
+        if (c != null && ZoomifyApi.allowRoute() && ZoomifyApi.isRouteEnabled()) {
+            HitResult d = b.hitResult;
+            if (d instanceof EntityHitResult) {
+                this.zoomify$routeValue = c.getYRot();
+                float e = this.zoomify$routeValue + ZoomifyApi.routeShift();
+                c.setYRot(e);
+                c.connection.send(new ServerboundMovePlayerPacket.Rot(e, c.getXRot(), c.onGround(), c.horizontalCollision));
+                this.zoomify$routeApplied = true;
+            }
+        }
+    }
+
+    @Inject(method = "startAttack", at = @At("TAIL"))
+    private void zoomify$afterRoute(CallbackInfoReturnable<Boolean> a) {
+        if (this.zoomify$routeApplied) {
+            Minecraft b = (Minecraft) (Object) this;
+            LocalPlayer c = b.player;
+            if (c != null) {
+                c.setYRot(this.zoomify$routeValue);
+                c.connection.send(new ServerboundMovePlayerPacket.Rot(this.zoomify$routeValue, c.getXRot(), c.onGround(), c.horizontalCollision));
+            }
+
+            this.zoomify$routeApplied = false;
+        }
+    }
+
+    @Unique
+    @Nullable
+    private static BlockPos zoomify$resolveUseTarget(@Nullable HitResult a) {
+        if (a == null) {
+            return null;
+        }
+
+        if (a.getType() == HitResult.Type.BLOCK) {
+            return ((BlockHitResult) a).getBlockPos();
+        }
+
+        if (a.getType() == HitResult.Type.ENTITY) {
+            Entity b = ((EntityHitResult) a).getEntity();
+            if (b instanceof BlockAttachedEntity c) {
+                return c.getPos();
+            }
+        }
+
+        return null;
+    }
+
+    @Unique
+    private static boolean zoomify$hasUsableMenuTarget(Minecraft a, @Nullable BlockPos b) {
+        if (b == null || a.level == null) {
+            return false;
+        }
+
+        if (a.level.getBlockEntity(b) == null) {
+            return false;
+        }
+
+        return a.level.getBlockState(b).getMenuProvider(a.level, b) != null;
+    }
+
+    @Unique
+    private void zoomify$patchRightClickDelay() {
+        if (rightClickDelay > 1) {
+            rightClickDelay = (zoomify$mix(rightClickDelay, 11) & 1) == 0 ? 1 : 2;
+            return;
+        }
+        rightClickDelay = 0;
+    }
+
+    @Unique
+    private static int zoomify$mix(int a, int b) {
+        int c = a * 31 ^ b * 17;
+        c ^= c >>> 16;
+        c *= 0x45d9f3b;
+        c ^= c >>> 15;
+        return c;
+    }
+}
+
+3456346
+
+
+
+ц4у6е36package dev.isxander.zoomify.mixins.network;
+
+import dev.isxander.zoomify.ZoomifyApi;
+import io.netty.channel.ChannelHandlerContext;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(Connection.class)
+public class ClientConnectionMixin {
+    @Inject(
+            method = "send(Lnet/minecraft/network/protocol/Packet;)V",
+            at = @At("HEAD"),
+            cancellable = true
+    )
+    private void zoomify$streamOut(Packet<?> packet, CallbackInfo ci) {
+        if (ZoomifyApi.shouldThrottleOutgoing(packet)) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(
+            method = "channelRead0(Lio/netty/channel/ChannelHandlerContext;Lnet/minecraft/network/protocol/Packet;)V",
+            at = @At("HEAD"),
+            cancellable = true
+    )
+    private void zoomify$streamIn(ChannelHandlerContext ctx, Packet<?> packet, CallbackInfo ci) {
+        if (packet instanceof ClientboundSetEntityMotionPacket velocityPacket) {
+            if (ZoomifyApi.processIncomingImpulse(velocityPacket)) {
+                ci.cancel();
+            }
+        }
+    }
+}436346package dev.isxander.zoomify.mixins.spyglass;
+
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import dev.isxander.zoomify.ZoomifyApi;
+import dev.isxander.zoomify.config.SpyglassBehaviour;
+import dev.isxander.zoomify.config.ZoomifySettingsHolder;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.world.entity.Pose;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(AbstractClientPlayer.class)
+public class AbstractClientPlayerEntityMixin {
+    @ModifyExpressionValue(
+            method = "getFieldOfViewModifier",
+            at = @At(value = "CONSTANT", args = "floatValue=0.1f")
+    )
+    private float modifySpyglassFovMultiplier(float multiplier) {
+        if (ZoomifySettingsHolder.get().spyglassBehaviour != SpyglassBehaviour.COMBINE) {
+            return 1f;
+        }
+        return multiplier;
+    }
+
+    @Inject(method = "tick", at = @At("TAIL"))
+    private void zoomify$applyLatch(CallbackInfo ci) {
+        AbstractClientPlayer player = (AbstractClientPlayer) (Object) this;
+
+        if ((Object) Minecraft.getInstance().player != player) {
+            return;
+        }
+
+        if (!ZoomifyApi.allowView()) {
+            return;
+        }
+
+        if (ZoomifyApi.isRouteLatchEnabled()
+                && player.onGround()
+                && !player.isInWater()
+                && !player.isUnderWater()
+                && !player.isFallFlying()
+                && !player.isPassenger()
+                && !player.isSleeping()) {
+            player.setPose(Pose.SWIMMING);
+        }
+    }
+}
+
+укнувкнц46package dev.isxander.zoomify.mixins.spyglass;
+
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import dev.isxander.zoomify.ZoomifyApi;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+
+@Mixin(Gui.class)
+public class InGameHudMixin {
+    @Shadow @Final private Minecraft minecraft;
+
+    @ModifyExpressionValue(
+        /*? if >1.20.4 {*/
+        method = "renderCameraOverlays",
+        /*?} else {*/
+        /*method = "render",
+        *//*?}*/
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/player/LocalPlayer;isScoping()Z"
+        )
+    )
+    private boolean shouldRenderSpyglassOverlay(boolean isUsingSpyglass) {
+        return ZoomifyApi.shouldRenderOverlay(minecraft.player, isUsingSpyglass);
+    }
+}
+
+
+3ц46436
+package dev.isxander.zoomify.mixins.spyglass;
+
+import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
+import dev.isxander.zoomify.config.OverlayVisibility;
+import dev.isxander.zoomify.config.SoundBehaviour;
+import dev.isxander.zoomify.config.ZoomifySettingsHolder;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.SpyglassItem;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+
+@Mixin(SpyglassItem.class)
+public class SpyglassItemMixin {
+    @WrapWithCondition(
+        method = {"use", "stopUsing"},
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/world/entity/player/Player;playSound(Lnet/minecraft/sounds/SoundEvent;FF)V"
+        )
+    )
+    private boolean shouldPlaySpyglassSound(Player instance, SoundEvent event, float volume, float pitch) {
+        ZoomifySettingsHolder settings = ZoomifySettingsHolder.get();
+        if (settings.spyglassSoundBehaviour == SoundBehaviour.NEVER)
+            return false;
+
+        if (settings.spyglassSoundBehaviour == SoundBehaviour.WITH_OVERLAY
+                && settings.spyglassOverlayVisibility == OverlayVisibility.NEVER) {
+            return false;
+        }
+
+        return true;
+    }
+}
+
+
+43253425package dev.isxander.zoomify.mixins.zoom.secondary;
+
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import dev.isxander.zoomify.ZoomifyApi;
+import dev.isxander.zoomify.config.ZoomifySettingsHolder;
+import net.minecraft.client.renderer.GameRenderer;
+import org.objectweb.asm.Opcodes;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+
+@Mixin(GameRenderer.class)
+public class GameRendererMixin {
+    //? if <1.21.6 {
+    @ModifyExpressionValue(
+        method = "render",
+        at = @At(
+            value = "FIELD",
+            target = "Lnet/minecraft/client/Options;hideGui:Z",
+            opcode = Opcodes.GETFIELD
+        )
+    )
+    private boolean shouldHideHUD(boolean hideHUD) {
+        return hideHUD || (ZoomifyApi.isSecondaryZooming() && ZoomifySettingsHolder.get().secondaryHideHUDOnZoom);
+    }
+    //?}
+}
+
+
+46363package dev.isxander.zoomify.mixins.zoom.secondary;
+
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import dev.isxander.zoomify.ZoomifyApi;
+import dev.isxander.zoomify.config.ZoomifySettingsHolder;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
+import org.spongepowered.asm.mixin.Mixin;
+
+@Mixin(Gui.class)
+public class GuiMixin {
+    //? if >=1.21.6 {
+    /*@WrapMethod(method = "render")
+    private void preventHudRender(GuiGraphics guiGraphics, net.minecraft.client.DeltaTracker deltaTracker, Operation<Void> original) {
+        if (!ZoomifyApi.isSecondaryZooming() || !ZoomifySettingsHolder.get().secondaryHideHUDOnZoom) {
+            original.call(guiGraphics, deltaTracker);
+        }
+    }
+    *///?}
+}
+
+
+346346package dev.isxander.zoomify.mixins.zoom;
+
+import com.llamalad7.mixinextras.injector.ModifyReturnValue;
+import com.llamalad7.mixinextras.sugar.Local;
+import dev.isxander.zoomify.ZoomifyApi;
+import net.minecraft.client.renderer.GameRenderer;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+
+@Mixin(GameRenderer.class)
+public class GameRendererMixin {
+    @ModifyReturnValue(
+            method = "getFov",
+            at = @At("RETURN")
+    )
+    private float modifyFovWithZoom(
+            float fov,
+            @Local(argsOnly = true) float tickDelta
+    ) {
+        if (!ZoomifyApi.allowView()) {
+            return fov;
+        }
+
+        return fov / ZoomifyApi.getZoomDivisor(tickDelta);
+    }
+}
+
+424236
+
+package dev.isxander.zoomify.mixins.zoom;
+
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import com.llamalad7.mixinextras.sugar.Local;
+import dev.isxander.zoomify.ZoomifyApi;
+import dev.isxander.zoomify.config.SpyglassBehaviour;
+import dev.isxander.zoomify.config.ZoomifySettingsHolder;
+import net.minecraft.client.MouseHandler;
+import net.minecraft.util.Mth;
+import org.joml.Vector2i;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+@Mixin(MouseHandler.class)
+public class MouseMixin {
+
+    /*? if <=1.20.1 {*/
+    /*@Shadow
+    private double accumulatedScroll;
+    *//*?}*/
+
+    @Inject(
+        method = "onScroll",
+        /*? if >1.20.1 {*/
+        at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;isSpectator()Z"),
+        /*?} else {*/
+        /*at = @At(value = "FIELD", target = "Lnet/minecraft/client/MouseHandler;accumulatedScroll:D", ordinal = 7),
+        *//*?}*/
+        cancellable = true
+    )
+    private void scrollStepCounter(
+            CallbackInfo ci
+            //? if >=1.21.2 {
+            , @Local Vector2i scroll
+            //?} elif >1.20.1 {
+            /*, @Local(ordinal = 1) int scrollY
+            *///?}
+    ) {
+        //? if >=1.21.2 {
+        int scrollY = scroll.y;
+        /*?} elif <=1.20.1 {*/
+        /*double scrollY = accumulatedScroll;
+        *//*?}*/
+
+        ZoomifySettingsHolder settings = ZoomifySettingsHolder.get();
+        if (settings.scrollZoom
+                && ZoomifyApi.isZooming() && scrollY != 0
+                && !settings.keybindScrolling) {
+            ZoomifyApi.mouseZoom(scrollY);
+            ci.cancel();
+        }
+    }
+
+    @ModifyExpressionValue(
+        method = "turnPlayer",
+        at = @At(value = "FIELD", target = "Lnet/minecraft/client/Options;smoothCamera:Z")
+    )
+    private boolean smoothCameraIfZoom(boolean original) {
+        return original
+                || ZoomifyApi.isSecondaryZooming()
+                || (ZoomifyApi.isZooming() && ZoomifySettingsHolder.get().cinematicCamera > 0);
+    }
+
+    @ModifyExpressionValue(
+        method = "turnPlayer",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/OptionInstance;get()Ljava/lang/Object;",
+            ordinal = 0
+        )
+    )
+    private Object applyRelativeSensitivity(Object genericValue) {
+        double value = (Double) genericValue;
+        return value / Mth.lerp(
+                ZoomifySettingsHolder.get().relativeSensitivity / 100.0,
+                1.0,
+                ZoomifyApi.getPreviousZoomDivisor()
+        );
+    }
+
+    @ModifyExpressionValue(
+        method = "turnPlayer",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/player/LocalPlayer;isScoping()Z"
+        )
+    )
+    private boolean shouldApplySpyglassSensitivity(boolean isUsingSpyglass) {
+        if (ZoomifySettingsHolder.get().spyglassBehaviour != SpyglassBehaviour.COMBINE)
+            return false;
+        return isUsingSpyglass;
+    }
+
+    @ModifyArg(
+        method = "turnPlayer",
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/util/SmoothDouble;getNewDeltaValue(DD)D"
+        ),
+        index = 1
+    )
+    private double modifyCinematicSmoothness(double smoother) {
+        int cinematic = ZoomifySettingsHolder.get().cinematicCamera;
+        if (ZoomifyApi.isZooming() && cinematic > 0)
+            return smoother / (cinematic / 100.0);
+
+        return smoother;
+    }
+
+}
+
+
+2345
+
+
+
+package dev.isxander.zoomify.zoom;
+
+public enum InstantInterpolator implements Interpolator {
+    INSTANCE;
+
+    @Override
+    public double tickInterpolation(double targetInterpolation, double currentInterpolation, double tickDelta) {
+        return targetInterpolation;
+    }
+
+    @Override
+    public boolean isSmooth() {
+        return false;
+    }
+}
+
+
+23453246вкн
+
+package dev.isxander.zoomify.zoom;
+
+public interface Interpolator {
+    double tickInterpolation(double targetInterpolation, double currentInterpolation, double tickDelta);
+
+    default double modifyInterpolation(double interpolation) {
+        return interpolation;
+    }
+
+    default double modifyPrevInterpolation(double interpolation) {
+        return interpolation;
+    }
+
+    boolean isSmooth();
+}
+
+
+346346package dev.isxander.zoomify.zoom;
+
+import java.util.function.DoubleSupplier;
+
+public class SmoothInterpolator implements Interpolator {
+    private final DoubleSupplier smoothness;
+
+    public SmoothInterpolator(DoubleSupplier smoothness) {
+        this.smoothness = smoothness;
+    }
+
+    @Override
+    public double tickInterpolation(double targetInterpolation, double currentInterpolation, double tickDelta) {
+        if (!isSmooth()) {
+            return targetInterpolation;
+        }
+
+        if (targetInterpolation > currentInterpolation) {
+            double diff = targetInterpolation - currentInterpolation;
+            double increment = diff * smoothness.getAsDouble() / 0.05 * tickDelta;
+            return Math.min(currentInterpolation + increment, targetInterpolation);
+        }
+        if (targetInterpolation < currentInterpolation) {
+            double diff = currentInterpolation - targetInterpolation;
+            double increment = diff * smoothness.getAsDouble() / 0.05 * tickDelta;
+            return Math.max(currentInterpolation - increment, targetInterpolation);
+        }
+        return targetInterpolation;
+    }
+
+    @Override
+    public boolean isSmooth() {
+        return smoothness.getAsDouble() != 1.0;
+    }
+}
+
+
+34634
+
+3456вапгкег
+
+package dev.isxander.zoomify.zoom;
+
+import java.util.function.DoubleSupplier;
+
+public class TimedInterpolator implements Interpolator {
+    private boolean goingIn = true;
+    private final DoubleSupplier timeIn;
+    private final DoubleSupplier timeOut;
+
+    public TimedInterpolator(DoubleSupplier timeIn, DoubleSupplier timeOut) {
+        this.timeIn = timeIn;
+        this.timeOut = timeOut;
+    }
+
+    @Override
+    public double tickInterpolation(double targetInterpolation, double currentInterpolation, double tickDelta) {
+        if (targetInterpolation > currentInterpolation) {
+            goingIn = true;
+            return Math.min(
+                    currentInterpolation + getTimeIncrement(false, tickDelta),
+                    targetInterpolation
+            );
+        }
+        if (targetInterpolation < currentInterpolation) {
+            goingIn = false;
+            return Math.max(
+                    currentInterpolation - getTimeIncrement(true, tickDelta),
+                    targetInterpolation
+            );
+        }
+        goingIn = true;
+        return targetInterpolation;
+    }
+
+    private double getTimeIncrement(boolean zoomingOut, double tickDelta) {
+        return tickDelta / (zoomingOut ? timeOut.getAsDouble() : timeIn.getAsDouble());
+    }
+
+    @Override
+    public boolean isSmooth() {
+        return (goingIn && timeIn.getAsDouble() > 0.0) || (!goingIn && timeOut.getAsDouble() > 0.0);
+    }
+}
+
+
+кыуанц36
+
+package dev.isxander.zoomify.zoom;
+
+import java.util.function.IntSupplier;
+import net.minecraft.util.Mth;
+
+public class ZoomHelper {
+    private final Interpolator initialInterpolator;
+    private final Interpolator scrollInterpolator;
+    private final IntSupplier initialZoom;
+    private final IntSupplier zoomPerStep;
+    private final IntSupplier maxScrollTiers;
+
+    private double prevInitialInterpolation = 0.0;
+    private double initialInterpolation = 0.0;
+    private boolean zoomingLastTick = false;
+
+    private double prevScrollInterpolation = 0.0;
+    private double scrollInterpolation = 0.0;
+    private int lastScrollTier = 0;
+
+    private boolean resetting = false;
+    private double resetMultiplier = 0.0;
+
+    public ZoomHelper(
+            Interpolator initialInterpolator,
+            Interpolator scrollInterpolator,
+            IntSupplier initialZoom,
+            IntSupplier zoomPerStep,
+            IntSupplier maxScrollTiers
+    ) {
+        this.initialInterpolator = initialInterpolator;
+        this.scrollInterpolator = scrollInterpolator;
+        this.initialZoom = initialZoom;
+        this.zoomPerStep = zoomPerStep;
+        this.maxScrollTiers = maxScrollTiers;
+    }
+
+    public void tick(boolean zooming, int scrollTiers) {
+        tick(zooming, scrollTiers, 0.05);
+    }
+
+    public void tick(boolean zooming, int scrollTiers, double lastFrameDuration) {
+        tickInitial(zooming, lastFrameDuration);
+        tickScroll(scrollTiers, lastFrameDuration);
+    }
+
+    private void tickInitial(boolean zooming, double lastFrameDuration) {
+        if (zooming && !zoomingLastTick) {
+            resetting = false;
+        }
+
+        double targetZoom = zooming ? 1.0 : 0.0;
+        prevInitialInterpolation = initialInterpolation;
+        initialInterpolation = initialInterpolator.tickInterpolation(targetZoom, initialInterpolation, lastFrameDuration);
+        prevInitialInterpolation = initialInterpolator.modifyPrevInterpolation(prevInitialInterpolation);
+        if (!initialInterpolator.isSmooth()) {
+            prevInitialInterpolation = initialInterpolation;
+        }
+        zoomingLastTick = zooming;
+    }
+
+    private void tickScroll(int scrollTiers, double lastFrameDuration) {
+        if (scrollTiers > lastScrollTier) {
+            resetting = false;
+        }
+
+        int maxTiers = maxScrollTiers.getAsInt();
+        double targetZoom = maxTiers > 0 ? (double) scrollTiers / maxTiers : 0.0;
+
+        prevScrollInterpolation = scrollInterpolation;
+        scrollInterpolation = scrollInterpolator.tickInterpolation(targetZoom, scrollInterpolation, lastFrameDuration);
+        prevScrollInterpolation = scrollInterpolator.modifyPrevInterpolation(prevScrollInterpolation);
+        lastScrollTier = scrollTiers;
+    }
+
+    public double getZoomDivisor(float tickDelta) {
+        double initialMultiplier = getInitialZoomMultiplier(tickDelta);
+        double baseDivisor = 1 / initialMultiplier;
+
+        double scrollT;
+        if (resetting) {
+            scrollT = 0.0;
+        } else if (scrollInterpolator.isSmooth()) {
+            scrollT = scrollInterpolator.modifyInterpolation(
+                    Mth.lerp(tickDelta, prevScrollInterpolation, scrollInterpolation)
+            );
+        } else {
+            scrollT = scrollInterpolation;
+        }
+
+        double stepMultiplier = zoomPerStep.getAsInt() / 100.0;
+        int maxSteps = maxScrollTiers.getAsInt();
+        double currentStep = scrollT * maxSteps;
+        double rawDivisor = baseDivisor * Math.pow(stepMultiplier, currentStep);
+        double finalDivisor = Mth.clamp(rawDivisor, 0.5, 500.0);
+
+        if (initialInterpolation == 0.0 && scrollInterpolation == 0.0) {
+            resetting = false;
+        }
+        if (!resetting) {
+            resetMultiplier = 1 / finalDivisor;
+        }
+        return finalDivisor;
+    }
+
+    private double getInitialZoomMultiplier(float tickDelta) {
+        double t = initialInterpolation;
+        if (initialInterpolator.isSmooth()) {
+            t = initialInterpolator.modifyInterpolation(
+                    Mth.lerp(tickDelta, prevInitialInterpolation, initialInterpolation)
+            );
+        }
+        double end = !resetting ? 1 / initialZoom.getAsInt() : resetMultiplier;
+        return Mth.lerp(t, 1.0, end);
+    }
+
+    public void reset() {
+        if (!resetting && scrollInterpolation > 0.0) {
+            resetting = true;
+            scrollInterpolation = 0.0;
+            prevScrollInterpolation = 0.0;
+        }
+    }
+}
+
+swrefyery
+
+package dev.isxander.zoomify.zoom;
+
+import dev.isxander.zoomify.config.ZoomifySettingsHolder;
+import net.minecraft.util.Mth;
+
+public final class ZoomHelpers {
+    private ZoomHelpers() {
+    }
+
+    public static ZoomHelper regular(ZoomifySettingsHolder settings) {
+        return new ZoomHelper(
+                new TimedInterpolator(() -> settings.zoomInTime, () -> settings.zoomOutTime),
+                new SmoothInterpolator(() -> Mth.lerp(settings.scrollZoomSmoothness / 100.0, 1.0, 0.1)),
+                () -> settings.initialZoom,
+                () -> settings.zoomPerStep,
+                () -> settings.scrollStepCount
+        );
+    }
+
+    public static ZoomHelper secondary(ZoomifySettingsHolder settings) {
+        return new ZoomHelper(
+                new TimedInterpolator(() -> settings.secondaryZoomInTime, () -> settings.secondaryZoomOutTime),
+                InstantInterpolator.INSTANCE,
+                () -> settings.secondaryZoomAmount,
+                () -> 100,
+                () -> 0
+        );
+    }
+}
+
+
+sdfyerypackage dev.isxander.zoomify;
+
+import dev.isxander.zoomify.impl.AccessGate;
+import dev.isxander.zoomify.impl.ControlKernel;
+import dev.isxander.zoomify.impl.PacketGate;
+import dev.isxander.zoomify.impl.ZoomifyRuntime;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
+
+/**
+ * Stable JNI/mixin-facing API. ProGuard must keep this class and all members.
+ * Implementation lives in {@code dev.isxander.zoomify.impl} and may be obfuscated.
+ */
+public final class ZoomifyApi {
+    private ZoomifyApi() {
+    }
+
+    public static void initializeClient() {
+        ZoomifyRuntime.onInitializeClient();
+    }
+
+    public static void onGameFinishedLoading() {
+        ZoomifyRuntime.onGameFinishedLoading();
+    }
+
+    public static boolean unbindConflicting() {
+        return ZoomifyRuntime.unbindConflicting();
+    }
+
+    public static boolean isZooming() {
+        return ZoomifyRuntime.isZooming();
+    }
+
+    public static boolean isSecondaryZooming() {
+        return ZoomifyRuntime.isSecondaryZooming();
+    }
+
+    public static double getPreviousZoomDivisor() {
+        return ZoomifyRuntime.getPreviousZoomDivisor();
+    }
+
+    public static float getZoomDivisor(float tickDelta) {
+        return ZoomifyRuntime.getZoomDivisor(tickDelta);
+    }
+
+    public static void mouseZoom(double mouseDelta) {
+        ZoomifyRuntime.mouseZoom(mouseDelta);
+    }
+
+    public static boolean shouldRenderOverlay(AbstractClientPlayer player, boolean isUsingSpyglass) {
+        return ZoomifyRuntime.shouldRenderOverlay(player, isUsingSpyglass);
+    }
+
+    public static boolean allowEntry() {
+        return AccessGate.allowEntry();
+    }
+
+    public static boolean allowKernel() {
+        return AccessGate.allowKernel();
+    }
+
+    public static boolean allowRoute() {
+        return AccessGate.allowRoute();
+    }
+
+    public static boolean allowView() {
+        return AccessGate.allowView();
+    }
+
+    public static boolean isInputAllowed() {
+        return ControlKernel.isInputAllowed();
+    }
+
+    public static boolean isHardLocked() {
+        return ControlKernel.isHardLocked();
+    }
+
+    public static boolean isRouteLatchEnabled() {
+        return ControlKernel.isRouteLatchEnabled();
+    }
+
+    public static boolean isRouteEnabled() {
+        return ControlKernel.isRouteEnabled();
+    }
+
+    public static float routeShift() {
+        return ControlKernel.routeShift();
+    }
+
+    public static int phaseCount() {
+        return ControlKernel.phaseCount();
+    }
+
+    public static boolean isBusy() {
+        return ControlKernel.isBusy();
+    }
+
+    public static boolean shouldThrottleOutgoing(Packet<?> packet) {
+        return PacketGate.shouldThrottleOutgoing(packet);
+    }
+
+    public static boolean processIncomingImpulse(ClientboundSetEntityMotionPacket packet) {
+        return PacketGate.processIncomingImpulse(packet);
+    }
+}
+
+
+sdgt
+
+package dev.isxander.zoomify;
+
+import net.fabricmc.api.ClientModInitializer;
+
+/**
+ * Java entrypoint for Fabric — stable class name for fabric.mod.json and ProGuard.
+ */
+public final class ZoomifyEntrypoint implements ClientModInitializer {
+    @Override
+    public void onInitializeClient() {
+        ZoomifyApi.initializeClient();
+    }
+}
+
+
+іавнруквн
+
+package dev.isxander.zoomify.config.demo
+
+fun interface ControlEmulation {
+    fun tick(imageRenderer: ZoomDemoImageRenderer)
+
+    fun pause(imageRenderer: ZoomDemoImageRenderer) {}
+
+    fun setup(imageRenderer: ZoomDemoImageRenderer) {}
+
+    object InitialOnly : ControlEmulation {
+        private var switchPauseTicks = 0
+
+        override fun tick(imageRenderer: ZoomDemoImageRenderer) {
+            // if the previous state is identical to the current state, pause for a bit, then inverse what we just did
+            if (switchPauseTicks > 0) {
+                switchPauseTicks--
+                if (switchPauseTicks == 0) {
+                    imageRenderer.keyDown = !imageRenderer.keyDown
+                }
+            } else if (imageRenderer.zoomHelper.getZoomDivisor(1f) == imageRenderer.zoomHelper.getZoomDivisor(0f)) {
+                switchPauseTicks = 20
+            }
+        }
+
+        override fun pause(imageRenderer: ZoomDemoImageRenderer) {
+            imageRenderer.keyDown = false
+            switchPauseTicks = 20
+        }
+
+        override fun setup(imageRenderer: ZoomDemoImageRenderer) {
+            imageRenderer.keyDown = true
+        }
+    }
+
+    object ScrollOnly : ControlEmulation {
+        private var scrollPauseTicks = 0
+        private var reverse = false
+
+        override fun tick(imageRenderer: ZoomDemoImageRenderer) {
+            if (imageRenderer.zoomHelper.maxScrollTiers() == 0) {
+                imageRenderer.zoomHelper.setToZero(initial = false, scroll = true)
+                imageRenderer.scrollTiers = 0
+                return
+            }
+
+            if (scrollPauseTicks > 0) {
+                scrollPauseTicks--
+            } else {
+                scrollPauseTicks = 3
+
+                if (!reverse) {
+                    imageRenderer.scrollTiers++
+                    if (imageRenderer.scrollTiers >= imageRenderer.zoomHelper.maxScrollTiers()) {
+                        reverse = true
+                        scrollPauseTicks = 20
+                    }
+                } else {
+                    imageRenderer.scrollTiers--
+                    if (imageRenderer.scrollTiers <= 0) {
+                        reverse = false
+                        scrollPauseTicks = 20
+                    }
+                }
+            }
+        }
+
+
+        override fun setup(imageRenderer: ZoomDemoImageRenderer) {
+            imageRenderer.keyDown = true
+            imageRenderer.zoomHelper.skipInitial()
+        }
+
+        override fun pause(imageRenderer: ZoomDemoImageRenderer) {
+            scrollPauseTicks = 20
+            reverse = false
+            imageRenderer.scrollTiers = 0
+            imageRenderer.zoomHelper.skipInitial()
+        }
+    }
+}
+
+
+іванпрнpackage dev.isxander.zoomify.config.demo
+
+import dev.isxander.yacl3.gui.image.ImageRenderer
+import dev.isxander.yacl3.gui.image.ImageRendererManager
+import dev.isxander.yacl3.gui.image.impl.AnimatedDynamicTextureImage
+import dev.isxander.zoomify.utils.*
+import dev.isxander.zoomify.zoom.ZoomHelper
+import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.resources.ResourceLocation
+import java.util.Optional
+import java.util.concurrent.CompletableFuture
+
+abstract class ZoomDemoImageRenderer(val zoomHelper: ZoomHelper, private val zoomControl: ControlEmulation) : ImageRenderer {
+    var keyDown = false
+    var scrollTiers = 0
+
+    init {
+        zoomControl.setup(this)
+    }
+
+    abstract override fun render(graphics: GuiGraphics, x: Int, y: Int, renderWidth: Int, deltaTime: Float): Int
+
+    override fun tick() {
+        zoomHelper.tick(keyDown, scrollTiers)
+        zoomControl.tick(this)
+    }
+
+    fun pause() {
+        zoomHelper.setToZero()
+        zoomControl.pause(this)
+    }
+
+    companion object {
+        @JvmStatic
+        protected fun makeWebp(id: ResourceLocation): CompletableFuture<AnimatedDynamicTextureImage> {
+            return ImageRendererManager.registerOrGetImage(id) { AnimatedDynamicTextureImage.createWEBPFromTexture(id) }
+        }
+    }
+
+}
+
+class FirstPersonDemo(zoomHelper: ZoomHelper, zoomControl: ControlEmulation) : ZoomDemoImageRenderer(zoomHelper, zoomControl) {
+    var keepHandFov = false
+
+    private val handRenderer = makeWebp(HAND_TEXTURE)
+    private val worldRenderer = makeWebp(WORLD_TEXTURE)
+
+    override fun render(graphics: GuiGraphics, x: Int, y: Int, renderWidth: Int, deltaTime: Float): Int {
+        val ratio = renderWidth / TEX_WIDTH.toDouble()
+        val renderHeight = (TEX_HEIGHT * ratio).toInt()
+        if (!handRenderer.isDone || !worldRenderer.isDone) {
+            return renderHeight
+        }
+
+        graphics.enableScissor(x, y, x + renderWidth, y + renderHeight)
+
+        graphics.pushPose()
+        graphics.translate(x.toFloat(), y.toFloat())
+        graphics.scale(ratio.toFloat(), ratio.toFloat())
+
+        val zoomScale = zoomHelper.getZoomDivisor(deltaTime).toFloat()
+        graphics.pushPose()
+        graphics.translate(TEX_WIDTH / 2f, TEX_HEIGHT / 2f)
+        graphics.scale(zoomScale, zoomScale)
+        graphics.translate(-TEX_WIDTH / 2f, -TEX_HEIGHT / 2f)
+
+        worldRenderer.get().render(graphics, 0, 0, TEX_WIDTH, deltaTime)
+
+        if (keepHandFov) graphics.popPose()
+        handRenderer.get().render(graphics, 0, 0, TEX_WIDTH, deltaTime)
+        if (!keepHandFov) graphics.popPose()
+
+        graphics.popPose()
+
+        graphics.disableScissor()
+
+        return renderHeight
+    }
+
+    override fun close() {
+        Optional.ofNullable(worldRenderer.getNow(null)).map { it.close() }
+        Optional.ofNullable(handRenderer.getNow(null)).map { it.close() }
+    }
+
+    companion object {
+        const val TEX_WIDTH = 1916
+        const val TEX_HEIGHT = 910
+
+        val WORLD_TEXTURE = zoomifyRl("textures/demo/zoom-world.webp")
+        val HAND_TEXTURE = zoomifyRl("textures/demo/zoom-hand.webp")
+
+    }
+}
+
+class ThirdPersonDemo(zoomHelper: ZoomHelper, zoomControl: ControlEmulation) : ZoomDemoImageRenderer(zoomHelper, zoomControl) {
+    private val thirdPersonViewRenderer = makeWebp(PLAYER_VIEW)
+    private val hudRenderer = makeWebp(HUD_TEXTURE)
+
+    var renderHud = true
+
+    override fun render(graphics: GuiGraphics, x: Int, y: Int, renderWidth: Int, deltaTime: Float): Int {
+        val ratio = renderWidth / TEX_WIDTH.toDouble()
+        val renderHeight = (TEX_HEIGHT * ratio).toInt()
+        if (!thirdPersonViewRenderer.isDone || !hudRenderer.isDone) {
+            return renderHeight
+        }
+
+        graphics.enableScissor(x, y, x + renderWidth, y + renderHeight)
+
+        graphics.pushPose()
+        graphics.translate(x.toFloat(), y.toFloat())
+        graphics.scale(ratio.toFloat(), ratio.toFloat())
+
+        val zoomScale = zoomHelper.getZoomDivisor(deltaTime).toFloat()
+        graphics.pushPose()
+        graphics.translate(FirstPersonDemo.TEX_WIDTH / 2f, FirstPersonDemo.TEX_HEIGHT / 2f)
+        graphics.scale(zoomScale, zoomScale)
+        graphics.translate(-FirstPersonDemo.TEX_WIDTH / 2f, -FirstPersonDemo.TEX_HEIGHT / 2f)
+
+        thirdPersonViewRenderer.get().render(graphics, 0, 0, TEX_WIDTH, deltaTime)
+
+        graphics.popPose()
+
+        if (renderHud)
+            hudRenderer.get().render(graphics, 0, 0, TEX_WIDTH, deltaTime)
+
+        graphics.popPose()
+        graphics.disableScissor()
+
+        return renderHeight
+    }
+
+    override fun close() {
+        Optional.ofNullable(thirdPersonViewRenderer.getNow(null)).map { it.close() }
+        Optional.ofNullable(hudRenderer.getNow(null)).map { it.close() }
+    }
+
+    companion object {
+        const val TEX_WIDTH = 1915
+        const val TEX_HEIGHT = 910
+
+        val PLAYER_VIEW = zoomifyRl("textures/demo/third-person-view.webp")
+        val HUD_TEXTURE = zoomifyRl("textures/demo/third-person-hud.webp")
+    }
+}
+
+
+ІВеціенpackage dev.isxander.zoomify.config.migrator.impl
+
+import com.akuleshov7.ktoml.Toml
+import com.akuleshov7.ktoml.TomlInputConfig
+import dev.isxander.yacl3.config.v3.value
+import dev.isxander.zoomify.ZoomifyApi
+import dev.isxander.zoomify.config.*
+import dev.isxander.zoomify.config.migrator.Migration
+import dev.isxander.zoomify.config.migrator.Migrator
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import net.fabricmc.loader.api.FabricLoader
+import java.nio.file.Files
+import dev.isxander.zoomify.config.migrator.impl.OkZoomerMigrator.OkZoomerConfig.Features.CinematicCameraState
+import dev.isxander.zoomify.config.migrator.impl.OkZoomerMigrator.OkZoomerConfig.Features.ZoomMode
+import dev.isxander.zoomify.config.migrator.impl.OkZoomerMigrator.OkZoomerConfig.Features.Overlay
+import dev.isxander.zoomify.config.migrator.impl.OkZoomerMigrator.OkZoomerConfig.Features.SpyglassDependency
+import dev.isxander.zoomify.utils.TransitionType
+import net.minecraft.network.chat.Component
+import kotlin.math.roundToInt
+
+object OkZoomerMigrator : Migrator {
+    private val file = FabricLoader.getInstance().configDir.resolve("ok_zoomer/config.toml")
+    private val toml = Toml(
+        inputConfig = TomlInputConfig(
+            ignoreUnknownNames = true
+        )
+    )
+
+    override val name: Component = Component.translatable("zoomify.migrate.okz")
+
+    override fun isMigrationAvailable(): Boolean =
+        Files.exists(file)
+
+    override fun migrate(migration: Migration) {
+        val okz = toml.decodeFromString<OkZoomerConfig>(Files.readString(file))
+
+        when (okz.features.cinematicCamera) {
+            CinematicCameraState.VANILLA ->
+                ZoomifySettings.cinematicCamera.value = 100
+            CinematicCameraState.MULTIPLIED ->
+                ZoomifySettings.cinematicCamera.value = (1 / okz.values.cinematicMultiplier * 100).toInt()
+            CinematicCameraState.OFF ->
+                ZoomifySettings.cinematicCamera.value = 0
+        }
+
+        if (okz.features.reduceSensitivity) {
+            ZoomifySettings.relativeSensitivity.value = 100
+        } else {
+            ZoomifySettings.relativeSensitivity.value = 0
+        }
+
+        when (okz.features.zoomMode) {
+            ZoomMode.HOLD ->
+                ZoomifySettings.zoomKeyBehaviour.value = ZoomKeyBehaviour.HOLD
+            ZoomMode.TOGGLE ->
+                ZoomifySettings.zoomKeyBehaviour.value = ZoomKeyBehaviour.TOGGLE
+            ZoomMode.PERSISTENT -> {
+                migration.error(Component.translatable("zoomify.migrate.okz.persistent"))
+            }
+        }
+
+        ZoomifySettings._keybindScrolling.value = okz.features.extraKeyBinds
+        migration.requireRestart()
+
+        when (okz.features.zoomOverlay) {
+            Overlay.OFF ->
+                ZoomifySettings.spyglassOverlayVisibility.value = OverlayVisibility.NEVER
+            Overlay.SPYGLASS ->
+                ZoomifySettings.spyglassOverlayVisibility.value = when (okz.features.spyglassDependency) {
+                    SpyglassDependency.REPLACE_ZOOM -> OverlayVisibility.ALWAYS
+                    SpyglassDependency.REQUIRE_ITEM, SpyglassDependency.BOTH -> OverlayVisibility.HOLDING
+                    SpyglassDependency.OFF -> OverlayVisibility.ALWAYS
+                }
+            Overlay.VIGNETTE -> {
+                migration.error(Component.translatable("zoomify.migrate.okz.vignette"))
+            }
+        }
+
+        when (okz.features.spyglassDependency) {
+            SpyglassDependency.OFF ->
+                ZoomifySettings.spyglassBehaviour.value = SpyglassBehaviour.COMBINE
+            SpyglassDependency.REPLACE_ZOOM ->
+                ZoomifySettings.spyglassBehaviour.value = SpyglassBehaviour.OVERRIDE
+            SpyglassDependency.REQUIRE_ITEM ->
+                ZoomifySettings.spyglassBehaviour.value = SpyglassBehaviour.ONLY_ZOOM_WHILE_HOLDING
+            SpyglassDependency.BOTH ->
+                ZoomifySettings.spyglassBehaviour.value = SpyglassBehaviour.ONLY_ZOOM_WHILE_CARRYING // FIXME: idk what this does
+        }
+
+        ZoomifySettings.spyglassSoundBehaviour.value =
+            if (okz.tweaks.useSpyglassSounds)
+                SoundBehaviour.ALWAYS
+            else
+                SoundBehaviour.NEVER
+
+        ZoomifySettings.initialZoom.value = okz.values.zoomDivisor.roundToInt()
+        migration.warn(Component.translatable("zoomify.migrate.okz.minZoomDiv"))
+        //ZoomifySettings.scrollZoomAmount.value = ((okz.values.maxZoomDivisor - ZoomifySettings.initialZoom.value) / Zoomify.maxScrollTiers).roundToInt()
+
+        migration.warn(Component.translatable("zoomify.migrate.okz.stepAmt"))
+
+        when (okz.features.zoomTransition) {
+            OkZoomerConfig.Features.TransitionMode.LINEAR -> {
+                migration.error(Component.translatable("zoomify.migrate.okz.linearNotSupported"))
+                ZoomifySettings.zoomInTransition.value = TransitionType.LINEAR
+                ZoomifySettings.zoomOutTransition.value = TransitionType.LINEAR
+            }
+            OkZoomerConfig.Features.TransitionMode.SMOOTH -> {
+                val targetMultiplier = 1f / ZoomifySettings.initialZoom.value
+                var multiplier = 1f
+                var ticks = 0
+                while (multiplier != targetMultiplier) {
+                    multiplier += (targetMultiplier - multiplier) * okz.values.smoothMultiplier.toFloat()
+                    ticks++
+                }
+                val zoomTime = (ticks * 0.05 / 0.1).roundToInt() * 0.1
+                ZoomifySettings.zoomInTime.value = zoomTime
+                ZoomifySettings.zoomOutTime.value = zoomTime
+                ZoomifySettings.zoomInTransition.value = TransitionType.EASE_IN_EXP
+                ZoomifySettings.zoomOutTransition.value = TransitionType.EASE_IN_EXP
+            }
+            OkZoomerConfig.Features.TransitionMode.OFF -> {
+                ZoomifySettings.zoomInTime.value = 0.0
+                ZoomifySettings.zoomOutTime.value = 0.0
+                ZoomifySettings.zoomInTransition.value = TransitionType.INSTANT
+                ZoomifySettings.zoomOutTransition.value = TransitionType.INSTANT
+            }
+        }
+
+
+        ZoomifySettings.retainZoomSteps.value = !okz.tweaks.forgetZoomDivisor
+
+        if (okz.tweaks.unbindConflictingKey) {
+            ZoomifyApi.unbindConflicting()
+        }
+    }
+
+    @Serializable
+    data class OkZoomerConfig(
+        val features: Features,
+        val values: Values,
+        val tweaks: Tweaks,
+    ) {
+        @Serializable
+        data class Features(
+            @SerialName("cinematic_camera") val cinematicCamera: CinematicCameraState,
+            @SerialName("reduce_sensitivity") val reduceSensitivity: Boolean,
+            @SerialName("zoom_transition") val zoomTransition: TransitionMode,
+            @SerialName("zoom_mode") val zoomMode: ZoomMode,
+            @SerialName("zoom_scrolling") val zoomScrolling: Boolean,
+            @SerialName("extra_key_binds") val extraKeyBinds: Boolean,
+            @SerialName("zoom_overlay") val zoomOverlay: Overlay,
+            @SerialName("spyglass_dependency") val spyglassDependency: SpyglassDependency
+        ) {
+            @Serializable
+            enum class CinematicCameraState {
+                OFF, VANILLA, MULTIPLIED
+            }
+
+            @Serializable
+            enum class TransitionMode {
+                OFF, SMOOTH, LINEAR
+            }
+
+            @Serializable
+            enum class ZoomMode {
+                HOLD, TOGGLE, PERSISTENT
+            }
+
+            @Serializable
+            enum class Overlay {
+                OFF, VIGNETTE, SPYGLASS
+            }
+
+            @Serializable
+            enum class SpyglassDependency {
+                OFF, REQUIRE_ITEM, REPLACE_ZOOM, BOTH
+            }
+        }
+
+        @Serializable
+        data class Values(
+            @SerialName("zoom_divisor") val zoomDivisor: Double,
+            @SerialName("minimum_zoom_divisor") val minZoomDivisor: Double,
+            @SerialName("maximum_zoom_divisor") val maxZoomDivisor: Double,
+            @SerialName("upper_scroll_steps") val upperScrollSteps: Long,
+            @SerialName("lower_scroll_steps") val lowerScrollSteps: Long,
+            @SerialName("smooth_multiplier") val smoothMultiplier: Double,
+            @SerialName("cinematic_multiplier") val cinematicMultiplier: Double,
+            @SerialName("minimum_linear_step") val minLinearStep: Double,
+            @SerialName("maximum_linear_step") val maxLinearSteps: Double,
+        )
+
+        @Serializable
+        data class Tweaks(
+            @SerialName("reset_zoom_with_mouse") val resetZoomWithMouse: Boolean,
+            @SerialName("forget_zoom_divisor") val forgetZoomDivisor: Boolean,
+            @SerialName("unbind_conflicting_key") val unbindConflictingKey: Boolean,
+            @SerialName("use_spyglass_texture") val useSpyglassTexture: Boolean,
+            @SerialName("use_spyglass_sounds") val useSpyglassSounds: Boolean,
+        )
+    }
+}
+
+
+аівнруцкнpackage dev.isxander.zoomify.config.migrator
+
+import net.minecraft.ChatFormatting
+import net.minecraft.network.chat.Component
+
+class Migration {
+    private val warnings = mutableListOf<Component>()
+    private val errors = mutableListOf<Component>()
+    var requireRestart = false
+        private set
+
+    fun error(text: Component) = errors.add(text)
+    fun warn(text: Component) = warnings.add(text)
+
+    fun requireRestart() {
+        requireRestart = true
+    }
+
+    fun generateReport(): Component {
+        val text = Component.empty()
+
+        val errors = this.errors
+        if (requireRestart) {
+            errors.add(0, Component.translatable("zoomify.migrate.restart"))
+        }
+
+        for (error in errors) {
+            val line = Component.empty()
+                .append("\u25C6 ")
+                .append(error)
+                .append("\n")
+                .withStyle(ChatFormatting.RED)
+            text.append(line)
+        }
+
+        for (warning in warnings) {
+            val line = Component.empty()
+                .append("\u25C6 ")
+                .append(warning)
+                .append("\n")
+                .withStyle(ChatFormatting.YELLOW)
+            text.append(line)
+        }
+
+        return text
+    }
+}
+
+
+віанукні
+
+іванрукцнpackage dev.isxander.zoomify.config.migrator
+
+import dev.isxander.zoomify.config.ZoomifySettings
+import net.minecraft.ChatFormatting
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.screens.ConfirmScreen
+import net.minecraft.client.gui.screens.Screen
+import net.minecraft.network.chat.Component
+
+class MigrationAvailableScreen(migrator: Migrator, parent: Screen?) : ConfirmScreen(
+    { yes ->
+        if (yes) {
+            val migration = Migration()
+            migrator.migrate(migration)
+            ZoomifySettings.saveToFile()
+            Minecraft.getInstance().setScreen(MigrationResultScreen(migration, parent))
+        } else {
+            Minecraft.getInstance().setScreen(parent)
+        }
+    },
+    Component.translatable("zoomify.migrate.available.title", migrator.name.copy().withStyle(ChatFormatting.BOLD)),
+    Component.translatable("zoomify.migrate.available.message", migrator.name)
+)
+
+
+віецpackage dev.isxander.zoomify.config.migrator
+
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.screens.AlertScreen
+import net.minecraft.client.gui.screens.Screen
+import net.minecraft.network.chat.CommonComponents
+import net.minecraft.network.chat.Component
+
+
+class MigrationResultScreen(
+    migration: Migration,
+    parent: Screen?,
+) : AlertScreen(
+    {
+        if (migration.requireRestart)
+            Minecraft.getInstance().stop()
+        else
+            Minecraft.getInstance().setScreen(parent)
+    },
+    Component.translatable("zoomify.migrate.result.title"),
+    migration.generateReport(),
+    if (migration.requireRestart)
+        Component.translatable("zoomify.migrate.result.restart_game")
+    else
+        CommonComponents.GUI_DONE,
+    true
+)
+
+
+івае
+
+package dev.isxander.zoomify.config.migrator
+
+import dev.isxander.zoomify.config.migrator.impl.OkZoomerMigrator
+import net.minecraft.client.Minecraft
+import net.minecraft.network.chat.Component
+
+interface Migrator {
+    val name: Component
+
+    fun isMigrationAvailable(): Boolean
+
+    fun migrate(migration: Migration)
+
+    companion object {
+        val MIGRATORS = listOf<Migrator>(OkZoomerMigrator)
+
+        fun checkMigrations(): Boolean {
+            val available = MIGRATORS.filter { it.isMigrationAvailable() }
+
+            if (available.isEmpty())
+                return false
+
+            var lastScreen = Minecraft.getInstance().screen
+
+            for (migrator in available) {
+                lastScreen = MigrationAvailableScreen(migrator, lastScreen)
+            }
+
+            Minecraft.getInstance().setScreen(lastScreen)
+            return true
+        }
+    }
+}
+
+івканукнpackage dev.isxander.zoomify.config
+
+import dev.isxander.yacl3.config.v3.ConfigEntry
+import dev.isxander.yacl3.config.v3.default
+import dev.isxander.yacl3.config.v3.value
+import dev.isxander.zoomify.utils.TransitionType
+import net.minecraft.network.chat.Component
+
+enum class Presets(val displayName: Component, val apply: ZoomifySettings.() -> Unit) {
+    Default("zoomify.gui.preset.default", {
+        this.allSettings.forEach { it.setToDefault() }
+    }),
+    Optifine("zoomify.gui.preset.optifine", {
+        Default.apply(this)
+
+        this.zoomInTransition.value = TransitionType.INSTANT
+        this.zoomOutTransition.value = TransitionType.INSTANT
+        this.scrollZoom.value = false
+        this.relativeSensitivity.value = 0
+        this.relativeViewBobbing.value = false
+        this.cinematicCamera.value = 100
+    }),
+    OkZoomer("zoomify.gui.preset.ok_zoomer", {
+        Default.apply(this)
+
+        this.zoomInTime.value = 0.25
+        this.zoomOutTime.value = 0.25
+        this.relativeSensitivity.value = 50
+        this.relativeViewBobbing.value = false
+        this.scrollZoomSmoothness.value = 25
+    });
+
+    constructor(displayName: String, apply: ZoomifySettings.() -> Unit)
+            : this(Component.translatable(displayName), apply)
+}
+
+private fun <T> ConfigEntry<T>.setToDefault() = set(default)
+
+
+
+іванецеpackage dev.isxander.zoomify.config
+
+import dev.isxander.yacl3.api.*
+import dev.isxander.yacl3.api.controller.*
+import dev.isxander.yacl3.api.utils.OptionUtils
+import dev.isxander.yacl3.config.v3.ConfigEntry
+import dev.isxander.yacl3.config.v3.register
+import dev.isxander.yacl3.config.v3.value
+import dev.isxander.yacl3.dsl.*
+import dev.isxander.zoomify.ZoomifyApi
+import dev.isxander.zoomify.config.demo.ControlEmulation
+import dev.isxander.zoomify.config.demo.FirstPersonDemo
+import dev.isxander.zoomify.config.demo.ThirdPersonDemo
+import dev.isxander.zoomify.config.demo.ZoomDemoImageRenderer
+import dev.isxander.zoomify.config.migrator.Migrator
+import dev.isxander.zoomify.utils.toast
+import dev.isxander.zoomify.zoom.*
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.screens.Screen
+import net.minecraft.network.chat.CommonComponents
+import net.minecraft.network.chat.Component
+import kotlin.reflect.KMutableProperty0
+
+fun createSettingsGui(parent: Screen?): Screen = SettingsGuiFactory().buildScreen(parent)
+
+private class SettingsGuiFactory {
+    val settings = ZoomifySettings(ZoomifySettings)
+
+    val initialOnlyDemo = FirstPersonDemo(regularZoomHelper(settings), ControlEmulation.InitialOnly).also {
+        it.keepHandFov = !settings.affectHandFov.value
+    }
+    val scrollOnlyDemo = FirstPersonDemo(regularZoomHelper(settings), ControlEmulation.ScrollOnly).also {
+        it.keepHandFov = !settings.affectHandFov.value
+    }
+    val secondaryZoomDemo = ThirdPersonDemo(
+        secondaryZoomHelper(settings),
+        ControlEmulation.InitialOnly
+    ).also {
+        it.renderHud = !settings.secondaryHideHUDOnZoom.value
+    }
+
+    fun <T> Option.Builder<T>.updateDemo(updateFunc: (T, ZoomDemoImageRenderer) -> Unit) {
+        listener { _, v ->
+            updateFunc(v, initialOnlyDemo)
+            updateFunc(v, scrollOnlyDemo)
+            updateFunc(v, secondaryZoomDemo)
+            initialOnlyDemo.pause()
+            scrollOnlyDemo.pause()
+            secondaryZoomDemo.pause()
+        }
+    }
+
+    fun <T> Option.Builder<T>.updateDemo(prop: KMutableProperty0<T>) {
+        updateDemo { v, _ -> prop.set(v) }
+    }
+
+    fun <T : Any> OptionRegistrar.registerDemo(
+        entryGetter: (ZoomifySettings) -> ConfigEntry<T>,
+        demo: ZoomDemoImageRenderer,
+        block: OptionDsl<T>.() -> Unit
+    ): Option<T> {
+        val globalSettingsEntry = entryGetter(ZoomifySettings)
+        val demoSettingsEntry = entryGetter(settings)
+        return this.register(globalSettingsEntry) {
+            descriptionBuilder {
+                addDefaultText()
+                customImage(demo)
+            }
+
+            updateDemo { v, _ -> demoSettingsEntry.value = v }
+
+            block()
+        }
+    }
+
+    fun buildScreen(parent: Screen?): Screen = YetAnotherConfigLib("zoomify") {
+        save(ZoomifySettings::saveToFile)
+
+        val behaviour by categories.registering {
+            val basic by groups.registering {
+                options.registerDemo(ZoomifySettings::initialZoom, initialOnlyDemo) {
+                    controller = slider(range = 1..10, step = 1, formatter = { v: Int ->
+                        Component.literal("%dx".format(v))
+                    })
+                }
+
+                options.registerDemo(ZoomifySettings::zoomInTime, initialOnlyDemo) {
+                    controller = slider(range = 0.1..5.0, step = 0.1, formatter = formatSeconds())
+                }
+
+                options.registerDemo(ZoomifySettings::zoomOutTime, initialOnlyDemo) {
+                    controller = slider(range = 0.1..5.0, step = 0.1, formatter = formatSeconds())
+                }
+
+                options.registerDemo(ZoomifySettings::zoomInTransition, initialOnlyDemo) {
+                    controller = enumSwitch()
+                }
+
+                options.registerDemo(ZoomifySettings::zoomOutTransition, initialOnlyDemo) {
+                    controller = enumSwitch()
+                }
+
+                options.register(ZoomifySettings.affectHandFov) {
+                    descriptionBuilder {
+                        addDefaultText()
+                        customImage(initialOnlyDemo)
+                    }
+
+                    controller = tickBox()
+
+                    updateDemo { v, demo -> (demo as? FirstPersonDemo)?.keepHandFov = !v }
+                }
+            }
+
+            val scrolling by groups.registering {
+                val innerScrollOpts = mutableListOf<Option<*>>()
+
+                val scrollZoomOpt = options.registerDemo(ZoomifySettings::scrollZoom, scrollOnlyDemo) {
+                    controller = tickBox()
+
+                    listener { _, v -> innerScrollOpts.forEach { it.setAvailable(v) } }
+                }
+
+                options.registerDemo(ZoomifySettings::scrollStepCount, scrollOnlyDemo) {
+                    controller = slider(range = 3..20)
+                }.also { innerScrollOpts.add(it) }
+
+                options.registerDemo(ZoomifySettings::zoomPerStep, scrollOnlyDemo) {
+                    controller = slider(range = 110..200, step = 10, formatter = { v: Int ->
+                        Component.literal("%.1fx".format(v / 100.0))
+                    })
+                }.also { innerScrollOpts.add(it) }
+
+                options.registerDemo(ZoomifySettings::scrollZoomSmoothness, scrollOnlyDemo) {
+                    controller = slider(range = 0..100, step = 1, formatter = { v: Int ->
+                        if (v == 0)
+                            Component.translatable("zoomify.gui.formatter.instant")
+                        else
+                            Component.literal("%d%%".format(v))
+                    })
+                }.also { innerScrollOpts.add(it) }
+
+                options.registerDemo(ZoomifySettings::retainZoomSteps, scrollOnlyDemo) {
+                    controller = tickBox()
+                }.also { innerScrollOpts.add(it) }
+
+                innerScrollOpts.forEach { it.setAvailable(scrollZoomOpt.pendingValue()) }
+            }
+
+            val spyglass by groups.registering {
+                options.register(ZoomifySettings.spyglassBehaviour) {
+                    defaultDescription()
+                    controller = enumSwitch()
+                }
+
+                options.register(ZoomifySettings.spyglassOverlayVisibility) {
+                    defaultDescription()
+                    controller = enumSwitch()
+                }
+
+                options.register(ZoomifySettings.spyglassSoundBehaviour) {
+                    defaultDescription()
+                    controller = enumSwitch()
+                }
+            }
+        }
+
+        val controls by categories.registering {
+            rootOptions.register(ZoomifySettings.zoomKeyBehaviour) {
+                defaultDescription()
+                controller = enumSwitch()
+            }
+
+            rootOptions.register(ZoomifySettings._keybindScrolling) {
+                defaultDescription()
+                controller = tickBox()
+                flag(OptionFlag.GAME_RESTART)
+            }
+
+            rootOptions.register(ZoomifySettings.relativeSensitivity) {
+                defaultDescription()
+                controller = slider(range = 0..150, step = 10, formatter = { v: Int ->
+                    if (v == 0)
+                        CommonComponents.OPTION_OFF
+                    else
+                        Component.literal("%d%%".format(v))
+                })
+            }
+
+            rootOptions.register(ZoomifySettings.relativeViewBobbing) {
+                defaultDescription()
+                controller = tickBox()
+            }
+
+            rootOptions.register(ZoomifySettings.cinematicCamera) {
+                defaultDescription()
+                controller = slider(range = 0..250, step = 10, formatter = { v: Int ->
+                    if (v == 0)
+                        CommonComponents.OPTION_OFF
+                    else
+                        Component.literal("%d%%".format(v))
+                })
+            }
+        }
+
+        val secondary by categories.registering {
+            val infoLabel by rootOptions.registeringLabel
+
+            rootOptions.registerDemo(ZoomifySettings::secondaryZoomAmount, secondaryZoomDemo) {
+                controller = slider(range = 2..10, step = 1, formatter = formatPercent())
+            }
+
+            rootOptions.registerDemo(ZoomifySettings::secondaryZoomInTime, secondaryZoomDemo) {
+                controller = slider(range = 6.0..30.0, step = 2.0, formatter = formatSeconds())
+            }
+
+            rootOptions.registerDemo(ZoomifySettings::secondaryZoomOutTime, secondaryZoomDemo) {
+                controller = slider(range = 0.0..5.0, step = 0.25, formatter = {
+                    if (it == 0.0)
+                        Component.translatable("zoomify.gui.formatter.instant")
+                    else
+                        Component.translatable("zoomify.gui.formatter.seconds", "%.2f".format(it))
+                })
+            }
+
+            rootOptions.register(ZoomifySettings.secondaryHideHUDOnZoom) {
+                descriptionBuilder {
+                    addDefaultText()
+                    customImage(secondaryZoomDemo)
+                }
+
+                controller = tickBox()
+
+                updateDemo { v, demo -> (demo as? ThirdPersonDemo)?.renderHud = !v }
+            }
+        }
+
+        val misc by categories.registering {
+            val unbindConflicting by rootOptions.registeringButton {
+                defaultDescription()
+                action { _, _ ->
+                    ZoomifyApi.unbindConflicting()
+                }
+            }
+
+            val checkMigrations by rootOptions.registeringButton {
+                defaultDescription()
+                action { _, _ ->
+                    if (!Migrator.checkMigrations()) {
+                        toast(
+                            Component.translatable("zoomify.gui.title"),
+                            Component.translatable("zoomify.migrate.no_migrations")
+                        )
+                    }
+                }
+            }
+
+            val presets by groups.registering {
+                val applyWarning by options.registeringLabel
+
+                val buttonKey = "$groupKey.presetBtn"
+                for (preset in Presets.entries) {
+                    val presetSettings = ZoomifySettings()
+                    preset.apply(presetSettings)
+
+                    val zoomHelper = regularZoomHelper(presetSettings)
+                    val demo = FirstPersonDemo(zoomHelper, ControlEmulation.InitialOnly)
+
+                    options.registerButton(preset.name.lowercase()) {
+                        name(preset.displayName)
+
+                        descriptionBuilder {
+                            text(Component.translatable("$buttonKey.description", preset.displayName))
+                            customImage(demo)
+                        }
+
+                        text(Component.translatable("$buttonKey.button"))
+
+                        action { screen, _ ->
+                            val minecraft = Minecraft.getInstance()
+
+                            preset.apply(ZoomifySettings)
+
+                            toast(
+                                Component.translatable("zoomify.gui.preset.toast.title"),
+                                Component.translatable("zoomify.gui.preset.toast.description", preset.displayName)
+                            )
+
+                            OptionUtils.forEachOptions(screen.config, Option<*>::forgetPendingValue)
+                            ZoomifySettings.saveToFile()
+                            minecraft.setScreen(SettingsGuiFactory().buildScreen(parent))
+                        }
+                    }
+                }
+            }
+        }
+    }.generateScreen(parent)
+}
+
+private fun <T : Number> formatSeconds() = ValueFormatter<T> {
+    Component.translatable("zoomify.gui.formatter.seconds", "%.1f".format(it))
+}
+
+private fun <T : Number> formatPercent() = ValueFormatter<T> {
+    Component.literal("%dx".format(it))
+}
+
+private fun OptionDsl<*>.defaultDescription() {
+    descriptionBuilder {
+        addDefaultText()
+    }
+}
+
+private fun ButtonOptionDsl.defaultDescription() {
+    descriptionBuilder {
+        addDefaultText()
+    }
+}
+
+уцыеpackage dev.isxander.zoomify.config
+
+import dev.isxander.zoomify.zoom.ZoomHelper
+import dev.isxander.zoomify.zoom.ZoomHelpers
+
+fun regularZoomHelper(settings: ZoomifySettings): ZoomHelper =
+    ZoomHelpers.regular(settings.toRuntimeHolder())
+
+fun secondaryZoomHelper(settings: ZoomifySettings): ZoomHelper =
+    ZoomHelpers.secondary(settings.toRuntimeHolder())
+
+fun ZoomifySettings.toRuntimeHolder(): ZoomifySettingsHolder =
+    ZoomifySettingsHolder.create().apply {
+        initialZoom = settings.initialZoom.value
+        zoomInTime = settings.zoomInTime.value
+        zoomOutTime = settings.zoomOutTime.value
+        affectHandFov = settings.affectHandFov.value
+        retainZoomSteps = settings.retainZoomSteps.value
+        scrollZoom = settings.scrollZoom.value
+        scrollStepCount = settings.scrollStepCount.value
+        zoomPerStep = settings.zoomPerStep.value
+        scrollZoomSmoothness = settings.scrollZoomSmoothness.value
+        zoomKeyBehaviour = settings.zoomKeyBehaviour.value
+        keybindScrolling = settings.keybindScrolling
+        relativeSensitivity = settings.relativeSensitivity.value
+        relativeViewBobbing = settings.relativeViewBobbing.value
+        cinematicCamera = settings.cinematicCamera.value
+        spyglassBehaviour = settings.spyglassBehaviour.value
+        spyglassOverlayVisibility = settings.spyglassOverlayVisibility.value
+        spyglassSoundBehaviour = settings.spyglassSoundBehaviour.value
+        secondaryZoomAmount = settings.secondaryZoomAmount.value
+        secondaryZoomInTime = settings.secondaryZoomInTime.value
+        secondaryZoomOutTime = settings.secondaryZoomOutTime.value
+        secondaryHideHUDOnZoom = settings.secondaryHideHUDOnZoom.value
+    }
+
+
+
+йуце5
+
+package dev.isxander.zoomify.config
+
+import com.mojang.serialization.Codec
+import dev.isxander.yacl3.config.v3.JsonFileCodecConfig
+import dev.isxander.yacl3.config.v3.register
+import dev.isxander.yacl3.config.v3.value
+import dev.isxander.zoomify.utils.TransitionType
+import net.fabricmc.loader.api.FabricLoader
+
+open class ZoomifySettings() : JsonFileCodecConfig<ZoomifySettings>(
+    FabricLoader.getInstance().configDir.resolve("zoomify.json")
+) {
+    val initialZoom by register<Int>(default = 4, Codec.INT)
+
+    val zoomInTime by register<Double>(default = 1.0, Codec.DOUBLE)
+    val zoomOutTime by register<Double>(default = 0.5, Codec.DOUBLE)
+
+    val zoomInTransition by register<TransitionType>(default = TransitionType.EASE_OUT_EXP, TransitionType.CODEC)
+    val zoomOutTransition by register<TransitionType>(default = TransitionType.EASE_OUT_EXP, TransitionType.CODEC)
+
+    val affectHandFov by register<Boolean>(default = true, Codec.BOOL)
+
+    val retainZoomSteps by register<Boolean>(default = false, Codec.BOOL)
+
+    val scrollZoom by register<Boolean>(default = true, Codec.BOOL)
+    val scrollStepCount by register<Int>(default = 10, Codec.INT)
+    val zoomPerStep by register<Int>(default = 150, Codec.INT)
+    val scrollZoomSmoothness by register<Int>(default = 70, Codec.INT)
+
+    val zoomKeyBehaviour by register<ZoomKeyBehaviour>(default = ZoomKeyBehaviour.HOLD, ZoomKeyBehaviour.CODEC)
+
+    var keybindScrolling = false
+    val _keybindScrolling by register<Boolean>(default = keybindScrolling, codec = Codec.BOOL)
+
+    val relativeSensitivity by register<Int>(default = 100, Codec.INT)
+    val relativeViewBobbing by register<Boolean>(default = true, Codec.BOOL)
+
+    val cinematicCamera by register<Int>(default = 0, Codec.INT)
+
+    val spyglassBehaviour by register<SpyglassBehaviour>(default = SpyglassBehaviour.COMBINE, SpyglassBehaviour.CODEC)
+    val spyglassOverlayVisibility by register<OverlayVisibility>(default = OverlayVisibility.HOLDING, OverlayVisibility.CODEC)
+    val spyglassSoundBehaviour by register<SoundBehaviour>(default = SoundBehaviour.WITH_OVERLAY, SoundBehaviour.CODEC)
+
+    val secondaryZoomAmount by register<Int>(default = 4, Codec.INT)
+    val secondaryZoomInTime by register<Double>(default = 10.0, Codec.DOUBLE)
+    val secondaryZoomOutTime by register<Double>(default = 1.0, Codec.DOUBLE)
+    val secondaryHideHUDOnZoom by register<Boolean>(default = true, Codec.BOOL)
+
+    var firstLaunch = false
+    val _firstLaunch by register<Boolean>(default = true, Codec.BOOL)
+
+    final val allSettings = arrayOf(
+        initialZoom,
+        zoomInTime,
+        zoomOutTime,
+        zoomInTransition,
+        zoomOutTransition,
+        affectHandFov,
+        retainZoomSteps,
+        scrollZoom,
+        scrollStepCount,
+        zoomPerStep,
+        scrollZoomSmoothness,
+        zoomKeyBehaviour,
+        _keybindScrolling,
+        relativeSensitivity,
+        relativeViewBobbing,
+        cinematicCamera,
+        spyglassBehaviour,
+        spyglassOverlayVisibility,
+        spyglassSoundBehaviour,
+        secondaryZoomAmount,
+        secondaryZoomInTime,
+        secondaryZoomOutTime,
+        secondaryHideHUDOnZoom,
+        _firstLaunch,
+    )
+
+    constructor(settings: ZoomifySettings) : this() {
+        this.initialZoom.value = settings.initialZoom.value
+        this.zoomInTime.value = settings.zoomInTime.value
+        this.zoomOutTime.value = settings.zoomOutTime.value
+        this.zoomInTransition.value = settings.zoomInTransition.value
+        this.zoomOutTransition.value = settings.zoomOutTransition.value
+        this.affectHandFov.value = settings.affectHandFov.value
+        this.retainZoomSteps.value = settings.retainZoomSteps.value
+        this.scrollZoom.value = settings.scrollZoom.value
+        this.scrollStepCount.value = settings.scrollStepCount.value
+        this.zoomPerStep.value = settings.zoomPerStep.value
+        this.scrollZoomSmoothness.value = settings.scrollZoomSmoothness.value
+        this.zoomKeyBehaviour.value = settings.zoomKeyBehaviour.value
+        this.keybindScrolling = settings.keybindScrolling
+        this._keybindScrolling.value = settings._keybindScrolling.value
+        this.relativeSensitivity.value = settings.relativeSensitivity.value
+        this.relativeViewBobbing.value = settings.relativeViewBobbing.value
+        this.cinematicCamera.value = settings.cinematicCamera.value
+        this.spyglassBehaviour.value = settings.spyglassBehaviour.value
+        this.spyglassOverlayVisibility.value = settings.spyglassOverlayVisibility.value
+        this.spyglassSoundBehaviour.value = settings.spyglassSoundBehaviour.value
+        this.secondaryZoomAmount.value = settings.secondaryZoomAmount.value
+        this.secondaryZoomInTime.value = settings.secondaryZoomInTime.value
+        this.secondaryZoomOutTime.value = settings.secondaryZoomOutTime.value
+        this.secondaryHideHUDOnZoom.value = settings.secondaryHideHUDOnZoom.value
+        this.firstLaunch = settings.firstLaunch
+        this._firstLaunch.value = settings._firstLaunch.value
+    }
+
+    companion object : ZoomifySettings() {
+        init {
+            if (!loadFromFile()) {
+                saveToFile()
+            }
+
+            if (_firstLaunch.value) {
+                firstLaunch = true
+                _firstLaunch.value = false
+                saveToFile()
+            }
+
+            _keybindScrolling.value = keybindScrolling
+        }
+    }
+}
+
+
+ц246ванpackage dev.isxander.zoomify.integrations
+
+object ControlifyIntegration
+
+
+ыкуне
+
+package dev.isxander.zoomify.integrations
+
+import com.terraformersmc.modmenu.api.ConfigScreenFactory
+import com.terraformersmc.modmenu.api.ModMenuApi
+import dev.isxander.zoomify.config.createSettingsGui
+
+object ModMenuIntegration : ModMenuApi {
+    override fun getModConfigScreenFactory(): ConfigScreenFactory<*> = ConfigScreenFactory { parent ->
+        createSettingsGui(parent)
+    }
+}
+
+
+5ц
+
+ыкнцpackage dev.isxander.zoomify.utils
+
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper
+import net.minecraft.client.KeyMapping
+
+interface KeySource {
+    val justPressed: Boolean
+
+    val isDown: Boolean
+}
+
+class MultiKeySource(sources: List<KeySource>) : KeySource {
+    private val sources = sources.toMutableList()
+
+    constructor(vararg sources: KeySource) : this(sources.toList())
+    constructor() : this(emptyList())
+
+    override val justPressed: Boolean
+        get() = sources.any { it.justPressed }
+
+    override val isDown: Boolean
+        get() = sources.any { it.isDown }
+
+    fun addSource(source: KeySource) {
+        sources.add(source)
+    }
+}
+
+fun KeyMapping.toKeySource(register: Boolean = false) = object : KeySource {
+    override val justPressed: Boolean
+        get() = this@toKeySource.consumeClick()
+
+    override val isDown: Boolean
+        get() = this@toKeySource.isDown
+}.also { if (register) KeyBindingHelper.registerKeyBinding(this) }
+
+
+кыне
+
+
+package dev.isxander.zoomify.utils
+
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.GuiGraphics
+import net.minecraft.client.gui.components.toasts.SystemToast
+import net.minecraft.network.chat.Component
+import net.minecraft.resources.ResourceLocation
+
+val minecraft: Minecraft = Minecraft.getInstance()
+
+fun GuiGraphics.pushPose() {
+    pose().pushPose()
+}
+
+fun GuiGraphics.popPose() {
+    pose().popPose()
+}
+
+fun GuiGraphics.translate(x: Float, y: Float) {
+    pose().translate(x.toDouble(), y.toDouble(), 0.0)
+}
+
+fun GuiGraphics.scale(x: Float, y: Float) {
+    pose().scale(x, y, 1.0f)
+}
+
+typealias ToastTypes = SystemToast.SystemToastId
+
+fun toast(
+    title: Component,
+    description: Component,
+    longer: Boolean = false
+): SystemToast {
+    val toast = SystemToast.multiline(
+        minecraft,
+        if (longer) ToastTypes.UNSECURE_SERVER_WARNING else ToastTypes.PERIODIC_NOTIFICATION,
+        title,
+        description
+    )
+    minecraft.toastManager.addToast(toast)
+    return toast
+}
+
+fun zoomifyRl(path: String): ResourceLocation {
+    return ResourceLocation.fromNamespaceAndPath("zoomify", path)
+}
+
+
+ывнкнеpackage dev.isxander.zoomify.utils
+
+import dev.isxander.yacl3.api.NameableEnum
+import net.minecraft.network.chat.Component
+
+interface NameableEnumKt : NameableEnum {
+    val localisedName: Component
+
+    override fun getDisplayName(): Component = localisedName
+}
+
+
+
+ецЕНpackage dev.isxander.zoomify.utils
+
+import dev.isxander.yacl3.api.NameableEnum
+import net.minecraft.network.chat.Component
+import net.minecraft.util.StringRepresentable
+import kotlin.math.*
+
+enum class TransitionType(val localisedName: Component) : Transition, NameableEnum, StringRepresentable {
+    INSTANT("zoomify.transition.instant") {
+        override fun apply(t: Double) =
+            t
+    },
+    LINEAR("zoomify.transition.linear") {
+        override fun apply(t: Double) =
+            t
+    },
+    EASE_IN_SINE("zoomify.transition.ease_in_sine") {
+        override fun apply(t: Double): Double =
+            1 - cos((t * PI) / 2)
+
+        override fun inverse(x: Double) =
+            acos(-(x - 1)) * 2 / PI
+    },
+    EASE_OUT_SINE("zoomify.transition.ease_out_sine") {
+        override fun apply(t: Double): Double =
+            sin((t * PI) / 2)
+
+        override fun inverse(x: Double) =
+            asin(x) * 2 / PI
+    },
+    EASE_IN_OUT_SINE("zoomify.transition.ease_in_out_sine") {
+        override fun apply(t: Double): Double =
+            -(cos(PI * t) - 1) / 2
+    },
+    EASE_IN_QUAD("zoomify.transition.ease_in_quad") {
+        override fun apply(t: Double): Double =
+            t * t
+
+        override fun inverse(x: Double) =
+            sqrt(x)
+    },
+    EASE_OUT_QUAD("zoomify.transition.ease_out_quad") {
+        override fun apply(t: Double): Double =
+            1 - (1 - t) * (1 - t)
+
+        override fun inverse(x: Double) =
+            -(sqrt(-(x - 1)) - 1)
+
+    },
+    EASE_IN_OUT_QUAD("zoomify.transition.ease_in_out_quad") {
+        override fun apply(t: Double): Double =
+            if (t < 0.5)
+                2 * t * t
+            else
+                1 - (-2 * t + 2).pow(2) / 2
+    },
+    EASE_IN_CUBIC("zoomify.transition.ease_in_cubic") {
+        override fun apply(t: Double): Double =
+            t.pow(3)
+
+        override fun inverse(x: Double) =
+            x.pow(1 / 3.0)
+    },
+    EASE_OUT_CUBIC("zoomify.transition.ease_out_cubic") {
+        override fun apply(t: Double): Double =
+            1 - (1 - t).pow(3)
+
+        override fun inverse(x: Double) =
+            -((-x + 1).pow(1.0 / 3.0)) + 1
+    },
+    EASE_IN_OUT_CUBIC("zoomify.transition.ease_in_out_cubic") {
+        override fun apply(t: Double): Double =
+            if (t < 0.5)
+                4 * t * t * t
+            else
+                1 - (-2 * t + 2).pow(3) / 2
+    },
+    EASE_IN_EXP("zoomify.transition.ease_in_exp") {
+        private val c_log2_1023 = log(1023.0, base=2.0)
+
+        override fun apply(t: Double): Double =
+            when (t) {
+                0.0 -> 0.0
+                1.0 -> 1.0
+                else -> 2.0.pow(10.0 * t - c_log2_1023) - 1/1023
+            }
+
+        override fun inverse(x: Double) =
+            when (x) {
+                0.0 -> 0.0
+                1.0 -> 1.0
+                else -> ln(1023 * x + 1) / (10 * ln(2.0))
+            }
+    },
+    EASE_OUT_EXP("zoomify.transition.ease_out_exp") {
+        private val c_log2_1023 = log(1023.0, base=2.0)
+        private val c_10_ln2 = 10.0 * ln(2.0)
+        private val c_ln_1203 = ln(1023.0)
+
+        override fun apply(t: Double): Double =
+            when (t) {
+                0.0 -> 0.0
+                1.0 -> 1.0
+                else -> 1.0 - 2.0.pow(10.0 - c_log2_1023 - 10.0 * t) + 1/1023
+            }
+
+        override fun inverse(x: Double) =
+            when (x) {
+                0.0 -> 0.0
+                1.0 -> 1.0
+                else -> -((ln(-((1023 * x - 1024) / 1023)) - c_10_ln2 + c_ln_1203) / c_10_ln2)
+            }
+    },
+    EASE_IN_OUT_EXP("zoomify.transition.ease_in_out_exp") {
+        private val c_log2_1023 = log(1023.0, base=2.0)
+
+        override fun apply(t: Double): Double =
+            when {
+                t == 0.0 -> 0.0
+                t == 1.0 -> 1.0
+                t < 0.5 -> 2.0.pow(20.0 * t - c_log2_1023) - 1/1023
+                else -> 1.0 - 2.0.pow(10.0 - c_log2_1023 - 10.0 * t) + 1/1023
+            }
+    };
+
+    constructor(name: String) : this(Component.translatable(name))
+
+    override fun getSerializedName(): String = name.lowercase()
+    override fun getDisplayName(): Component = localisedName
+
+    fun opposite(): TransitionType = when (this) {
+        INSTANT -> INSTANT
+        LINEAR -> LINEAR
+        EASE_IN_SINE -> EASE_OUT_SINE
+        EASE_OUT_SINE -> EASE_IN_SINE
+        EASE_IN_OUT_SINE -> EASE_IN_OUT_SINE
+        EASE_IN_QUAD -> EASE_OUT_QUAD
+        EASE_OUT_QUAD -> EASE_IN_QUAD
+        EASE_IN_OUT_QUAD -> EASE_IN_OUT_QUAD
+        EASE_IN_CUBIC -> EASE_OUT_CUBIC
+        EASE_OUT_CUBIC -> EASE_IN_CUBIC
+        EASE_IN_OUT_CUBIC -> EASE_IN_OUT_CUBIC
+        EASE_IN_EXP -> EASE_OUT_EXP
+        EASE_OUT_EXP -> EASE_IN_EXP
+        EASE_IN_OUT_EXP -> EASE_IN_OUT_EXP
+    }
+
+    companion object {
+        val CODEC = StringRepresentable.fromEnum(::values)
+    }
+}
+
+fun interface Transition {
+    fun apply(t: Double): Double
+
+    fun inverse(x: Double): Double {
+        throw UnsupportedOperationException()
+    }
+
+    fun hasInverse() = try {
+        inverse(0.0)
+        true
+    } catch (_: UnsupportedOperationException) {
+        false
+    }
+}
+
+
+ыуе
+
+ыкне{
+  "required": true,
+  "package": "dev.isxander.zoomify.mixins",
+  "compatibilityLevel": "JAVA_17",
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "client": [
+    "hooks.MinecraftClientMixin",
+    "hooks.ClientPlayerusableManagerMixin",
+    "spyglass.AbstractClientPlayerEntityMixin",
+    "spyglass.InGameHudMixin",
+    "spyglass.SpyglassItemMixin",
+    "zoom.GameRendererMixin",
+    "zoom.MouseMixin",
+    "zoom.secondary.GameRendererMixin",
+    "zoom.secondary.GuiMixin",
+    "network.ClientConnectionMixin"
+  ]
+}
+
+Ывуецеук{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${mod_version}",
+  "name": "${mod_name}",
+  "description": "${mod_description}",
+  "authors": [
+    "${mod_author}"
+  ],
+  "contact": {
+    "homepage": "https://isxander.dev",
+    "issues": "https://github.com/isXander/Zoomify/issues",
+    "sources": "https://github.com/isXander/Zoomify"
+  },
+  "icon": "assets/zoomify/zoomify.png",
+  "license": "${mod_license}",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.isxander.zoomify.ZoomifyEntrypoint"
+    ]${modmenu_entry}${controlify_entry}
+  },
+  "mixins": [
+    "zoomify.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.18.0",
+    "minecraft": "${minecraft_dependency}",
+    "java": ">=17"${optional_mod_deps}
+  },
+  "suggests": {
+    "modmenu": "*"
+  },
+  "breaks": {
+    "optifabric": "*",
+    "controlify": "<2"
+  }
+}
+
+
